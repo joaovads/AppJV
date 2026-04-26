@@ -19,6 +19,15 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import html
 import streamlit.components.v1 as components
+import streamlit as st
+
+# ISSO VAI MOSTRAR SE O CÓDIGO ESTÁ RODANDO
+st.sidebar.write("### Debug Console")
+st.sidebar.write(f"Sessão ativa: {st.session_state.get('logado', False)}")
+
+if st.sidebar.button("Pular Login (Teste)"):
+    st.session_state.logado = True
+    st.rerun()
 
 # ==========================================
 # IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS E IA
