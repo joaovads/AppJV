@@ -1,0 +1,10 @@
+streamlit
+pandas
+plotly
+firebase-admin
+scikit-learn
+numpy
+PyPDF2
+groq
+streamlit-cookies-controller
+Pillow
