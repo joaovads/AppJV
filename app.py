@@ -19,15 +19,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import html
 import streamlit.components.v1 as components
-import streamlit as st
-
-# ISSO VAI MOSTRAR SE O CÓDIGO ESTÁ RODANDO
-st.sidebar.write("### Debug Console")
-st.sidebar.write(f"Sessão ativa: {st.session_state.get('logado', False)}")
-
-if st.sidebar.button("Pular Login (Teste)"):
-    st.session_state.logado = True
-    st.rerun()
 
 # ==========================================
 # IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS E IA
@@ -59,7 +50,8 @@ def get_agora():
 # ==========================================
 # 🔑 CHAVES DE ACESSO PERMANENTES
 # ==========================================
-CHAVE_GROQ_FIXA = st.secrets["GROQ_API_KEY"]
+CHAVE_GROQ_FIXA = st.secrets["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"] 
+
 # ==========================================
 # CONFIGURAÇÃO E CONEXÃO FIREBASE
 # ==========================================
@@ -102,7 +94,7 @@ ativar_pwa()
 def init_firebase():
     if not firebase_admin._apps:
         # Em vez de carregar o arquivo .json, carregamos os segredos do Streamlit
-        firebase_secrets = st.secrets["firebase_config"]
+        firebase_secrets = st.secrets["textkey"] # Vamos configurar este nome no passo 2
         schema = dict(firebase_secrets)
         
         # Correção necessária para a chave privada (quebra de linha do JSON)
