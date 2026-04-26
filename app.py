@@ -93,7 +93,7 @@ ativar_pwa()
 def init_firebase():
     if not firebase_admin._apps:
         # Em vez de carregar o arquivo .json, carregamos os segredos do Streamlit
-        firebase_secrets = st.secrets["textkey"] # Vamos configurar este nome no passo 2
+        firebase_secrets = st.secrets["firebase_config"]
         schema = dict(firebase_secrets)
         
         # Correção necessária para a chave privada (quebra de linha do JSON)
