@@ -1,4 +1,14 @@
 import streamlit as st
+from firebase_admin import credentials, initialize_app, firestore
+
+# Verifica se o app já foi iniciado para não dar erro ao atualizar a página
+if not firebase_admin._apps:
+    # Busca os dados direto dos "Secrets" que você preencheu lá no site
+    firebase_secrets = dict(st.secrets["firebase"])
+    cred = credentials.Certificate(firebase_secrets)
+    initialize_app(cred)
+
+db = firestore.client()
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
