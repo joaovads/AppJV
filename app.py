@@ -61,7 +61,7 @@ def get_agora():
 # ==========================================
 # 🔑 CHAVES DE ACESSO PERMANENTES
 # ==========================================
-CCHAVE_GROQ_FIXA = st.secrets["GROQ_API_KEY"] 
+CHAVE_GROQ_FIXA = st.secrets["GROQ_API_KEY"] 
 
 # ==========================================
 # CONFIGURAÇÃO E CONEXÃO FIREBASE
