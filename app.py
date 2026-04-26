@@ -1,4 +1,5 @@
 import streamlit as st
+import firebase_admin
 from firebase_admin import credentials, initialize_app, firestore
 
 # Verifica se o app já foi iniciado para não dar erro ao atualizar a página
