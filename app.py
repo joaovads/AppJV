@@ -188,7 +188,7 @@ MEDICAMENTOS = {
     "Pediatria (Baseado em Peso)": {
         "Acetilcisteína (Mucolítico)": {"dose_fixa": "5 mL", "via": "VO", "obs": "Crianças > 2 anos: Xarope 20mg/mL (5mL), 2 a 3 vezes ao dia."},
         "Adrenalina (Anafilaxia)": {"dose": 0.01, "unidade": "mg/kg", "max": 0.3, "via": "IM", "obs": "0,01 mL/kg da ampola 1:1.000 no vasto lateral."},
-        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solution 1:10.000 a cada 3-5 minutos."},
+        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solução 1:10.000 a cada 3-5 minutos."},
         "Amiodarona (PCR)": {"dose": 5, "unidade": "mg/kg", "max": 300, "via": "EV Bolus", "obs": "Dose de ataque em Parada Cardiorrespiratória."},
         "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."},
         "Amoxicilina + Clavulanato": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Cálculo pela amoxicilina. Dividir em 2 tomadas (12/12h)."},
@@ -281,7 +281,7 @@ MEDICAMENTOS = {
         "Losartana (HAS)": {"dose_fixa": "50 a 100 mg", "via": "VO", "obs": "1 ou 2 tomadas."},
         "Metformina (DM2)": {"dose_fixa": "500 a 850 mg", "via": "VO", "obs": "1 a 2x/dia após refeições. Máx 2.550 mg/dia."},
         "Metildopa (HAS Gestante)": {"dose_fixa": "500 a 2000 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas. 1ª escolha gestação."},
-        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 hours. Pulso: até 1g/dia."},
+        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 horas. Pulso: até 1g/dia."},
         "Metimazol (Hipertireoidismo)": {"dose_fixa": "10 a 40 mg/dia", "via": "VO", "obs": "Dose única diária inicial."},
         "Metoprolol (Controle FA)": {"dose_fixa": "5 mg", "via": "EV Lento", "obs": "Em 5 min. Pode repetir cada 5min (Máx 15mg)."},
         "Metronidazol": {"dose_fixa": "500 mg", "via": "EV / VO", "obs": "EV de 8/8h. VO de 12/12h para vaginose (7d)."},
@@ -603,9 +603,10 @@ else:
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Escanear Print"])
         
         with aba_importar:
-            st.info("💡 **Dica:** Clique no quadro abaixo e aperte **Ctrl+V** para colar a imagem direto do cursinho. Envie quantas imagens quiser!")
+            st.info("💡 **DICA DE OURO:** Clique no retângulo pontilhado abaixo e dê um simples **Ctrl+V** para colar a imagem do seu cronograma. Mais fácil e rápido do que salvar o arquivo!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
-            imgs_crono = st.file_uploader("Envie as imagens do cronograma", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+            
+            imgs_crono = st.file_uploader("📂 Cole a imagem aqui (Ctrl+V) ou clique para enviar", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             
             if imgs_crono and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
                 client_ia = get_ia_client()
@@ -615,12 +616,12 @@ else:
                     with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
                         try:
                             prompt_visao = """Analise estes prints de cronograma. Extraia todos os dias, as matérias e os temas a serem estudados.
-                            MUITO IMPORTANTE: Tente observar a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
-                            - Azul (Diamante) = 1
-                            - Verde = 2
-                            - Amarelo = 3
-                            - Vermelho = 4
-                            - Roxo = 5
+                            MUITO IMPORTANTE: Observe a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
+                            - Se a cor for Azul (Diamante), prioridade = 1
+                            - Se a cor for Verde, prioridade = 2
+                            - Se a cor for Amarelo, prioridade = 3
+                            - Se a cor for Vermelho, prioridade = 4
+                            - Se a cor for Roxo, prioridade = 5
                             Se não tiver cor clara ou você não tiver certeza, use 3.
                             Você DEVE retornar APENAS um JSON estrito contendo uma chave "tarefas" com uma lista de dicionários, sem nenhum texto ou explicação adicional:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
@@ -687,7 +688,7 @@ else:
                 pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                 
                 if pendentes:
-                    st.write("Dê um 'check' assim que assistir. Você pode alterar a prioridade manualmente se a IA tiver errado a cor:")
+                    st.write("Dê um 'check' assim que assistir. Você pode alterar a prioridade manualmente se a IA errar a cor:")
                     for t in pendentes:
                         with st.container(border=True):
                             col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
@@ -722,7 +723,7 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
-                else:
+                else: 
                     st.success("🎉 Nenhuma aula pendente nesta semana!")
 
                 if concluidos:
