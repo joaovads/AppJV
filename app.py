@@ -133,11 +133,11 @@ MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Jul
 CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#a855f7", "Medicina Preventiva": "#22c55e", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
 
 PRIORIDADES = {
-    1: "💎 1 - Diamante Azul",
-    2: "🟩 2 - Verde",
-    3: "🟨 3 - Amarelo",
-    4: "🟥 4 - Vermelho",
-    5: "🟪 5 - Roxo"
+    1: "💎 Azul",
+    2: "🟩 Verde",
+    3: "🟨 Amarelo",
+    4: "🟥 Vermelho",
+    5: "🟪 Roxo"
 }
 
 BANCO_IMAGENS_OSCE = {
@@ -188,7 +188,7 @@ MEDICAMENTOS = {
     "Pediatria (Baseado em Peso)": {
         "Acetilcisteína (Mucolítico)": {"dose_fixa": "5 mL", "via": "VO", "obs": "Crianças > 2 anos: Xarope 20mg/mL (5mL), 2 a 3 vezes ao dia."},
         "Adrenalina (Anafilaxia)": {"dose": 0.01, "unidade": "mg/kg", "max": 0.3, "via": "IM", "obs": "0,01 mL/kg da ampola 1:1.000 no vasto lateral."},
-        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solução 1:10.000 a cada 3-5 minutos."},
+        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solution 1:10.000 a cada 3-5 minutos."},
         "Amiodarona (PCR)": {"dose": 5, "unidade": "mg/kg", "max": 300, "via": "EV Bolus", "obs": "Dose de ataque em Parada Cardiorrespiratória."},
         "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."},
         "Amoxicilina + Clavulanato": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Cálculo pela amoxicilina. Dividir em 2 tomadas (12/12h)."},
@@ -279,9 +279,9 @@ MEDICAMENTOS = {
         "Ipratrópio (Atrovent)": {"dose_fixa": "40 gotas", "via": "NBZ", "obs": "Em crises graves associar ao Salbutamol."},
         "Levotiroxina (Hipotireoidismo)": {"dose": 1.6, "unidade": "mcg/kg/dia", "max": 200, "via": "VO", "obs": "Em jejum, 30-60 min antes do café."},
         "Losartana (HAS)": {"dose_fixa": "50 a 100 mg", "via": "VO", "obs": "1 ou 2 tomadas."},
-        "Metformina (DM2)": {"dose_fixa": "500 a 850 mg", "via": "VO", "obs": "1 a 2x/dia پس refeições. Máx 2.550 mg/dia."},
+        "Metformina (DM2)": {"dose_fixa": "500 a 850 mg", "via": "VO", "obs": "1 a 2x/dia após refeições. Máx 2.550 mg/dia."},
         "Metildopa (HAS Gestante)": {"dose_fixa": "500 a 2000 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas. 1ª escolha gestação."},
-        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 horas. Pulso: até 1g/dia."},
+        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 hours. Pulso: até 1g/dia."},
         "Metimazol (Hipertireoidismo)": {"dose_fixa": "10 a 40 mg/dia", "via": "VO", "obs": "Dose única diária inicial."},
         "Metoprolol (Controle FA)": {"dose_fixa": "5 mg", "via": "EV Lento", "obs": "Em 5 min. Pode repetir cada 5min (Máx 15mg)."},
         "Metronidazol": {"dose_fixa": "500 mg", "via": "EV / VO", "obs": "EV de 8/8h. VO de 12/12h para vaginose (7d)."},
@@ -359,9 +359,6 @@ def limpar_texto(texto):
     if not texto: return "Sem título"
     return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto)).strip()
 
-# ==========================================
-# BUSCA SEGURA E CALENDÁRIO PADRÃO
-# ==========================================
 def get_user_docs(collection_name, user_id):
     try:
         todos_docs = db.collection(collection_name).where("usuario_id", "==", str(user_id)).get()
@@ -536,15 +533,17 @@ else:
                 st.stop()
 
     user_settings = st.session_state.user_settings
-    dados_aulas = st.session_state.dados["aulas"]
+    
+    _dados_cache = st.session_state.get("dados", {})
+    dados_aulas = _dados_cache.get("aulas", [])
     mapa_aulas = {str(a["id"]).strip(): a for a in dados_aulas} 
-    dados_revisoes = st.session_state.dados["revisoes"]
-    dados_questoes = st.session_state.dados["questoes"]
-    dados_flashcards = st.session_state.dados["flashcards"]
-    dados_simulados = st.session_state.dados["simulados"]
-    dados_focus = st.session_state.dados["focus"]
-    dados_materiais = st.session_state.dados["materiais"]
-    dados_cronogramas = st.session_state.dados["cronogramas"]
+    dados_revisoes = _dados_cache.get("revisoes", [])
+    dados_questoes = _dados_cache.get("questoes", [])
+    dados_flashcards = _dados_cache.get("flashcards", [])
+    dados_simulados = _dados_cache.get("simulados", [])
+    dados_focus = _dados_cache.get("focus", [])
+    dados_materiais = _dados_cache.get("materiais", [])
+    dados_cronogramas = _dados_cache.get("cronogramas", [])
 
     modo = user_settings.get("tema_modo", "Escuro")
     bg_color, text_color = ("#0e1117", "#ffffff") if modo == "Escuro" else ("#f8f9fa", "#0f172a")
@@ -595,13 +594,16 @@ else:
         with col1: st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
+    # -------------------------------------------------------------------------
+    # TELA NOVA: CRONOGRAMA INTELIGENTE (COM EDIÇÃO MANUAL E MODELO ATUALIZADO)
+    # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
         
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Escanear Print"])
         
         with aba_importar:
-            st.info("💡 Tire prints do cronograma do seu cursinho. Você pode enviar várias imagens de uma vez. A IA vai organizá-las! Clique abaixo e dê **Ctrl+V** para colar rapidamente.")
+            st.info("💡 **Dica:** Clique no quadro abaixo e aperte **Ctrl+V** para colar a imagem direto do cursinho. Envie quantas imagens quiser!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             imgs_crono = st.file_uploader("Envie as imagens do cronograma", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             
@@ -610,16 +612,16 @@ else:
                 if not client_ia:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando sua(s) imagem(ns)... Isso pode levar alguns segundos."):
+                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
                         try:
                             prompt_visao = """Analise estes prints de cronograma. Extraia todos os dias, as matérias e os temas a serem estudados.
-                            MUITO IMPORTANTE: Observe a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
-                            - Se a cor for Azul (Diamante), prioridade = 1
-                            - Se a cor for Verde, prioridade = 2
-                            - Se a cor for Amarelo, prioridade = 3
-                            - Se a cor for Vermelho, prioridade = 4
-                            - Se a cor for Roxo, prioridade = 5
-                            Se não tiver cor clara, use 3.
+                            MUITO IMPORTANTE: Tente observar a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
+                            - Azul (Diamante) = 1
+                            - Verde = 2
+                            - Amarelo = 3
+                            - Vermelho = 4
+                            - Roxo = 5
+                            Se não tiver cor clara ou você não tiver certeza, use 3.
                             Você DEVE retornar APENAS um JSON estrito contendo uma chave "tarefas" com uma lista de dicionários, sem nenhum texto ou explicação adicional:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             
@@ -632,7 +634,7 @@ else:
                                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
                                 })
                             
-                            # MODELO OFICIAL E DEFINITIVO PARA LLAMA 4 SCOUT E MODO JSON ATIVO
+                            # MODELO OFICIAL E DEFINITIVO PARA LLAMA 4 SCOUT (VISION) + JSON NATIVO
                             resposta = client_ia.chat.completions.create(
                                 model="meta-llama/llama-4-scout-17b-16e-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
@@ -681,14 +683,14 @@ else:
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
                 
-                # Ordem de prioridade (1 a 5)
+                # Ordena as pendentes por nível de Prioridade (1 ao 5)
                 pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                 
                 if pendentes:
-                    st.write("Dê um 'check' assim que assistir:")
+                    st.write("Dê um 'check' assim que assistir. Você pode alterar a prioridade manualmente se a IA tiver errado a cor:")
                     for t in pendentes:
                         with st.container(border=True):
-                            col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
+                            col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
                             with col1:
                                 if st.button("✔️", key=f"btn_{t['id']}", help="Marcar Concluída"):
                                     db.collection("cronogramas").document(t['id']).update({
@@ -698,10 +700,23 @@ else:
                                     invalidar_cache()
                                     st.rerun()
                             with col2:
-                                p_val = safe_int(t.get('prioridade', 3))
-                                p_icon = PRIORIDADES.get(p_val, "🟨 Amarelo")
-                                st.markdown(f"**[{p_icon}] {t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
+                                st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
+                                # MENU MANUAL DE PRIORIDADE CASO A IA TENHA ERRADO
+                                p_val = safe_int(t.get('prioridade', 3))
+                                novo_p = st.selectbox(
+                                    "Prioridade",
+                                    options=[1, 2, 3, 4, 5],
+                                    format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"),
+                                    index=[1, 2, 3, 4, 5].index(p_val) if p_val in [1, 2, 3, 4, 5] else 2,
+                                    key=f"pri_{t['id']}",
+                                    label_visibility="collapsed"
+                                )
+                                if novo_p != p_val:
+                                    db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p})
+                                    invalidar_cache()
+                                    st.rerun()
+                            with col4:
                                 # LIXEIRA PARA APAGAR PENDENTES
                                 if st.button("🗑️", key=f"del_p_{t['id']}", help="Excluir Aula"):
                                     db.collection("cronogramas").document(t['id']).delete()
@@ -720,7 +735,7 @@ else:
                             p_val = safe_int(t.get('prioridade', 3))
                             p_icon = PRIORIDADES.get(p_val, "🟨 Amarelo")
                             
-                            col_a.markdown(f"~~[{p_icon}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Assistida: {data_c})*")
+                            col_a.markdown(f"~~[{p_icon}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Assistida em: {data_c})*")
                             with col_b:
                                 if st.button("Desfazer", key=f"undo_{t['id']}"):
                                     db.collection("cronogramas").document(t['id']).update({
