@@ -105,7 +105,7 @@ def init_firebase():
             cred = credentials.Certificate(schema)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            st.error(f"Erro ao conectar ao Firebase: {e}")
+            st.error(f"Erro ao conectar ao Firebase. Verifique se 'textkey' está configurado nos Secrets do Streamlit. Detalhes: {e}")
             st.stop()
     return firestore.client()
 
@@ -797,6 +797,7 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
+                st.write("---")
 
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
