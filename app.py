@@ -3,8 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
-import tempfile
-import zipfile
 import os
 import time
 import hashlib
@@ -28,11 +26,6 @@ try:
     cookie_controller = CookieController()
 except ImportError: 
     cookie_controller = None
-
-try:
-    from PIL import Image
-except ImportError: 
-    Image = None
 
 try:
     import PyPDF2
@@ -82,14 +75,13 @@ ativar_pwa()
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
 # ==========================================
-# Busca a chave Groq com segurança
+# Busca a chave com proteção caso o nome no Secrets mude
 CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
 
 @st.cache_resource
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # Busca a gaveta "textkey" nos Secrets do Streamlit
             firebase_secrets = st.secrets["textkey"] 
             schema = dict(firebase_secrets)
             
@@ -613,8 +605,9 @@ else:
                                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
                                 })
                             
+                            # MODELO ATUALIZADO PARA LLAMA 4 SCOUT (OFICIAL DA GROQ)
                             resposta = client_ia.chat.completions.create(
-                                model="llama-3.2-11b-vision-instruct", 
+                                model="meta-llama/llama-4-scout-17b-16e-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1
                             )
