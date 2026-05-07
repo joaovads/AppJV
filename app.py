@@ -41,6 +41,12 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
+# Nova biblioteca para botão de colar
+try:
+    from streamlit_paste_button import paste_image_button
+except ImportError:
+    paste_image_button = None
+
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA
 # ==========================================
@@ -600,15 +606,38 @@ else:
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
         
-        aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Escanear Print"])
+        aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Adicionar Cronograma"])
         
         with aba_importar:
-            st.info("💡 **DICA DE OURO:** Clique no retângulo pontilhado abaixo e dê um simples **Ctrl+V** para colar a imagem do seu cronograma. Mais fácil e rápido do que salvar o arquivo!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             
-            imgs_crono = st.file_uploader("📂 Cole a imagem aqui (Ctrl+V) ou clique para enviar", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+            col_btn, col_arq = st.columns(2)
             
-            if imgs_crono and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
+            colagem_img = None
+            with col_btn:
+                st.markdown("### 📋 Colar Print Direto")
+                st.caption("Você pode copiar (Ctrl+C) seu print e clicar no botão vermelho abaixo para colar (Ctrl+V).")
+                if paste_image_button is not None:
+                    paste_result = paste_image_button(
+                        label="CLIQUE AQUI E APERTE Ctrl+V",
+                        background_color="#ef4444",
+                        hover_background_color="#dc2626"
+                    )
+                    if paste_result.image_data is not None:
+                        colagem_img = paste_result.image_data
+                        st.success("✅ Imagem colada e pronta para extração!")
+                        st.image(colagem_img, use_container_width=True)
+                else:
+                    st.warning("⚠️ Para habilitar o botão de colar mágico, por favor, adicione a linha `streamlit-paste-button` no arquivo `requirements.txt` do seu GitHub.")
+                    
+            with col_arq:
+                st.markdown("### 📂 Enviar Arquivos Tradicional")
+                st.caption("Prefere anexar os arquivos? Solte eles aqui.")
+                imgs_crono = st.file_uploader("Selecione os arquivos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, label_visibility="collapsed")
+            
+            st.divider()
+            
+            if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA (LLaMA 4 Vision)", use_container_width=True):
                 client_ia = get_ia_client()
                 if not client_ia:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
@@ -628,23 +657,27 @@ else:
                             
                             conteudo_api = [{"type": "text", "text": prompt_visao}]
                             
-                            for img in imgs_crono:
-                                img_b64 = base64.b64encode(img.getvalue()).decode('utf-8')
-                                conteudo_api.append({
-                                    "type": "image_url", 
-                                    "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
-                                })
+                            if imgs_crono:
+                                for img in imgs_crono:
+                                    img_b64 = base64.b64encode(img.getvalue()).decode('utf-8')
+                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
+                            
+                            if colagem_img:
+                                import io
+                                buffered = io.BytesIO()
+                                colagem_img.save(buffered, format="PNG")
+                                img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                                conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
                             
                             # MODELO OFICIAL E DEFINITIVO PARA LLAMA 4 SCOUT (VISION) + JSON NATIVO
                             resposta = client_ia.chat.completions.create(
-                                model="llama-3.2-90b-vision-instruct", 
+                                model="meta-llama/llama-4-scout-17b-16e-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1,
                                 response_format={"type": "json_object"}
                             )
                             
                             texto_json = resposta.choices[0].message.content
-                            texto_json = texto_json.replace("```json", "").replace("```", "").strip()
                             dados_extraidos = json.loads(texto_json)
                             tarefas = dados_extraidos.get("tarefas", [])
                             
@@ -676,18 +709,21 @@ else:
             semanas_unicas = sorted(list(set([c.get("semana", "Semana Geral") for c in meu_crono])))
             
             if not meu_crono:
-                st.info("Você ainda não tem nenhum cronograma. Vá na aba 'Escanear Print' para começar!")
+                st.info("Você ainda não tem nenhum cronograma. Vá na aba 'Adicionar Cronograma' para começar!")
             
             for sem in semanas_unicas:
-                st.subheader(f"📂 {sem}")
-                col_btn, _ = st.columns([0.2, 0.8])
-                if col_btn.button("🗑️ Excluir Semana", key=f"del_sem_{sem}", help="Apaga todas as aulas desta semana permanentemente"):
-                    batch = db.batch()
-                    for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
-                        batch.delete(db.collection("cronogramas").document(t_del['id']))
-                    batch.commit()
-                    invalidar_cache()
-                    st.rerun()
+                st.write("---")
+                col_titulo, col_del_sem = st.columns([0.7, 0.3])
+                with col_titulo:
+                    st.subheader(f"📂 {sem}")
+                with col_del_sem:
+                    if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}", type="primary"):
+                        batch = db.batch()
+                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
+                            batch.delete(db.collection("cronogramas").document(t_del['id']))
+                        batch.commit()
+                        invalidar_cache()
+                        st.rerun()
 
                 tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
                 
@@ -761,7 +797,6 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
-                st.write("---")
 
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
@@ -1089,7 +1124,7 @@ else:
                 cc = st.text_input("Conceito Chave (Motivo do erro)")
                 if st.form_submit_button("Registrar", use_container_width=True):
                     dados_nova_questao = {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc}
-                    ref = db.collection("questoes_sessoes").add(dados_nova_questao)
+                    db.collection("questoes_sessoes").add(dados_nova_questao)
                     invalidar_cache()
                     st.rerun()
             if dados_questoes: st.dataframe(pd.DataFrame([{"Data": formatar_data_br(b.get('data')), "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')), "Acertos": safe_int(b.get('acertos')), "Erros": safe_int(b.get('erros'))} for b in dados_questoes]), use_container_width=True)
@@ -1120,7 +1155,7 @@ else:
                 verso_erro = st.text_area("Verso (Resposta correta)")
                 if st.button("💾 Salvar direto no Deck"):
                     novo_card = {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
-                    ref = db.collection("flashcards").add(novo_card)
+                    db.collection("flashcards").add(novo_card)
                     invalidar_cache()
                     st.success("Flashcard adicionado aos estudos!")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
@@ -1191,7 +1226,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
                         novo_card = {"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
-                        ref = db.collection("flashcards").add(novo_card)
+                        db.collection("flashcards").add(novo_card)
                         invalidar_cache()
                         st.success("Salvo!"); st.rerun()
 
