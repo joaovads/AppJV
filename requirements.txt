@@ -8,3 +8,4 @@ PyPDF2
 groq
 streamlit-cookies-controller
 Pillow
+streamlit-paste-button
