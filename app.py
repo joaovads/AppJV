@@ -637,13 +637,14 @@ else:
                             
                             # MODELO OFICIAL E DEFINITIVO PARA LLAMA 4 SCOUT (VISION) + JSON NATIVO
                             resposta = client_ia.chat.completions.create(
-                                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+                                model="llama-3.2-90b-vision-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1,
                                 response_format={"type": "json_object"}
                             )
                             
                             texto_json = resposta.choices[0].message.content
+                            texto_json = texto_json.replace("```json", "").replace("```", "").strip()
                             dados_extraidos = json.loads(texto_json)
                             tarefas = dados_extraidos.get("tarefas", [])
                             
@@ -668,7 +669,7 @@ else:
                             time.sleep(2)
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
+                            st.error(f"Erro na leitura da imagem. O texto retornado não é um JSON válido. Detalhes: {e}")
 
         with aba_lista:
             meu_crono = dados_cronogramas
@@ -679,6 +680,15 @@ else:
             
             for sem in semanas_unicas:
                 st.subheader(f"📂 {sem}")
+                col_btn, _ = st.columns([0.2, 0.8])
+                if col_btn.button("🗑️ Excluir Semana", key=f"del_sem_{sem}", help="Apaga todas as aulas desta semana permanentemente"):
+                    batch = db.batch()
+                    for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
+                        batch.delete(db.collection("cronogramas").document(t_del['id']))
+                    batch.commit()
+                    invalidar_cache()
+                    st.rerun()
+
                 tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
                 
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
@@ -723,7 +733,7 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
-                else: 
+                else:
                     st.success("🎉 Nenhuma aula pendente nesta semana!")
 
                 if concluidos:
