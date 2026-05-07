@@ -82,6 +82,7 @@ ativar_pwa()
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
 # ==========================================
+# Busca a chave com proteção caso o nome no Secrets mude
 CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
 
 @st.cache_resource
@@ -91,6 +92,7 @@ def init_firebase():
             firebase_secrets = st.secrets["textkey"] 
             schema = dict(firebase_secrets)
             
+            # Limpeza cirúrgica da chave privada
             if "private_key" in schema:
                 pk = schema["private_key"].strip().replace('"', '').replace("'", "")
                 schema["private_key"] = pk.replace("\\n", "\n")
@@ -104,6 +106,7 @@ def init_firebase():
 
 db = init_firebase()
 
+# Criação de pastas locais
 for d in ["materiais_estudo", "imagens_flashcards", "fotos_perfil"]:
     if not os.path.exists(d): os.makedirs(d)
 
@@ -374,16 +377,16 @@ def gerar_calendario_html(aulas_lista, ano, mes):
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px; margin-top:5px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:#94a3b8;'>Seg</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Ter</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qua</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qui</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sex</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sáb</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Dom</th></tr>"
+    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center;'>Seg</th><th style='text-align:center;'>Ter</th><th style='text-align:center;'>Qua</th><th style='text-align:center;'>Qui</th><th style='text-align:center;'>Sex</th><th style='text-align:center;'>Sáb</th><th style='text-align:center;'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
             if day == 0: codigo_html += "<td style='border:1px solid #334155; padding:10px; background:#0e1117;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(a.get('tema', 'Aula')))}'>{html.escape(limpar_texto(a.get('tema', 'Aula')))}</div>" for a in aulas_dict[day]])
-                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; vertical-align:top; height:80px;'><strong style='color:#f8fafc;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; vertical-align:top; color:#475569; height:80px;'><strong>{day}</strong></td>"
+                    temas = "".join([f"<div style='background:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white; padding:2px; border-radius:4px; font-size:10px; margin-bottom:2px;'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
+                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; height:80px;'><strong>{day}</strong><div>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; height:80px;'><strong>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
@@ -395,16 +398,16 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:#94a3b8;'>Seg</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Ter</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qua</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qui</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sex</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sáb</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Dom</th></tr>"
+    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center;'>Seg</th><th style='text-align:center;'>Ter</th><th style='text-align:center;'>Qua</th><th style='text-align:center;'>Qui</th><th style='text-align:center;'>Sex</th><th style='text-align:center;'>Sáb</th><th style='text-align:center;'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
             if day == 0: codigo_html += "<td style='border:1px solid #334155; padding:10px; background:#0e1117;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; vertical-align:top; height:80px;'><strong style='color:#f8fafc;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; vertical-align:top; color:#475569; height:80px;'><strong>{day}</strong></td>"
+                    temas = "".join([f"<div style='background:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white; padding:2px; border-radius:4px; font-size:10px; margin-bottom:2px;'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
+                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; height:80px;'><strong>{day}</strong><div>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; height:80px;'><strong>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
@@ -472,14 +475,6 @@ if not st.session_state.logado:
 else:
     u_id, hoje = str(st.session_state.user_id), get_agora().date()
     
-    # Prevenção Crítica de Erros de Memória (Tela Vermelha)
-    if 'dados' not in st.session_state:
-        st.session_state.dados = {
-            "aulas": [], "revisoes": [], "flashcards": [], 
-            "questoes": [], "simulados": [], "focus": [], 
-            "materiais": [], "cronogramas": []
-        }
-
     if st.session_state.get('user_data_loaded') is not True:
         with st.spinner("Sincronizando e Restaurando banco de dados..."):
             try:
@@ -535,18 +530,15 @@ else:
                 st.stop()
 
     user_settings = st.session_state.user_settings
-    
-    # Referências Diretas ao Session State
-    _dados_cache = st.session_state.get("dados", {})
-    dados_aulas = _dados_cache.get("aulas", [])
+    dados_aulas = st.session_state.dados["aulas"]
     mapa_aulas = {str(a["id"]).strip(): a for a in dados_aulas} 
-    dados_revisoes = _dados_cache.get("revisoes", [])
-    dados_questoes = _dados_cache.get("questoes", [])
-    dados_flashcards = _dados_cache.get("flashcards", [])
-    dados_simulados = _dados_cache.get("simulados", [])
-    dados_focus = _dados_cache.get("focus", [])
-    dados_materiais = _dados_cache.get("materiais", [])
-    dados_cronogramas = _dados_cache.get("cronogramas", [])
+    dados_revisoes = st.session_state.dados["revisoes"]
+    dados_questoes = st.session_state.dados["questoes"]
+    dados_flashcards = st.session_state.dados["flashcards"]
+    dados_simulados = st.session_state.dados["simulados"]
+    dados_focus = st.session_state.dados["focus"]
+    dados_materiais = st.session_state.dados["materiais"]
+    dados_cronogramas = st.session_state.dados["cronogramas"]
 
     modo = user_settings.get("tema_modo", "Escuro")
     bg_color, text_color = ("#0e1117", "#ffffff") if modo == "Escuro" else ("#f8f9fa", "#0f172a")
@@ -597,16 +589,13 @@ else:
         with col1: st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
-    # ----------------------------------------------------
-    # TELA NOVA: CRONOGRAMA INTELIGENTE DA SEMANA
-    # ----------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
         
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Escanear Print"])
         
         with aba_importar:
-            st.info("💡 **Dica:** Clique no quadro abaixo e aperte **Ctrl+V** para colar a imagem direto do cursinho. Envie quantas imagens quiser!")
+            st.info("💡 Tire prints do cronograma do seu cursinho. Você pode enviar várias imagens de uma vez. A IA vai organizá-las!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             imgs_crono = st.file_uploader("Envie as imagens do cronograma", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             
@@ -615,7 +604,7 @@ else:
                 if not client_ia:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
+                    with st.spinner("Visão Computacional analisando sua(s) imagem(ns)... Isso pode levar alguns segundos."):
                         try:
                             prompt_visao = """Analise estes prints de cronograma. Extraia todos os dias, as matérias e os temas a serem estudados.
                             MUITO IMPORTANTE: Observe a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
@@ -640,9 +629,8 @@ else:
                                     "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}
                                 })
                             
-                            # MODELO CORRIGIDO (O NOVO PADRÃO DA GROQ)
                             resposta = client_ia.chat.completions.create(
-                                model="llama-3.2-90b-vision-preview", 
+                                model="llama-3.2-90b-vision-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1
                             )
@@ -688,35 +676,38 @@ else:
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
                 
-                # Ordena as pendentes por nível de Prioridade (1 ao 5)
                 pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                 
                 if pendentes:
                     st.write("Dê um 'check' assim que assistir:")
                     for t in pendentes:
                         with st.container(border=True):
-                            c1, c2 = st.columns([0.1, 0.9])
-                            with c1:
-                                if st.button("✔️", key=f"btn_{t['id']}", help="Marcar Concluída"):
+                            col1, col2, col3 = st.columns([0.1, 0.8, 0.1])
+                            with col1:
+                                if st.button("✔️", key=f"ok_{t['id']}", help="Marcar Concluída"):
                                     db.collection("cronogramas").document(t['id']).update({
                                         "concluido": True,
                                         "data_conclusao": str(get_agora().date())
                                     })
                                     invalidar_cache()
                                     st.rerun()
-                            with c2:
+                            with col2:
                                 p_num = safe_int(t.get('prioridade', 3))
                                 p_icon = PRIORIDADES.get(p_num, "🟨 3 - Amarelo")
                                 st.markdown(f"**[{p_icon}] {t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
+                            with col3:
+                                if st.button("🗑️", key=f"del_p_{t['id']}", help="Excluir Aula"):
+                                    db.collection("cronogramas").document(t['id']).delete()
+                                    invalidar_cache()
+                                    st.rerun()
                 else:
                     st.success("🎉 Nenhuma aula pendente nesta semana!")
 
                 if concluidos:
                     st.divider()
                     with st.expander(f"✅ Histórico de Aulas Assistidas ({len(concluidos)})"):
-                        st.caption("Suas aulas concluídas ficam salvas permanentemente com a data da conclusão.")
                         for t in reversed(concluidos):
-                            col_a, col_b = st.columns([0.8, 0.2])
+                            col_a, col_b, col_c = st.columns([0.7, 0.2, 0.1])
                             data_c = formatar_data_br(t.get("data_conclusao", ""))
                             p_num = safe_int(t.get('prioridade', 3))
                             p_icon = PRIORIDADES.get(p_num, "🟨 3 - Amarelo")
@@ -727,6 +718,10 @@ else:
                                     "concluido": False,
                                     "data_conclusao": None
                                 })
+                                invalidar_cache()
+                                st.rerun()
+                            if col_c.button("🗑️", key=f"del_c_{t['id']}"):
+                                db.collection("cronogramas").document(t['id']).delete()
                                 invalidar_cache()
                                 st.rerun()
                 st.write("---")
@@ -1280,7 +1275,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                 st.success("✅ Concluído!")
                 if st.button("Gravar Sessão"): 
                     novo_foco = {"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min}
-                    ref = db.collection("focus_sessoes").add(novo_foco)
+                    db.collection("focus_sessoes").add(novo_foco)
                     invalidar_cache()
                     st.session_state.foco_iniciado = False; st.rerun()
 
@@ -1288,7 +1283,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
         arq = st.file_uploader("Upload PDF")
         if arq and st.button("Salvar na Nuvem"):
             novo_mat = {"usuario_id": u_id, "titulo": arq.name, "data_upload": str(hoje)}
-            ref = db.collection("materiais").add(novo_mat)
+            db.collection("materiais").add(novo_mat)
             invalidar_cache()
             st.success("Salvo!")
         if dados_materiais: st.dataframe(pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais]), use_container_width=True)
@@ -1303,7 +1298,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                 cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
                 if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
                     novo_sim = {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl}
-                    ref = db.collection("simulados").add(novo_sim)
+                    db.collection("simulados").add(novo_sim)
                     invalidar_cache()
                     st.rerun()
             if len(dados_simulados) >= 3:
@@ -1415,7 +1410,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
         with aba1:
             uf = st.file_uploader("Substituir Foto de Perfil", type=['jpg', 'png'])
             if uf and st.button("Confirmar Foto", use_container_width=True):
-                p = os.path.join("fotos_perfil", f"{u_id}.jpg")
+                p = os.path.join(PROFILE_PICS_DIR, f"{u_id}.jpg")
                 with open(p, "wb") as f: f.write(uf.getbuffer())
                 db.collection("usuarios").document(u_id).update({"foto_perfil": p})
                 st.session_state.user_settings["foto_perfil"] = p
