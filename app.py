@@ -13,13 +13,14 @@ import base64
 import json
 import calendar
 import re
+import math
+import io
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, firestore
 import html
 import streamlit.components.v1 as components
-import io
 
 # ==========================================
 # IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS E IA
@@ -667,9 +668,9 @@ else:
                                 img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
                                 conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
                             
-                            # MODELO OFICIAL E DEFINITIVO PARA LLAMA 4 SCOUT (VISION) + JSON NATIVO
+                            # MODELO OFICIAL DA GROQ PARA VISÃO + MODO JSON NATIVO
                             resposta = client_ia.chat.completions.create(
-                                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+                                model="llama-3.2-11b-vision-preview", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1,
                                 response_format={"type": "json_object"}
@@ -795,6 +796,7 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
+                st.write("---")
 
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
@@ -1387,79 +1389,97 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                     st.plotly_chart(fig, use_container_width=True)
 
         with aba_simulado:
-            st.subheader("Gerador de Questões Estruturadas")
-            st.info("Suba o PDF da prova ou dê Ctrl+V em imagens. O sistema processará as imagens para não perder o layout e as fotos dos exames clínicos.")
+            st.subheader("Gerador de Questões Estruturadas (Motor em Lotes)")
+            st.info("Você pode enviar a prova completa em PDF ou colar/anexar várias imagens de questões. O sistema lerá TODAS as questões dividindo o trabalho em lotes para não sobrecarregar a memória.")
             
-            # Opções de upload: PDF ou Colar (Ctrl+V) imagens
             col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
             with col_sim1:
+                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
                 if paste_image_button is not None:
                     paste_result_sim = paste_image_button(
-                        label="Colar imagem de questão (Ctrl+V)",
+                        label="Ou cole um print de questão (Ctrl+V)",
                         background_color="#ef4444",
                         hover_background_color="#dc2626",
                         key="paste_sim"
                     )
                     if paste_result_sim.image_data is not None:
                         colagem_img_sim = paste_result_sim.image_data
-                        st.success("Imagem colada!")
-                        st.image(colagem_img_sim, use_container_width=True)
+                        st.success("Print colado com sucesso!")
             with col_sim2:
-                arq_pdf = st.file_uploader("Ou anexe PDF (Até 5 páginas)", type=['pdf'])
+                arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
             
-            if (arq_pdf or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if not client_ia:
                     st.error("IA não configurada. Verifique sua chave GROQ_KEY.")
                 else:
-                    with st.spinner("Preparando e lendo as imagens da prova..."):
-                        try:
-                            conteudo_api = [{
-                                "type": "text", 
-                                "text": """Você é um preceptor de residência médica. Analise estas imagens de prova.
-                                Extraia as questões presentes. Para cada questão, identifique: Número da questão (se houver), Enunciado completo, Alternativas, Gabarito Correto (Deduza se não houver gabarito) e Comentário explicativo da resposta.
-                                Retorne APENAS um JSON no formato EXATO:
-                                {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
-                            }]
-                            
-                            # Processa PDF para Imagens
-                            if arq_pdf:
-                                try:
-                                    from pdf2image import convert_from_bytes
-                                    st.info("Convertendo páginas do PDF em imagens (Isso requer o poppler-utils no servidor)...")
-                                    imagens_paginas = convert_from_bytes(arq_pdf.read(), first_page=1, last_page=5)
-                                    for img in imagens_paginas:
-                                        buf = io.BytesIO()
-                                        img.save(buf, format="JPEG")
-                                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                                        conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
-                                except Exception as e_pdf:
-                                    st.error(f"Não foi possível converter o PDF. Certifique-se de que o 'poppler-utils' está instalado no seu ambiente. Erro: {e_pdf}")
-                            
-                            # Processa a imagem colada
-                            if colagem_img_sim:
-                                buffered = io.BytesIO()
-                                colagem_img_sim.save(buffered, format="PNG")
-                                img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                                conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                    todas_imagens_b64 = []
+                    
+                    with st.spinner("Empacotando arquivos para envio..."):
+                        if arq_pdf:
+                            try:
+                                from pdf2image import convert_from_bytes
+                                st.info("Convertendo páginas do PDF em imagens (Isso pode demorar alguns segundos)...")
+                                # Removemos o limite de páginas. Vai ler a prova toda!
+                                imagens_paginas = convert_from_bytes(arq_pdf.read())
+                                for img in imagens_paginas:
+                                    buf = io.BytesIO()
+                                    img.save(buf, format="JPEG")
+                                    todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                            except Exception as e_pdf:
+                                st.error(f"Não foi possível converter o PDF. Certifique-se de que 'poppler-utils' está instalado. Erro: {e_pdf}")
+                        
+                        if imgs_prova:
+                            for img in imgs_prova:
+                                todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
+                                
+                        if colagem_img_sim:
+                            buf = io.BytesIO()
+                            colagem_img_sim.save(buf, format="PNG")
+                            todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
 
-                            if len(conteudo_api) > 1: # Tem pelo menos 1 imagem
+                    if todas_imagens_b64:
+                        st.session_state.prova_ativa = []
+                        st.session_state.respostas_usuario = {}
+                        
+                        # Processamento em lotes (Batch) para suportar 100+ páginas
+                        batch_size = 3
+                        total_batches = math.ceil(len(todas_imagens_b64) / batch_size)
+                        
+                        barra_progresso = st.progress(0, text="Iniciando a leitura das questões via IA...")
+                        
+                        for i in range(total_batches):
+                            batch = todas_imagens_b64[i*batch_size : (i+1)*batch_size]
+                            
+                            prompt = """Você é um preceptor de residência médica. Analise estas imagens de prova e extraia TODAS as questões presentes nelas. NÃO pule nenhuma questão.
+Para cada questão lida, identifique: O número da questão, o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo.
+Retorne APENAS um JSON no formato EXATO:
+{"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
+                            
+                            conteudo_api = [{"type": "text", "text": prompt}]
+                            for img_b64 in batch:
+                                conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
+                                
+                            try:
                                 resposta = client_ia.chat.completions.create(
-                                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                                    model="llama-3.2-11b-vision-preview", # Modelo de visão atual e estável
                                     messages=[{"role": "user", "content": conteudo_api}],
                                     response_format={"type": "json_object"},
-                                    temperature=0.2
+                                    temperature=0.1
                                 )
                                 
                                 dados_extraidos = json.loads(resposta.choices[0].message.content)
-                                st.session_state.prova_ativa = dados_extraidos.get("questoes", [])
-                                st.session_state.respostas_usuario = {}
-                                st.rerun()
-                            else:
-                                st.warning("Nenhuma imagem válida para ser lida.")
-                        except Exception as e:
-                            st.error(f"Falha ao processar prova com IA: {e}")
+                                st.session_state.prova_ativa.extend(dados_extraidos.get("questoes", []))
+                            except Exception as e:
+                                st.warning(f"Atenção: Houve um pequeno erro ao processar o lote {i+1} da prova. Detalhes: {e}")
+                                
+                            barra_progresso.progress((i + 1) / total_batches, text=f"Lendo e processando páginas... Lote {i+1} de {total_batches} concluído.")
+                            time.sleep(1.5) # Pausa estratégica para não estourar o limite da API da Groq
+                        
+                        st.success(f"🎉 Extração concluída! {len(st.session_state.prova_ativa)} questões carregadas.")
+                        time.sleep(1)
+                        st.rerun()
 
             # Interface de Resolução (Estilo Estratégia Med)
             if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
@@ -1596,7 +1616,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
         with aba1:
             uf = st.file_uploader("Substituir Foto de Perfil", type=['jpg', 'png'])
             if uf and st.button("Confirmar Foto", use_container_width=True):
-                p = os.path.join("fotos_perfil", f"{u_id}.jpg")
+                p = os.path.join(PROFILE_PICS_DIR, f"{u_id}.jpg")
                 with open(p, "wb") as f: f.write(uf.getbuffer())
                 db.collection("usuarios").document(u_id).update({"foto_perfil": p})
                 st.session_state.user_settings["foto_perfil"] = p
