@@ -107,7 +107,7 @@ def init_firebase():
             cred = credentials.Certificate(schema)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            st.error(f"Erro ao conectar ao Firebase. Verifique se 'textkey' está configurado nos Secrets do Streamlit. Detalhes: {e}")
+            st.error(f"Erro ao conectar ao Firebase: {e}")
             st.stop()
     return firestore.client()
 
@@ -601,7 +601,7 @@ else:
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     # -------------------------------------------------------------------------
-    # TELA NOVA: CRONOGRAMA INTELIGENTE (COM EDIÇÃO MANUAL E MODELO ATUALIZADO)
+    # TELA: CRONOGRAMA INTELIGENTE
     # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -609,6 +609,7 @@ else:
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Adicionar Cronograma"])
         
         with aba_importar:
+            st.info("💡 **DICA DE OURO:** Clique no retângulo pontilhado abaixo e dê um simples **Ctrl+V** para colar a imagem do seu cronograma. Mais fácil e rápido do que salvar o arquivo!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             
             col_btn, col_arq = st.columns(2)
@@ -668,9 +669,9 @@ else:
                                 img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
                                 conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
                             
-                            # MODELO OFICIAL DA GROQ PARA VISÃO + MODO JSON NATIVO
+                            # MODELO OFICIAL E DEFINITIVO PARA LLAMA VISION + JSON NATIVO
                             resposta = client_ia.chat.completions.create(
-                                model="llama-3.2-11b-vision-preview", 
+                                model="llama-3.2-11b-vision-instruct", 
                                 messages=[{"role": "user", "content": conteudo_api}], 
                                 temperature=0.1,
                                 response_format={"type": "json_object"}
@@ -796,12 +797,14 @@ else:
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
-                st.write("---")
 
+    # ==========================================
+    # 🧮 CALCULADORA E OUTRAS ABAS
+    # ==========================================
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
         
-        aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação (Holliday)", "🤰 Obstetrícia (IG/DPP)"])
+        aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação", "🤰 Obstetrícia"])
         
         with aba_doses:
             col_tipo, col_peso = st.columns(2)
@@ -1360,6 +1363,9 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
             st.success("Salvo!")
         if dados_materiais: st.dataframe(pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais]), use_container_width=True)
 
+    # ==========================================
+    # 🏥 SIMULADOS INTERATIVOS E OSCE
+    # ==========================================
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador de Provas Interativo")
         aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA (PDF/JPG)", "🗣️ Consultório OSCE"])
@@ -1390,7 +1396,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
 
         with aba_simulado:
             st.subheader("Gerador de Questões Estruturadas (Motor em Lotes)")
-            st.info("Você pode enviar a prova completa em PDF ou colar/anexar várias imagens de questões. O sistema lerá TODAS as questões dividindo o trabalho em lotes para não sobrecarregar a memória.")
+            st.info("Você pode enviar a prova completa em PDF ou colar várias imagens de questões. O sistema lerá TODAS as questões dividindo o trabalho em lotes para não sobrecarregar a memória e não sofrer com limitações de API.")
             
             col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
@@ -1398,7 +1404,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                 imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
                 if paste_image_button is not None:
                     paste_result_sim = paste_image_button(
-                        label="Ou cole um print de questão (Ctrl+V)",
+                        label="Colar um print de questão (Ctrl+V)",
                         background_color="#ef4444",
                         hover_background_color="#dc2626",
                         key="paste_sim"
@@ -1420,15 +1426,14 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                         if arq_pdf:
                             try:
                                 from pdf2image import convert_from_bytes
-                                st.info("Convertendo páginas do PDF em imagens (Isso pode demorar alguns segundos)...")
-                                # Removemos o limite de páginas. Vai ler a prova toda!
+                                st.info("Convertendo páginas do PDF em imagens (Isso requer a instalação do pacote 'poppler-utils' no servidor)...")
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf = io.BytesIO()
                                     img.save(buf, format="JPEG")
                                     todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
                             except Exception as e_pdf:
-                                st.error(f"Não foi possível converter o PDF. Certifique-se de que 'poppler-utils' está instalado. Erro: {e_pdf}")
+                                st.error(f"Não foi possível converter o PDF. Erro: {e_pdf}")
                         
                         if imgs_prova:
                             for img in imgs_prova:
@@ -1443,7 +1448,6 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                         st.session_state.prova_ativa = []
                         st.session_state.respostas_usuario = {}
                         
-                        # Processamento em lotes (Batch) para suportar 100+ páginas
                         batch_size = 3
                         total_batches = math.ceil(len(todas_imagens_b64) / batch_size)
                         
@@ -1463,7 +1467,7 @@ Retorne APENAS um JSON no formato EXATO:
                                 
                             try:
                                 resposta = client_ia.chat.completions.create(
-                                    model="llama-3.2-11b-vision-preview", # Modelo de visão atual e estável
+                                    model="llama-3.2-11b-vision-instruct", 
                                     messages=[{"role": "user", "content": conteudo_api}],
                                     response_format={"type": "json_object"},
                                     temperature=0.1
@@ -1475,13 +1479,13 @@ Retorne APENAS um JSON no formato EXATO:
                                 st.warning(f"Atenção: Houve um pequeno erro ao processar o lote {i+1} da prova. Detalhes: {e}")
                                 
                             barra_progresso.progress((i + 1) / total_batches, text=f"Lendo e processando páginas... Lote {i+1} de {total_batches} concluído.")
-                            time.sleep(1.5) # Pausa estratégica para não estourar o limite da API da Groq
+                            time.sleep(1.5)
                         
                         st.success(f"🎉 Extração concluída! {len(st.session_state.prova_ativa)} questões carregadas.")
                         time.sleep(1)
                         st.rerun()
 
-            # Interface de Resolução (Estilo Estratégia Med)
+            # Interface de Resolução Interativa
             if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
                 st.divider()
                 st.subheader("📝 Resolvendo Simulado")
