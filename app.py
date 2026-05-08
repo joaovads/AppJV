@@ -55,9 +55,20 @@ except ImportError:
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DO MODELO DE VISÃO DA GROQ
-MODELO_VISAO = "qwen/qwen2.5-vl-72b-instruct"
+MODELO_VISAO = "meta-llama/llama-4-maverick-17b-128e-instruct"
 MODELO_TEXTO = "llama-3.3-70b-versatile"
 MODELO_AUDIO = "whisper-large-v3"
+
+try:
+    modelos = client_ia.models.list()
+    
+    st.write("Modelos disponíveis:")
+    
+    for m in modelos.data:
+        st.write(m.id)
+
+except Exception as e:
+    st.error(e)
 
 def ativar_pwa():
     pwa_html = """
