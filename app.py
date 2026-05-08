@@ -55,7 +55,7 @@ except ImportError:
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DOS MODELOS DA GROQ
-MODELO_VISAO = "llama-3.2-90b-vision-preview"
+MODELO_VISAO = "llama-3.2-11b-vision-instruct"
 MODELO_TEXTO = "llama-3.1-8b-instant"
 
 def ativar_pwa():
@@ -71,7 +71,7 @@ def ativar_pwa():
                 "orientation": "portrait",
                 "start_url": "/",
                 "icons": [{
-                    "src": "https://cdn-icons-png.flaticon.com/512/3004/3004416.png", 
+                    "src": "[https://cdn-icons-png.flaticon.com/512/3004/3004416.png](https://cdn-icons-png.flaticon.com/512/3004/3004416.png)", 
                     "sizes": "512x512", 
                     "type": "image/png"
                 }]
@@ -137,15 +137,23 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def extrair_json_seguro(texto):
-    """Função blindada com RegEx para arrancar qualquer lixo em volta do JSON retornado pela IA."""
+    """Função blindada via RegEx para arrancar qualquer crase ou bloco de markdown indesejado"""
+    texto = str(texto).strip()
+    texto = re.sub(r'^```[a-zA-Z]*\n', '', texto)
+    texto = re.sub(r'\n```$', '', texto)
+    texto = texto.strip()
+    
     try:
-        match = re.search(r'\{.*\}', texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
         return json.loads(texto)
-    except Exception as e:
-        st.error(f"A IA enviou um formato impossível de ler. Retorno cru: {texto[:150]}...")
-        return {}
+    except:
+        try:
+            match = re.search(r'(\{.*\})', texto, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+        except Exception as e:
+            st.error(f"A IA enviou um formato corrompido que não pôde ser limpo. Retorno cru: {texto[:150]}...")
+            return {}
+    return {}
 
 # ==========================================
 # CONSTANTES, CORES E BANCO DE IMAGENS OSCE
@@ -164,22 +172,22 @@ PRIORIDADES = {
 }
 
 BANCO_IMAGENS_OSCE = {
-    "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
-    "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
-    "ecg_fibrilacao_atrial": "https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png",
-    "ecg_taquicardia_ventricular": "https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png",
-    "ecg_fibrilacao_ventricular": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png",
-    "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
-    "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
-    "rx_torax_dpoc": "https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg",
-    "rx_torax_edema_agudo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg",
-    "rx_torax_pneumotorax": "https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg",
-    "rx_abdomen_pneumoperitonio": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg",
-    "tc_cranio_avci": "https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg",
-    "tc_cranio_avch": "https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg",
-    "tc_cranio_hsa": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg",
-    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg",
-    "usg_fast_positivo": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg"
+    "ecg_normal": "[https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png](https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png)",
+    "ecg_infarto_supra": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png)",
+    "ecg_fibrilacao_atrial": "[https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png](https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png)",
+    "ecg_taquicardia_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png](https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png)",
+    "ecg_fibrilacao_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png)",
+    "rx_torax_normal": "[https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png](https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png)",
+    "rx_torax_pneumonia": "[https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg)",
+    "rx_torax_dpoc": "[https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg)",
+    "rx_torax_edema_agudo": "[https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg)",
+    "rx_torax_pneumotorax": "[https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg](https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg)",
+    "rx_abdomen_pneumoperitonio": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg)",
+    "tc_cranio_avci": "[https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg](https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg)",
+    "tc_cranio_avch": "[https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg)",
+    "tc_cranio_hsa": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg)",
+    "tc_cranio_normal": "[https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg](https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg)",
+    "usg_fast_positivo": "[https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg](https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg)"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -196,7 +204,7 @@ def renderizar_mensagem_osce(texto):
                 <div style="border: 1px solid #334155; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: #1e293b;">
                     <p style="color: #ef4444; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
                     <img src="{img_url}" 
-                         onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" 
+                         onerror="this.onerror=null; this.src='[https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg](https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg)';" 
                          style="width: 100%; border-radius: 5px;">
                 </div>
                 """
@@ -616,7 +624,7 @@ else:
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     # -------------------------------------------------------------------------
-    # TELA: CRONOGRAMA INTELIGENTE 
+    # TELA NOVA: CRONOGRAMA INTELIGENTE (COM EDIÇÃO MANUAL E MODELO ATUALIZADO)
     # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -625,6 +633,7 @@ else:
         
         with aba_importar:
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
+            
             col_btn, col_arq = st.columns(2)
             
             colagem_img = None
@@ -651,7 +660,7 @@ else:
             
             st.divider()
             
-            if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
+            if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA (LLaMA Vision)", use_container_width=True):
                 client_ia = get_ia_client()
                 if not client_ia:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
@@ -744,6 +753,7 @@ else:
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
                 
+                # Ordena as pendentes por nível de Prioridade (1 ao 5)
                 pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                 
                 if pendentes:
@@ -762,6 +772,7 @@ else:
                             with col2:
                                 st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
+                                # MENU MANUAL DE PRIORIDADE CASO A IA TENHA ERRADO
                                 p_val = safe_int(t.get('prioridade', 3))
                                 novo_p = st.selectbox(
                                     "Prioridade",
@@ -776,6 +787,7 @@ else:
                                     invalidar_cache()
                                     st.rerun()
                             with col4:
+                                # LIXEIRA PARA APAGAR PENDENTES
                                 if st.button("🗑️", key=f"del_p_{t['id']}", help="Excluir Aula"):
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
@@ -803,13 +815,14 @@ else:
                                     invalidar_cache()
                                     st.rerun()
                             with col_c:
+                                # LIXEIRA PARA APAGAR HISTÓRICO
                                 if st.button("🗑️", key=f"del_c_{t['id']}", help="Excluir Definitivamente"):
                                     db.collection("cronogramas").document(t['id']).delete()
                                     invalidar_cache()
                                     st.rerun()
 
     # ==========================================
-    # 🧮 CALCULADORA
+    # 🧮 CALCULADORA E OUTRAS ABAS
     # ==========================================
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
@@ -853,7 +866,6 @@ else:
         st.header("Painel de Desempenho Global")
         qs_sess = [dict(q) for q in dados_questoes]
         qs_revs = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
         t_acertos = sum(safe_int(q.get('acertos')) for q in qs_sess) + sum(safe_int(r.get('acertos')) for r in qs_revs)
         t_erros = sum(safe_int(q.get('erros')) for q in qs_sess) + sum(safe_int(r.get('erros')) for r in qs_revs)
         
@@ -980,7 +992,7 @@ else:
     # ==========================================
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador de Provas Interativo")
-        aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA", "🗣️ Consultório OSCE"])
+        aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA (PDF/JPG)", "🗣️ Consultório OSCE"])
         
         with aba_p:
             with st.form("sim_f", clear_on_submit=True):
@@ -1067,7 +1079,7 @@ else:
                             
                             prompt = """Você é um preceptor de residência médica. Analise ESTA ÚNICA IMAGEM de prova e extraia TODAS as questões presentes APENAS NELA. É estritamente proibido pular questões.
                             Para cada questão lida, identifique: O número da questão (se houver), o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo da resposta.
-                            Retorne APENAS um JSON válido no formato EXATO abaixo, sem absolutamente nenhum texto extra ou crases de formatação markdown:
+                            Retorne APENAS um JSON válido no formato EXATO abaixo, sem absolutamente nenhum texto extra em volta:
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             
                             conteudo_api = [
@@ -1097,7 +1109,7 @@ else:
                             barra_progresso.progress((i + 1) / total_batches, text=f"Lendo minuciosamente a prova... Página {i+1} de {total_batches} concluída.")
                             time.sleep(1.5)
                         
-                        st.success(f"🎉 Extração 100% concluída! {len(st.session_state.prova_ativa)} questões carregadas.")
+                        st.success(f"🎉 Extração 100% concluída! {len(st.session_state.prova_ativa)} questões carregadas e estruturadas.")
                         time.sleep(1)
                         st.rerun()
 
