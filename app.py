@@ -55,8 +55,9 @@ except ImportError:
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DO MODELO DE VISÃO DA GROQ
-MODELO_VISAO = "llama-3.2-90b-vision-preview"
-MODELO_TEXTO = "llama-3.1-8b-instant"
+MODELO_VISAO = "qwen/qwen2.5-vl-72b-instruct"
+MODELO_TEXTO = "llama-3.3-70b-versatile"
+MODELO_AUDIO = "whisper-large-v3"
 
 def ativar_pwa():
     pwa_html = """
@@ -1482,10 +1483,10 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                                 
                             try:
                                 resposta = client_ia.chat.completions.create(
-                                    model=MODELO_VISAO, 
-                                    messages=[{"role": "user", "content": conteudo_api}],
-                                    temperature=0.1
-                                )
+    model=MODELO_VISAO,
+    messages=[{"role": "user", "content": conteudo_api}],
+    temperature=0.1
+)
                                 
                                 dados_extraidos = extrair_json_seguro(resposta.choices[0].message.content)
                                 st.session_state.prova_ativa.extend(dados_extraidos.get("questoes", []))
