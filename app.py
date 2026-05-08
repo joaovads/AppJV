@@ -55,7 +55,7 @@ except ImportError:
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DOS MODELOS DA GROQ
-MODELO_VISAO = "meta-llama/llama-4-scout-17b-16e-instruct"
+MODELO_VISAO = "llama-3.2-90b-vision-preview"
 MODELO_TEXTO = "llama-3.1-8b-instant"
 
 def ativar_pwa():
@@ -122,7 +122,7 @@ for d in ["materiais_estudo", "imagens_flashcards", "fotos_perfil"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# INICIALIZADOR DE IA (GROQ)
+# INICIALIZADOR E EXTRATOR SEGURO DE JSON
 # ==========================================
 def get_ia_client():
     if "model_ia" not in st.session_state:
@@ -137,13 +137,17 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def extrair_json_seguro(texto):
-    """Função blindada para garantir que a IA retorne o JSON corretamente, ignorando o texto ao redor."""
+    """Função blindada para arrancar as formatações de markdown que a IA teima em colocar."""
+    texto = texto.strip()
+    texto = re.sub(r'^```json\s*', '', texto, flags=re.IGNORECASE)
+    texto = re.sub(r'^```\s*', '', texto)
+    texto = re.sub(r'\s*```$', '', texto)
+    texto = texto.strip()
+    
     try:
-        # Tenta parse direto
         return json.loads(texto)
     except:
         try:
-            # Tenta encontrar o primeiro { e o último }
             inicio = texto.find('{')
             fim = texto.rfind('}')
             if inicio != -1 and fim != -1:
@@ -170,22 +174,22 @@ PRIORIDADES = {
 }
 
 BANCO_IMAGENS_OSCE = {
-    "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
-    "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
-    "ecg_fibrilacao_atrial": "https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png",
-    "ecg_taquicardia_ventricular": "https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png",
-    "ecg_fibrilacao_ventricular": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png",
-    "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
-    "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
-    "rx_torax_dpoc": "https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg",
-    "rx_torax_edema_agudo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg",
-    "rx_torax_pneumotorax": "https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg",
-    "rx_abdomen_pneumoperitonio": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg",
-    "tc_cranio_avci": "https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg",
-    "tc_cranio_avch": "https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg",
-    "tc_cranio_hsa": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg",
-    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg",
-    "usg_fast_positivo": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg"
+    "ecg_normal": "[https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png](https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png)",
+    "ecg_infarto_supra": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png)",
+    "ecg_fibrilacao_atrial": "[https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png](https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png)",
+    "ecg_taquicardia_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png](https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png)",
+    "ecg_fibrilacao_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png)",
+    "rx_torax_normal": "[https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png](https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png)",
+    "rx_torax_pneumonia": "[https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg)",
+    "rx_torax_dpoc": "[https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg)",
+    "rx_torax_edema_agudo": "[https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg)",
+    "rx_torax_pneumotorax": "[https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg](https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg)",
+    "rx_abdomen_pneumoperitonio": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg)",
+    "tc_cranio_avci": "[https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg](https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg)",
+    "tc_cranio_avch": "[https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg)",
+    "tc_cranio_hsa": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg)",
+    "tc_cranio_normal": "[https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg](https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg)",
+    "usg_fast_positivo": "[https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg](https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg)"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -202,7 +206,7 @@ def renderizar_mensagem_osce(texto):
                 <div style="border: 1px solid #334155; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: #1e293b;">
                     <p style="color: #ef4444; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
                     <img src="{img_url}" 
-                         onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" 
+                         onerror="this.onerror=null; this.src='[https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg](https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg)';" 
                          style="width: 100%; border-radius: 5px;">
                 </div>
                 """
@@ -350,8 +354,6 @@ MEDICAMENTOS = {
 def get_agora(): return datetime.utcnow() - timedelta(hours=3)
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
-def get_image_base64(img_path):
-    with open(img_path, "rb") as img_file: return base64.b64encode(img_file.read()).decode('utf-8')
 
 def parse_data(d):
     if not d: return get_agora().date()
@@ -624,7 +626,7 @@ else:
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     # -------------------------------------------------------------------------
-    # TELA NOVA: CRONOGRAMA INTELIGENTE
+    # TELA NOVA: CRONOGRAMA INTELIGENTE (COM EDIÇÃO MANUAL E MODELO ATUALIZADO)
     # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -819,7 +821,7 @@ else:
                                     st.rerun()
 
     # ==========================================
-    # 🧮 CALCULADORA
+    # 🧮 CALCULADORA E OUTRAS ABAS
     # ==========================================
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
@@ -863,6 +865,7 @@ else:
         st.header("Painel de Desempenho Global")
         qs_sess = [dict(q) for q in dados_questoes]
         qs_revs = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
+        
         t_acertos = sum(safe_int(q.get('acertos')) for q in qs_sess) + sum(safe_int(r.get('acertos')) for r in qs_revs)
         t_erros = sum(safe_int(q.get('erros')) for q in qs_sess) + sum(safe_int(r.get('erros')) for r in qs_revs)
         
@@ -874,7 +877,7 @@ else:
             st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos, t_erros], color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
 
     # ==========================================
-    # 📅 AGENDA DE REVISÕES E QUESTÕES
+    # 📅 AGENDA DE REVISÕES
     # ==========================================
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador de Ciclos")
@@ -903,6 +906,12 @@ else:
                                 db.collection("revisoes").document(r['id']).update({"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "data_conclusao": str(get_agora().date())})
                                 invalidar_cache(); st.rerun()
 
+        with aba_historico:
+            st.info("Suas revisões concluídas são contabilizadas no seu Dashboard.")
+
+    # ==========================================
+    # 🎯 QUESTÕES E FLASHCARDS
+    # ==========================================
     elif menu == "🎯 Questões":
         aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
         with aba_reg:
@@ -951,6 +960,9 @@ else:
         with aba_feynman:
             st.info("Ensine um tema em áudio e a IA será o seu avaliador.")
 
+    # ==========================================
+    # 📚 REGISTRO DE AULAS E FOCO
+    # ==========================================
     elif menu == "📚 Registro de Aulas":
         st.header("Biblioteca Pessoal de Conteúdo")
         with st.form("n_aula", clear_on_submit=True):
@@ -969,18 +981,12 @@ else:
         tf = st.selectbox("Duração", [25, 30, 45, 60], index=0)
         if st.button("Iniciar"): st.success(f"Tempo de {tf} minutos rodando!")
 
-    elif menu == "📁 Materiais e Simulados":
-        arq = st.file_uploader("Upload PDF")
-        if arq and st.button("Salvar na Nuvem"):
-            db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "data_upload": str(hoje)})
-            invalidar_cache(); st.success("Salvo!")
-
     # ==========================================
-    # 🏥 SIMULADOS INTERATIVOS E OSCE
+    # 🏥 SIMULADOS INTERATIVOS (Aba Atualizada)
     # ==========================================
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador de Provas Interativo")
-        aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA", "🗣️ Consultório OSCE"])
+        aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA (PDF/JPG)", "🗣️ Consultório OSCE"])
         
         with aba_p:
             with st.form("sim_f", clear_on_submit=True):
@@ -1006,7 +1012,7 @@ else:
 
         with aba_simulado:
             st.subheader("Gerador de Questões Estruturadas (Motor em Lotes)")
-            st.info("Você pode enviar a prova completa em PDF ou colar várias imagens de questões. O sistema lerá TODAS as questões dividindo o trabalho em lotes.")
+            st.info("Você pode enviar a prova completa em PDF ou colar/anexar várias imagens de questões. O sistema lerá TODAS as questões dividindo o trabalho em lotes para não sobrecarregar a memória.")
             
             col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
@@ -1014,7 +1020,7 @@ else:
                 imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
                 if paste_image_button is not None:
                     paste_result_sim = paste_image_button(
-                        label="Colar um print de questão (Ctrl+V)",
+                        label="Ou cole um print de questão (Ctrl+V)",
                         background_color="#ef4444",
                         hover_background_color="#dc2626",
                         key="paste_sim"
@@ -1036,14 +1042,14 @@ else:
                         if arq_pdf:
                             try:
                                 from pdf2image import convert_from_bytes
-                                st.info("Convertendo páginas do PDF em imagens (Requer 'poppler-utils' no servidor)...")
+                                st.info("Convertendo páginas do PDF em imagens (Isso requer o poppler-utils no servidor)...")
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf = io.BytesIO()
                                     img.save(buf, format="JPEG")
                                     todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
                             except Exception as e_pdf:
-                                st.error(f"Falha ao converter PDF. Erro: {e_pdf}")
+                                st.error(f"Não foi possível converter o PDF. Certifique-se de que o 'poppler-utils' está instalado no seu ambiente. Erro: {e_pdf}")
                         
                         if imgs_prova:
                             for img in imgs_prova:
@@ -1058,6 +1064,7 @@ else:
                         st.session_state.prova_ativa = []
                         st.session_state.respostas_usuario = {}
                         
+                        # Processamento em lotes (Batch) para suportar 100+ páginas
                         batch_size = 3
                         total_batches = math.ceil(len(todas_imagens_b64) / batch_size)
                         
@@ -1067,8 +1074,8 @@ else:
                             batch = todas_imagens_b64[i*batch_size : (i+1)*batch_size]
                             
                             prompt = """Você é um preceptor de residência médica. Analise estas imagens de prova e extraia TODAS as questões presentes nelas. NÃO pule nenhuma questão.
-Para cada questão lida, identifique: O número da questão, o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo.
-Retorne APENAS um JSON no formato EXATO abaixo:
+Para cada questão lida, identifique: O número da questão (se houver), Enunciado completo, Alternativas, Gabarito Correto (Deduza se não houver gabarito) e Comentário explicativo da resposta.
+Retorne APENAS um JSON no formato EXATO, sem NENHUM texto extra (nem crases markdown):
 {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             
                             conteudo_api = [{"type": "text", "text": prompt}]
@@ -1085,15 +1092,16 @@ Retorne APENAS um JSON no formato EXATO abaixo:
                                 dados_extraidos = extrair_json_seguro(resposta.choices[0].message.content)
                                 st.session_state.prova_ativa.extend(dados_extraidos.get("questoes", []))
                             except Exception as e:
-                                st.warning(f"Atenção: Houve um erro ao processar o lote {i+1} da prova. Detalhes: {e}")
+                                st.warning(f"Atenção: Houve um pequeno erro ao processar o lote {i+1} da prova. Detalhes: {e}")
                                 
                             barra_progresso.progress((i + 1) / total_batches, text=f"Lendo e processando páginas... Lote {i+1} de {total_batches} concluído.")
-                            time.sleep(1.5)
+                            time.sleep(1.5) # Pausa estratégica para não estourar o limite da API da Groq
                         
                         st.success(f"🎉 Extração concluída! {len(st.session_state.prova_ativa)} questões carregadas.")
                         time.sleep(1)
                         st.rerun()
 
+            # Interface de Resolução (Estilo Estratégia Med)
             if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
                 st.divider()
                 st.subheader("📝 Resolvendo Simulado")
@@ -1220,6 +1228,12 @@ Retorne APENAS um JSON no formato EXATO abaixo:
 
                     if getattr(st.session_state, 'osce_finished', False):
                         st.divider(); st.markdown("### 📋 Avaliação do Preceptor"); st.info(st.session_state.osce_eval)
+
+    elif menu == "📁 Materiais e Simulados":
+        arq = st.file_uploader("Upload PDF")
+        if arq and st.button("Salvar na Nuvem"):
+            db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "data_upload": str(hoje)})
+            invalidar_cache(); st.success("Salvo!")
 
     elif menu == "⚙️ Configurações":
         st.header("Controle de Perfil e API")
