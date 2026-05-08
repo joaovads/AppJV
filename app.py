@@ -50,9 +50,13 @@ except ImportError:
     paste_image_button = None
 
 # ==========================================
-# CONFIGURAÇÃO GERAL DA PÁGINA
+# CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
+
+# NOME OFICIAL E ATIVO DO MODELO DE VISÃO DA GROQ
+MODELO_VISAO = "llama-3.2-90b-vision-preview"
+MODELO_TEXTO = "llama-3.1-8b-instant"
 
 def ativar_pwa():
     pwa_html = """
@@ -107,7 +111,7 @@ def init_firebase():
             cred = credentials.Certificate(schema)
             firebase_admin.initialize_app(cred)
         except Exception as e:
-            st.error(f"Erro ao conectar ao Firebase: {e}")
+            st.error(f"Erro ao conectar ao Firebase. Verifique se 'textkey' está configurado nos Secrets do Streamlit. Detalhes: {e}")
             st.stop()
     return firestore.client()
 
@@ -131,6 +135,23 @@ def get_ia_client():
         else:
             st.session_state.model_ia = None
     return st.session_state.model_ia
+
+def extrair_json_seguro(texto):
+    """Função blindada para garantir que a IA retorne o JSON corretamente, ignorando o texto ao redor."""
+    try:
+        # Tenta parse direto
+        return json.loads(texto)
+    except:
+        try:
+            # Tenta encontrar o primeiro { e o último }
+            inicio = texto.find('{')
+            fim = texto.rfind('}')
+            if inicio != -1 and fim != -1:
+                return json.loads(texto[inicio:fim+1])
+        except Exception as e:
+            st.error(f"Erro ao interpretar os dados da IA. Retorno cru: {texto[:200]}...")
+            return {}
+    return {}
 
 # ==========================================
 # CONSTANTES, CORES E BANCO DE IMAGENS OSCE
@@ -601,7 +622,7 @@ else:
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     # -------------------------------------------------------------------------
-    # TELA: CRONOGRAMA INTELIGENTE
+    # TELA NOVA: CRONOGRAMA INTELIGENTE (COM EDIÇÃO MANUAL E MODELO ATUALIZADO)
     # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -609,7 +630,6 @@ else:
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Adicionar Cronograma"])
         
         with aba_importar:
-            st.info("💡 **DICA DE OURO:** Clique no retângulo pontilhado abaixo e dê um simples **Ctrl+V** para colar a imagem do seu cronograma. Mais fácil e rápido do que salvar o arquivo!")
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             
             col_btn, col_arq = st.columns(2)
@@ -638,7 +658,7 @@ else:
             
             st.divider()
             
-            if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA (LLaMA 4 Vision)", use_container_width=True):
+            if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA (LLaMA Vision)", use_container_width=True):
                 client_ia = get_ia_client()
                 if not client_ia:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
@@ -669,16 +689,14 @@ else:
                                 img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
                                 conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
                             
-                            # MODELO OFICIAL E DEFINITIVO PARA LLAMA VISION + JSON NATIVO
                             resposta = client_ia.chat.completions.create(
-                                model="llama-3.2-11b-vision-instruct", 
+                                model=MODELO_VISAO, 
                                 messages=[{"role": "user", "content": conteudo_api}], 
-                                temperature=0.1,
-                                response_format={"type": "json_object"}
+                                temperature=0.1
                             )
                             
                             texto_json = resposta.choices[0].message.content
-                            dados_extraidos = json.loads(texto_json)
+                            dados_extraidos = extrair_json_seguro(texto_json)
                             tarefas = dados_extraidos.get("tarefas", [])
                             
                             batch = db.batch()
@@ -702,7 +720,7 @@ else:
                             time.sleep(2)
                             st.rerun()
                         except Exception as e:
-                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
+                            st.error(f"Erro na leitura da imagem. O texto retornado não é um JSON válido. Detalhes: {e}")
 
         with aba_lista:
             meu_crono = dados_cronogramas
@@ -804,7 +822,7 @@ else:
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
         
-        aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação", "🤰 Obstetrícia"])
+        aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação (Holliday)", "🤰 Obstetrícia (IG/DPP)"])
         
         with aba_doses:
             col_tipo, col_peso = st.columns(2)
@@ -1148,7 +1166,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = client_ia.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=800)
+                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=800)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -1191,7 +1209,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         
                         try:
-                            r = client_ia.chat.completions.create(model="llama-3.1-8b-instant", messages=msgs_api, temperature=0.2)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2)
                             st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
@@ -1245,7 +1263,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
                             txt = transcription.text
-                            r = client_ia.chat.completions.create(model="llama-3.1-8b-instant", messages=[{"role": "system", "content": "[SISTEMA NÍVEL 5] Avalie rigidamente o aluno. Aja como preceptor médico."},{"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{txt}'."}])
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "[SISTEMA NÍVEL 5] Avalie rigidamente o aluno. Aja como preceptor médico."},{"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{txt}'."}])
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -1363,9 +1381,6 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
             st.success("Salvo!")
         if dados_materiais: st.dataframe(pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais]), use_container_width=True)
 
-    # ==========================================
-    # 🏥 SIMULADOS INTERATIVOS E OSCE
-    # ==========================================
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador de Provas Interativo")
         aba_p, aba_o, aba_simulado, aba_osce = st.tabs(["📝 Notas", "⏱️ Relógio", "🤖 Simulado IA (PDF/JPG)", "🗣️ Consultório OSCE"])
@@ -1457,9 +1472,9 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                             batch = todas_imagens_b64[i*batch_size : (i+1)*batch_size]
                             
                             prompt = """Você é um preceptor de residência médica. Analise estas imagens de prova e extraia TODAS as questões presentes nelas. NÃO pule nenhuma questão.
-Para cada questão lida, identifique: O número da questão, o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo.
-Retorne APENAS um JSON no formato EXATO:
-{"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
+                            Para cada questão lida, identifique: O número da questão, o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo.
+                            Retorne APENAS um JSON no formato EXATO abaixo sem explicações extras em volta:
+                            {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             
                             conteudo_api = [{"type": "text", "text": prompt}]
                             for img_b64 in batch:
@@ -1467,13 +1482,12 @@ Retorne APENAS um JSON no formato EXATO:
                                 
                             try:
                                 resposta = client_ia.chat.completions.create(
-                                    model="llama-3.2-11b-vision-instruct", 
+                                    model=MODELO_VISAO, 
                                     messages=[{"role": "user", "content": conteudo_api}],
-                                    response_format={"type": "json_object"},
                                     temperature=0.1
                                 )
                                 
-                                dados_extraidos = json.loads(resposta.choices[0].message.content)
+                                dados_extraidos = extrair_json_seguro(resposta.choices[0].message.content)
                                 st.session_state.prova_ativa.extend(dados_extraidos.get("questoes", []))
                             except Exception as e:
                                 st.warning(f"Atenção: Houve um pequeno erro ao processar o lote {i+1} da prova. Detalhes: {e}")
@@ -1587,7 +1601,7 @@ Retorne APENAS um JSON no formato EXATO:
                                 try:
                                     prompt_aval = f"[SISTEMA NÍVEL 5] Você é um Médico Preceptor RIGOROSO. O aluno prescreveu: {prescricao_final}. Baseie-se nas diretrizes do MS, SBC. Siga o roteiro exato: 1) Diagnóstico, 2) Pontos Fortes, 3) Falhas Clínicas e Omissões, 4) Avaliação da Prescrição (Alerte severamente se errou dose/via), 5) Nota 0 a 10."
                                     mensagens = [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": prompt_aval}]
-                                    r = client_ia.chat.completions.create(model="llama-3.1-8b-instant", messages=mensagens, temperature=0.3)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=mensagens, temperature=0.3)
                                     st.session_state.osce_eval = r.choices[0].message.content
                                     st.rerun()
                                 except Exception as e: st.error(str(e))
@@ -1605,7 +1619,7 @@ Retorne APENAS um JSON no formato EXATO:
                             with st.spinner("Paciente respondendo..."):
                                 mensagens = [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist
                                 try:
-                                    r = client_ia.chat.completions.create(model="llama-3.1-8b-instant", messages=mensagens, temperature=0.6)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=mensagens, temperature=0.6)
                                     st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro de conexão IA: {e}")
                                 st.rerun()
