@@ -71,7 +71,7 @@ def ativar_pwa():
                 "orientation": "portrait",
                 "start_url": "/",
                 "icons": [{
-                    "src": "[https://cdn-icons-png.flaticon.com/512/3004/3004416.png](https://cdn-icons-png.flaticon.com/512/3004/3004416.png)", 
+                    "src": "https://cdn-icons-png.flaticon.com/512/3004/3004416.png", 
                     "sizes": "512x512", 
                     "type": "image/png"
                 }]
@@ -137,16 +137,28 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def extrair_json_seguro(texto):
-    """Função blindada com RegEx para arrancar qualquer lixo em volta do JSON retornado pela IA."""
+    """Função blindada via RegEx para arrancar qualquer crase ou bloco de markdown indesejado"""
+    if not texto: return {}
+    texto = str(texto).strip()
+    
+    # Limpa aspas de bloco de código markdown geradas pela IA
+    texto = re.sub(r'^```(?:json)?\s*', '', texto, flags=re.IGNORECASE)
+    texto = re.sub(r'\s*
+```$', '', texto)
+    texto = texto.strip()
+    
     try:
-        # Busca recursivamente pelas chaves de abertura e fechamento que abraçam o JSON
-        match = re.search(r'\{.*\}', texto, re.DOTALL)
-        if match:
-            return json.loads(match.group(0))
         return json.loads(texto)
-    except Exception as e:
-        st.error(f"A IA enviou um formato impossível de ler. Retorno cru: {texto[:150]}...")
-        return {}
+    except:
+        try:
+            # Tenta encontrar e isolar o JSON na força bruta
+            match = re.search(r'(\{.*\})', texto, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+        except Exception as e:
+            st.error(f"A IA enviou um formato corrompido que não pôde ser limpo. Retorno cru: {texto[:150]}...")
+            return {}
+    return {}
 
 # ==========================================
 # CONSTANTES, CORES E BANCO DE IMAGENS OSCE
@@ -165,22 +177,22 @@ PRIORIDADES = {
 }
 
 BANCO_IMAGENS_OSCE = {
-    "ecg_normal": "[https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png](https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png)",
-    "ecg_infarto_supra": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png)",
-    "ecg_fibrilacao_atrial": "[https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png](https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png)",
-    "ecg_taquicardia_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png](https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png)",
-    "ecg_fibrilacao_ventricular": "[https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png)",
-    "rx_torax_normal": "[https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png](https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png)",
-    "rx_torax_pneumonia": "[https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg)",
-    "rx_torax_dpoc": "[https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg)",
-    "rx_torax_edema_agudo": "[https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg)",
-    "rx_torax_pneumotorax": "[https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg](https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg)",
-    "rx_abdomen_pneumoperitonio": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg)",
-    "tc_cranio_avci": "[https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg](https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg)",
-    "tc_cranio_avch": "[https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg)",
-    "tc_cranio_hsa": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg)",
-    "tc_cranio_normal": "[https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg](https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg)",
-    "usg_fast_positivo": "[https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg](https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg)"
+    "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
+    "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
+    "ecg_fibrilacao_atrial": "https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png",
+    "ecg_taquicardia_ventricular": "https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png",
+    "ecg_fibrilacao_ventricular": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png",
+    "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
+    "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
+    "rx_torax_dpoc": "https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg",
+    "rx_torax_edema_agudo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg",
+    "rx_torax_pneumotorax": "https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg",
+    "rx_abdomen_pneumoperitonio": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg",
+    "tc_cranio_avci": "https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg",
+    "tc_cranio_avch": "https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg",
+    "tc_cranio_hsa": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg",
+    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg",
+    "usg_fast_positivo": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -197,7 +209,7 @@ def renderizar_mensagem_osce(texto):
                 <div style="border: 1px solid #334155; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: #1e293b;">
                     <p style="color: #ef4444; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
                     <img src="{img_url}" 
-                         onerror="this.onerror=null; this.src='[https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg](https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg)';" 
+                         onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" 
                          style="width: 100%; border-radius: 5px;">
                 </div>
                 """
@@ -814,144 +826,45 @@ else:
     # ==========================================
     elif menu == "🧮 Calculadora de Doses":
         st.header("Calculadora Avançada (Diretrizes Nacionais)")
-        
         aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação", "🤰 Obstetrícia"])
-        
         with aba_doses:
             col_tipo, col_peso = st.columns(2)
             tipo_paciente = col_tipo.radio("Perfil:", ["Pediatria (Baseado em Peso)", "Adulto (Doses por Peso E Fixas)"])
             peso = col_peso.number_input("Peso do Paciente (kg)", min_value=0.5, value=70.0 if "Adulto" in tipo_paciente else 15.0, step=0.5)
-
-            farmaco_escolhido = st.selectbox("🔎 Busque a Medicação:", options=sorted(list(MEDICAMENTOS[tipo_paciente].keys())), index=None)
-
-            if farmaco_escolhido:
-                dados = MEDICAMENTOS[tipo_paciente][farmaco_escolhido]
-                st.divider(); st.subheader("📊 Conduta e Prescrição")
-
+            farmaco = st.selectbox("🔎 Busque a Medicação:", options=sorted(list(MEDICAMENTOS[tipo_paciente].keys())), index=None)
+            if farmaco:
+                dados = MEDICAMENTOS[tipo_paciente][farmaco]
+                st.divider(); st.subheader("📊 Prescrição")
                 if 'dose' in dados: 
-                    dose_calc = peso * dados['dose']
-                    dose_final = min(dose_calc, dados.get('max', float('inf')))
+                    dose_final = min(peso * dados['dose'], dados.get('max', float('inf')))
                     st.markdown(f"**Dose de Diretriz:** `{dados['dose']} {dados['unidade']}`")
-                    if 'max' in dados: st.markdown(f"**Dose Máxima Permitida:** `{dados['max']} mg/dose`")
-                    if 'max' in dados and dose_calc >= dados['max']:
-                        st.error(f"⚠️ A dose por peso ({dose_calc:.1f}) excedeu o teto. Prescrição travada na dose máxima.")
                     st.markdown(f"### ➡️ Dose Prescrita: `{dose_final:.1f} mg`")
                 elif 'dose_fixa' in dados: 
                     st.markdown(f"### ➡️ Dose Padrão/Ataque: `{dados['dose_fixa']}`")
-
-                st.markdown(f"**Via:** `{dados['via']}`")
-                st.success(f"**Preparo/OBS:** {dados['obs']}")
-                
+                st.success(f"**Preparo:** {dados['obs']}")
         with aba_holliday:
-            st.subheader("Regra de Holliday-Segar (Volume de Manutenção em 24h)")
-            peso_h = st.number_input("Peso da Criança (kg)", min_value=0.5, value=12.0, step=0.5)
-            
-            if peso_h <= 10:
-                vol_dia = peso_h * 100
-            elif peso_h <= 20:
-                vol_dia = 1000 + ((peso_h - 10) * 50)
-            else:
-                vol_dia = 1500 + ((peso_h - 20) * 20)
-                
-            st.info(f"Volume Total em 24h: **{vol_dia:.0f} mL**")
-            st.caption(f"Taxa de infusão na BIC: **{vol_dia/24:.1f} mL/h**")
-            st.markdown("*(Lembrete: Este cálculo estima as necessidades hídricas basais. Não substitui a reposição de perdas anormais ou a fase de expansão rápida no choque).*")
-
+            peso_h = st.number_input("Peso da Criança (kg)", min_value=0.5, value=12.0)
+            v = peso_h * 100 if peso_h <= 10 else (1000 + (peso_h-10)*50 if peso_h <= 20 else 1500 + (peso_h-20)*20)
+            st.info(f"Volume em 24h: **{v:.0f} mL**")
         with aba_obstetricia:
-            st.subheader("Calculadora de Idade Gestacional (IG) e DPP")
-            modo_obs = st.radio("Calcular a partir de:", ["DUM (Regra de Nagele)", "1º Ultrassom"])
-            
-            if modo_obs == "DUM (Regra de Nagele)":
-                dum = st.date_input("Selecione a DUM:", format="DD/MM/YYYY")
-                if dum:
-                    dias_gestacao = (hoje - dum).days
-                    semanas = dias_gestacao // 7
-                    dias_restantes = dias_gestacao % 7
-                    
-                    dia_n = dum.day + 7
-                    mes_n = dum.month
-                    ano_n = dum.year
-                    
-                    dias_no_mes = calendar.monthrange(ano_n, mes_n)[1]
-                    if dia_n > dias_no_mes:
-                        dia_n -= dias_no_mes
-                        mes_n += 1
-                        if mes_n > 12:
-                            mes_n = 1
-                            ano_n += 1
-                            
-                    if mes_n <= 3:
-                        mes_n += 9
-                    else:
-                        mes_n -= 3
-                        ano_n += 1
-                        
-                    dias_novo_mes = calendar.monthrange(ano_n, mes_n)[1]
-                    if dia_n > dias_novo_mes:
-                        dia_n = dias_novo_mes
-                        
-                    dpp_nagele = date(ano_n, mes_n, dia_n)
-                    
-                    if 0 <= dias_gestacao <= 300:
-                        st.success(f"**Idade Gestacional Atual:** {semanas} semanas e {dias_restantes} dias.")
-                        st.info(f"**Data Provável do Parto (DPP) - Regra de Nagele:** {dpp_nagele.strftime('%d/%m/%Y')}")
-                    elif dias_gestacao > 300:
-                        st.warning("⚠️ Atenção: A idade gestacional calculada ultrapassa 42 semanas.")
-                        st.success(f"**Idade Gestacional Atual:** {semanas} semanas e {dias_restantes} dias.")
-                        st.info(f"**Data Provável do Parto (DPP):** {dpp_nagele.strftime('%d/%m/%Y')}")
-                    else:
-                        st.warning("A data informada está no futuro.")
-                        
-            else:
-                data_usg = st.date_input("Data de realização do 1º USG:", format="DD/MM/YYYY")
-                col_u1, col_u2 = st.columns(2)
-                sem_usg = col_u1.number_input("Semanas constatadas no USG", min_value=0, max_value=42, value=8)
-                dias_usg = col_u2.number_input("Dias constatados no USG", min_value=0, max_value=6, value=0)
-                
-                if data_usg:
-                    dias_passados = (hoje - data_usg).days
-                    dias_totais_usg = (sem_usg * 7) + dias_usg
-                    dias_gestacao_atual = dias_totais_usg + dias_passados
-                    
-                    semanas_atual = dias_gestacao_atual // 7
-                    dias_atual = dias_gestacao_atual % 7
-                    
-                    dias_para_40_sem = 280 - dias_totais_usg
-                    dpp_usg = data_usg + timedelta(days=dias_para_40_sem)
-                    
-                    if dias_passados >= 0:
-                        st.success(f"**Idade Gestacional Atual:** {semanas_atual} semanas e {dias_atual} dias.")
-                        st.info(f"**Data Provável do Parto (DPP - Corrigida pelo USG):** {dpp_usg.strftime('%d/%m/%Y')}")
-                    else:
-                        st.warning("A data de realização do USG está no futuro.")
+            dum = st.date_input("DUM (Data da Última Menstruação)", format="DD/MM/YYYY")
+            dias_g = (hoje - dum).days
+            st.success(f"**Idade Gestacional:** {dias_g // 7} semanas e {dias_g % 7} dias.")
 
     elif menu == "📍 GPS da Aprovação":
-        st.header("GPS da Aprovação: Seu Radar de Residência")
-        especialidade_alvo = st.selectbox("🎯 Qual a sua Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
-        notas_corte = {"HRPP": {"Medicina Intensiva": 70, "Clínica Médica": 74, "Anestesiologia": 78, "Cardiologia": 73}, "USP-SP": {"Medicina Intensiva": 78, "Clínica Médica": 82, "Anestesiologia": 85, "Cardiologia": 80}, "UNICAMP": {"Medicina Intensiva": 77, "Clínica Médica": 81, "Anestesiologia": 83, "Cardiologia": 79}, "UNESP": {"Medicina Intensiva": 75, "Clínica Médica": 79, "Anestesiologia": 82, "Cardiologia": 77}, "FAMERP": {"Medicina Intensiva": 74, "Clínica Médica": 78, "Anestesiologia": 80, "Cardiologia": 76}, "UFPR": {"Medicina Intensiva": 73, "Clínica Médica": 77, "Anestesiologia": 81, "Cardiologia": 75}, "HUEC": {"Medicina Intensiva": 71, "Clínica Médica": 75, "Anestesiologia": 79, "Cardiologia": 74}, "AMP": {"Medicina Intensiva": 72, "Clínica Médica": 76, "Anestesiologia": 80, "Cardiologia": 75}}
-        
+        st.header("GPS da Aprovação")
+        alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
+        notas_corte = {"USP-SP": {"Medicina Intensiva": 78, "Clínica Médica": 82, "Anestesiologia": 85}, "UNICAMP": {"Medicina Intensiva": 77, "Clínica Médica": 81, "Anestesiologia": 83}}
         if dados_simulados:
-            notas_usuario = [float(s.get('minha_nota', 0)) for s in dados_simulados if safe_int(s.get('minha_nota', 0)) > 0]
-            if notas_usuario:
-                media_atual = sum(notas_usuario) / len(notas_usuario)
-                st.metric("Sua Média Atual (Aba Simulados)", f"{media_atual:.1f}%")
-                dados_gps = [{"Instituição": i, "Nota de Corte": c[especialidade_alvo], "Sua Média": round(media_atual, 1), "Status": "🟢 Aprovado" if (media_atual - c[especialidade_alvo]) >= 0 else ("🟡 Na Trave" if (media_atual - c[especialidade_alvo]) >= -5 else "🔴 Longe")} for i, c in notas_corte.items()]
-                df_gps = pd.DataFrame(dados_gps).sort_values("Nota de Corte", ascending=False)
-                fig = px.bar(df_gps, y="Instituição", x=["Sua Média", "Nota de Corte"], barmode="group", orientation='h', color_discrete_sequence=["#3b82f6", "#ef4444"])
-                st.plotly_chart(fig, use_container_width=True)
-                st.dataframe(df_gps.style.map(lambda v: "color: #22c55e; font-weight: bold" if "🟢" in str(v) else ("color: #eab308; font-weight: bold" if "🟡" in str(v) else "color: #ef4444; font-weight: bold"), subset=["Status"]), use_container_width=True)
+            notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
+            st.metric("Sua Média", f"{sum(notas)/len(notas):.1f}%")
 
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
         filtro_dash = st.selectbox("🎯 Filtrar Análise", ["Visão Global (Todas)"] + AREAS_MED, label_visibility="collapsed")
         
         qs_sess = [dict(q) for q in dados_questoes]
-        qs_revs = []
-        for r in dados_revisoes:
-            if str(r.get('status', '')).lower() in ["concluída", "concluida"]:
-                rev_copia = dict(r)
-                rev_copia['area_aula'] = mapa_aulas.get(str(rev_copia.get('aula_id')).strip(), {}).get('area', 'Geral')
-                qs_revs.append(rev_copia)
+        qs_revs = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
         if filtro_dash != "Visão Global (Todas)":
             qs_sess = [q for q in qs_sess if q.get('area') == filtro_dash]
@@ -1141,7 +1054,22 @@ else:
                     db.collection("questoes_sessoes").add(dados_nova_questao)
                     invalidar_cache()
                     st.rerun()
-            if dados_questoes: st.dataframe(pd.DataFrame([{"Data": formatar_data_br(b.get('data')), "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')), "Acertos": safe_int(b.get('acertos')), "Erros": safe_int(b.get('erros'))} for b in dados_questoes]), use_container_width=True)
+            
+            if dados_questoes: 
+                # ORDENAÇÃO E EXIBIÇÃO CORRETA DAS QUESTÕES NA TABELA
+                lista_q = []
+                for b in dados_questoes:
+                    lista_q.append({
+                        "Data_obj": parse_data(b.get('data')),
+                        "Data": formatar_data_br(b.get('data')),
+                        "Área": b.get('area'),
+                        "Subtema": limpar_texto(b.get('subtema')),
+                        "Acertos": safe_int(b.get('acertos')),
+                        "Erros": safe_int(b.get('erros'))
+                    })
+                df_q = pd.DataFrame(lista_q)
+                df_q = df_q.sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"])
+                st.dataframe(df_q, use_container_width=True)
                 
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
@@ -1388,8 +1316,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                 co, no = st.columns(2)
                 cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
                 if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
-                    novo_sim = {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl}
-                    db.collection("simulados").add(novo_sim)
+                    db.collection("simulados").add({"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
                     invalidar_cache()
                     st.rerun()
             if len(dados_simulados) >= 3:
@@ -1407,7 +1334,7 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
 
         with aba_simulado:
             st.subheader("Gerador de Questões Estruturadas (Motor Paginado)")
-            st.info("Para evitar que a IA pule questões da prova, o sistema agora lê e processa as imagens UMA POR UMA (1 imagem por lote).")
+            st.info("Para evitar que a IA pule questões, o sistema lê as páginas UMA POR UMA (1 imagem por lote). A imagem de referência ficará exposta em cada questão.")
             
             col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
@@ -1459,19 +1386,17 @@ O usuário É UM MÉDICO LICENCIADO E TREINADO. Forneça o conhecimento cru base
                         st.session_state.prova_ativa = []
                         st.session_state.respostas_usuario = {}
                         
-                        # BATCH SIZE 1 PARA NÃO PULAR NENHUMA QUESTÃO (MATA A PREGUIÇA DA IA)
-                        batch_size = 1
+                        # Processando 1 imagem por vez para garantir precisão máxima e não pular questões
                         total_batches = len(todas_imagens_b64)
-                        
-                        barra_progresso = st.progress(0, text="Iniciando a leitura das questões via IA...")
+                        barra_progresso = st.progress(0, text="Iniciando a leitura profunda das questões via IA...")
                         
                         for i in range(total_batches):
                             img_b64 = todas_imagens_b64[i]
                             
                             prompt = """Você é um preceptor de residência médica. Analise ESTA ÚNICA IMAGEM de prova e extraia TODAS as questões presentes APENAS NELA. É estritamente proibido pular questões.
-Para cada questão lida, identifique: O número da questão (se houver), o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo da resposta.
-Retorne APENAS um JSON no formato EXATO abaixo, sem nenhuma formatação de código markdown (crases) ao redor:
-{"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
+                            Para cada questão lida, identifique: O número da questão (se houver), o Enunciado completo, as Alternativas, o Gabarito Correto (Deduza se não for fornecido na imagem) e um Comentário explicativo da resposta.
+                            Retorne APENAS um JSON válido no formato EXATO abaixo, sem absolutamente nenhum texto extra em volta:
+                            {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             
                             conteudo_api = [
                                 {"type": "text", "text": prompt},
@@ -1487,12 +1412,18 @@ Retorne APENAS um JSON no formato EXATO abaixo, sem nenhuma formatação de cód
                                 )
                                 
                                 dados_extraidos = extrair_json_seguro(resposta.choices[0].message.content)
-                                st.session_state.prova_ativa.extend(dados_extraidos.get("questoes", []))
+                                questoes_lote = dados_extraidos.get("questoes", [])
+                                
+                                # Anexando a imagem original da página na questão extraída
+                                for q in questoes_lote:
+                                    q['imagem_fonte'] = img_b64
+                                    
+                                st.session_state.prova_ativa.extend(questoes_lote)
                             except Exception as e:
                                 st.warning(f"Atenção: Houve um pequeno erro ao processar a página {i+1} da prova. Detalhes: {e}")
                                 
                             barra_progresso.progress((i + 1) / total_batches, text=f"Lendo minuciosamente a prova... Página {i+1} de {total_batches} concluída.")
-                            time.sleep(1.5) # Pausa estratégica para a Groq não bloquear a API
+                            time.sleep(1.5)
                         
                         st.success(f"🎉 Extração 100% concluída! {len(st.session_state.prova_ativa)} questões carregadas e estruturadas.")
                         time.sleep(1)
@@ -1506,6 +1437,12 @@ Retorne APENAS um JSON no formato EXATO abaixo, sem nenhuma formatação de cód
                 for i, q in enumerate(st.session_state.prova_ativa):
                     with st.container(border=True):
                         st.markdown(f"**Questão {q.get('num', i+1)}**")
+                        
+                        # Renderiza a imagem original para o aluno ver ECG, gráficos, etc.
+                        if q.get('imagem_fonte'):
+                            with st.expander("🖼️ Ver Imagem/Página da Questão", expanded=True):
+                                st.image(base64.b64decode(q['imagem_fonte']), use_container_width=True)
+                                
                         st.write(q.get('texto', ''))
                         
                         opcoes_dict = q.get('opcoes', {})
