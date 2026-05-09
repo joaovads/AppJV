@@ -137,21 +137,17 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def extrair_json_seguro(texto):
-    """Função blindada via RegEx para arrancar qualquer crase ou bloco de markdown indesejado"""
+    """Função blindada sem Regex complexa para evitar erros de sintaxe."""
     if not texto: return {}
-    texto = str(texto).strip()
     
-    # Limpa aspas de bloco de código markdown geradas pela IA
-    texto = re.sub(r'^```(?:json)?\s*', '', texto, flags=re.IGNORECASE)
-    texto = re.sub(r'
-```$', '', texto)
-    texto = texto.strip()
+    # Limpa as aspas de markdown de forma bruta e segura
+    texto = texto.replace("```json", "").replace("```", "").strip()
     
     try:
         return json.loads(texto)
     except:
         try:
-            # Tenta encontrar e isolar o JSON na força bruta
+            # Tenta encontrar e isolar o JSON
             match = re.search(r'(\{.*\})', texto, re.DOTALL)
             if match:
                 return json.loads(match.group(1))
@@ -851,7 +847,7 @@ else:
             dias_g = (hoje - dum).days
             st.success(f"**Idade Gestacional:** {dias_g // 7} semanas e {dias_g % 7} dias.")
 
-    elif menu == "📍 GPS DA APROVAÇÃO":
+    elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
         alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
         notas_corte = {"USP-SP": {"Medicina Intensiva": 78, "Clínica Médica": 82, "Anestesiologia": 85}, "UNICAMP": {"Medicina Intensiva": 77, "Clínica Médica": 81, "Anestesiologia": 83}}
@@ -1316,8 +1312,7 @@ else:
                 co, no = st.columns(2)
                 cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
                 if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
-                    novo_sim = {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl}
-                    db.collection("simulados").add(novo_sim)
+                    db.collection("simulados").add({"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
                     invalidar_cache()
                     st.rerun()
             if len(dados_simulados) >= 3:
@@ -1387,10 +1382,8 @@ else:
                         st.session_state.prova_ativa = []
                         st.session_state.respostas_usuario = {}
                         
-                        # BATCH SIZE 1 PARA NÃO PULAR NENHUMA QUESTÃO (MATA A PREGUIÇA DA IA)
-                        batch_size = 1
+                        # Processando 1 imagem por vez para garantir precisão máxima e não pular questões
                         total_batches = len(todas_imagens_b64)
-                        
                         barra_progresso = st.progress(0, text="Iniciando a leitura profunda das questões via IA...")
                         
                         for i in range(total_batches):
