@@ -598,41 +598,83 @@ else:
     dados_cronogramas = _dados_cache.get("cronogramas", [])
 
     modo = user_settings.get("tema_modo", "Escuro")
-    bg_color = "#0e1117" if modo == "Escuro" else "#f8f9fa"
-    text_color = "#ffffff" if modo == "Escuro" else "#0f172a"
-    metric_bg = "#1e293b" if modo == "Escuro" else "#ffffff"
-    metric_border = "#334155" if modo == "Escuro" else "#e2e8f0"
-    sidebar_bg = "#11151c" if modo == "Escuro" else "#f1f5f9"
-    input_bg = "#1e293b" if modo == "Escuro" else "#ffffff"
     
+    if modo == "Escuro":
+        bg_color = "#0e1117"
+        text_color = "#f8fafc"
+        metric_bg = "#1e293b"
+        metric_border = "#334155"
+        sidebar_bg = "#11151c"
+        input_bg = "#1e293b"
+        menu_text = "#94a3b8"
+        menu_hover = "#1e293b"
+        menu_active_bg = "#0ea5e9" # Azul/Teal estilo Estratégia
+    else:
+        bg_color = "#f1f5f9" # Fundo levemente cinza para destacar os cards brancos
+        text_color = "#0f172a"
+        metric_bg = "#ffffff"
+        metric_border = "#e2e8f0"
+        sidebar_bg = "#ffffff"
+        input_bg = "#ffffff"
+        menu_text = "#64748b"
+        menu_hover = "#f8fafc"
+        menu_active_bg = "#0ea5e9"
+
     st.markdown(f"""
     <style>
-    /* Forçar Fundo e Texto Global */
-    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; color: {text_color} !important; }}
-    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; }}
-    [data-testid="stHeader"] {{ background-color: transparent !important; }}
+    /* FUNDO GERAL */
+    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; }}
+    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border}; }}
     
-    /* Textos (Exceto spans coloridos e timer) */
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, label, .stMarkdown {{ color: {text_color} !important; }}
+    /* TEXTOS GERAIS */
+    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; }}
     
-    /* Botões Vermelhos sempre visíveis */
-    .stButton > button {{ background-color: #ef4444 !important; border: none !important; border-radius: 6px !important; }}
-    .stButton > button, .stButton > button p, .stButton > button span {{ color: white !important; font-weight: bold !important; }}
+    /* CORREÇÃO DE INPUTS (Tema Claro usável) */
+    .stTextInput input, .stTextArea textarea, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {{
+        background-color: {input_bg} !important;
+        color: {text_color} !important;
+        border: 1px solid {metric_border} !important;
+    }}
+    ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
+    ul[data-baseweb="menu"] li {{ color: {text_color} !important; background-color: {input_bg} !important; }}
     
-    /* Caixas (Expanders e Metrics) */
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; border-radius: 8px; background-color: {metric_bg} !important; }}
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-    div[data-testid="stMetricLabel"] *, div[data-testid="stMetricValue"] * {{ color: {text_color} !important; }}
+    /* MENU LATERAL - ESTILO ESTRATÉGIA MED */
+    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{
+        display: none !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-bottom: 4px;
+        transition: all 0.2s ease;
+        background-color: transparent;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{
+        background-color: {menu_hover};
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{
+        font-size: 16px;
+        font-weight: 500;
+        color: {menu_text} !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
+        background-color: {menu_active_bg} !important;
+        box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }}
+
+    /* BOTÕES AÇÃO */
+    .stButton>button {{ background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important; }} 
     
-    /* Imagem Perfil */
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #ef4444; width: 120px; height: 120px; display: block; margin: 0 auto; }}
+    /* CARDS E MÉTRICAS */
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; border-radius: 8px; background-color: {metric_bg} !important; }} 
+    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
     
-    /* Inputs */
-    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {{ background-color: {input_bg} !important; border-color: {metric_border} !important; }}
-    input, textarea, div[data-baseweb="select"] span {{ color: {text_color} !important; }}
-    
-    /* Tabelas e Dataframes */
-    [data-testid="stDataFrame"] {{ background-color: {metric_bg} !important; }}
+    /* FOTO DE PERFIL */
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid {menu_active_bg}; width: 120px; height: 120px; display: block; margin: 0 auto; }}
     </style>
     """, unsafe_allow_html=True)
 
