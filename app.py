@@ -52,7 +52,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="ResiPRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DOS MODELOS DA GROQ
 MODELO_VISAO = "meta-llama/llama-4-scout-17b-16e-instruct"
