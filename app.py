@@ -577,7 +577,19 @@ else:
 
     modo = user_settings.get("tema_modo", "Escuro")
     bg_color, text_color = ("#0e1117", "#ffffff") if modo == "Escuro" else ("#f8f9fa", "#0f172a")
-    st.markdown(f"<style>.stApp {{ background-color: {bg_color}; color: {text_color}; }} .stButton>button {{ background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important; }} div[data-testid='stExpander'] {{ border: 1px solid #334155; border-radius: 8px; }} .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #ef4444; width: 120px; height: 120px; display: block; margin: 0 auto; }}</style>", unsafe_allow_html=True)
+    metric_bg = "#1e293b" if modo == "Escuro" else "#ffffff"
+    metric_border = "#334155" if modo == "Escuro" else "#e2e8f0"
+    
+    st.markdown(f"""
+    <style>
+    .stApp {{ background-color: {bg_color}; color: {text_color}; }} 
+    .stButton>button {{ background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important; }} 
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border}; border-radius: 8px; }} 
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #ef4444; width: 120px; height: 120px; display: block; margin: 0 auto; }}
+    /* Formatação dos Cards das Métricas */
+    div[data-testid="metric-container"] {{ background-color: {metric_bg}; border: 1px solid {metric_border}; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+    </style>
+    """, unsafe_allow_html=True)
 
     if user_settings.get('foto_perfil') and os.path.exists(user_settings['foto_perfil']):
         st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{get_image_base64(user_settings["foto_perfil"])}" class="profile-img">', unsafe_allow_html=True)
@@ -855,41 +867,62 @@ else:
             notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
             st.metric("Sua Média", f"{sum(notas)/len(notas):.1f}%")
 
+    # -------------------------------------------------------------------------
+    # TELA: DASHBOARD REESTRUTURADO EM ABAS
+    # -------------------------------------------------------------------------
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
-        filtro_dash = st.selectbox("🎯 Filtrar Análise", ["Visão Global (Todas)"] + AREAS_MED, label_visibility="collapsed")
         
-        qs_sess = [dict(q) for q in dados_questoes]
-        qs_revs = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
+        qs_sess_all = [dict(q) for q in dados_questoes]
+        qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
-        if filtro_dash != "Visão Global (Todas)":
-            qs_sess = [q for q in qs_sess if q.get('area') == filtro_dash]
-            qs_revs = [r for r in qs_revs if r.get('area_aula') == filtro_dash]
+        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
+        
+        with aba_geral:
+            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all)
+            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all)
+            t_questoes_g = t_acertos_g + t_erros_g
             
-        t_acertos = sum(safe_int(q.get('acertos')) for q in qs_sess) + sum(safe_int(r.get('acertos')) for r in qs_revs)
-        t_erros = sum(safe_int(q.get('erros')) for q in qs_sess) + sum(safe_int(r.get('erros')) for r in qs_revs)
-        t_questoes = t_acertos + t_erros
-        
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Questões Totais", t_questoes)
-        c2.metric("🟢 Acertos", t_acertos)
-        c3.metric("🔴 Erros", t_erros)
-        c4.metric("🎯 Taxa de Acerto", f"{(t_acertos / t_questoes * 100) if t_questoes > 0 else 0:.1f}%")
-        st.divider()
-        
-        col_g1, col_g2 = st.columns([1, 1.5])
-        with col_g1:
-            if t_questoes > 0: 
-                st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos, t_erros], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
-            else:
-                st.info("Registre questões para ver o gráfico.")
-        with col_g2:
-            if filtro_dash == "Visão Global (Todas)":
-                df_r = pd.DataFrame([{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs])
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Questões Totais", t_questoes_g)
+            c2.metric("🟢 Acertos", t_acertos_g)
+            c3.metric("🔴 Erros", t_erros_g)
+            c4.metric("🎯 Taxa de Acerto", f"{(t_acertos_g / t_questoes_g * 100) if t_questoes_g > 0 else 0:.1f}%")
+            
+            st.divider()
+            
+            col_g1, col_g2 = st.columns([1, 1.5])
+            with col_g1:
+                if t_questoes_g > 0: 
+                    st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
+                else:
+                    st.info("Registre questões para ver o gráfico.")
+            with col_g2:
+                df_r = pd.DataFrame([{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all])
                 if not df_r.empty:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     st.plotly_chart(px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS).update_layout(showlegend=False), use_container_width=True)
+
+        with aba_detalhada:
+            filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
+            
+            qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
+            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula') == filtro_dash]
+            
+            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f)
+            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f)
+            t_questoes_f = t_acertos_f + t_erros_f
+            
+            c1_f, c2_f, c3_f = st.columns(3)
+            c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
+            c2_f.metric("🟢 Acertos", t_acertos_f)
+            c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
+            
+            if t_questoes_f > 0:
+                st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
+            else:
+                st.info(f"Nenhuma questão registrada para {filtro_dash} ainda.")
 
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador de Ciclos")
@@ -1566,7 +1599,7 @@ else:
         with aba1:
             uf = st.file_uploader("Substituir Foto de Perfil", type=['jpg', 'png'])
             if uf and st.button("Confirmar Foto", use_container_width=True):
-                p = os.path.join(PROFILE_PICS_DIR, f"{u_id}.jpg")
+                p = os.path.join("fotos_perfil", f"{u_id}.jpg")
                 with open(p, "wb") as f: f.write(uf.getbuffer())
                 db.collection("usuarios").document(u_id).update({"foto_perfil": p})
                 st.session_state.user_settings["foto_perfil"] = p
