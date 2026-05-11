@@ -192,6 +192,10 @@ BANCO_IMAGENS_OSCE = {
 }
 
 def renderizar_mensagem_osce(texto):
+    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
+    bg_osce = "#1e293b" if modo == "Escuro" else "#f8f9fa"
+    bd_osce = "#334155" if modo == "Escuro" else "#e2e8f0"
+    
     padrao = r"(?i)\[EXAME:\s*([^\]]+)\]"
     partes = re.split(padrao, texto)
     for i, parte in enumerate(partes):
@@ -202,7 +206,7 @@ def renderizar_mensagem_osce(texto):
             if chave in BANCO_IMAGENS_OSCE:
                 img_url = BANCO_IMAGENS_OSCE[chave]
                 html_str = f"""
-                <div style="border: 1px solid #334155; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: #1e293b;">
+                <div style="border: 1px solid {bd_osce}; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: {bg_osce};">
                     <p style="color: #ef4444; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
                     <img src="{img_url}" 
                          onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" 
@@ -397,43 +401,61 @@ def get_user_docs(collection_name, user_id):
         return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
+    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
+    bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
+    bd_cl = "#334155" if modo == "Escuro" else "#e2e8f0"
+    bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
+    bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
+    tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
+    tc_st = "#f8fafc" if modo == "Escuro" else "#0f172a"
+    tc_em = "#475569" if modo == "Escuro" else "#cbd5e1"
+    
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
     for a in aulas_lista:
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px; margin-top:5px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:#94a3b8;'>Seg</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Ter</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qua</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qui</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sex</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sáb</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Dom</th></tr>"
+    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-top:5px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:{tc_th};'>Seg</th><th style='text-align:center; padding:5px; color:{tc_th};'>Ter</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qua</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qui</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sex</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sáb</th><th style='text-align:center; padding:5px; color:{tc_th};'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
-            if day == 0: codigo_html += "<td style='border:1px solid #334155; padding:10px; background:#0e1117;'></td>"
+            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em};'></td>"
             else:
                 if day in aulas_dict:
                     temas = "".join([f"<div style='background:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(a.get('tema', 'Aula')))}'>{html.escape(limpar_texto(a.get('tema', 'Aula')))}</div>" for a in aulas_dict[day]])
-                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; vertical-align:top; height:80px;'><strong style='color:#f8fafc;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; vertical-align:top; color:#475569; height:80px;'><strong>{day}</strong></td>"
+                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl}; vertical-align:top; height:80px;'><strong style='color:{tc_st};'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; color:{tc_em}; height:80px;'><strong>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
+    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
+    bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
+    bd_cl = "#334155" if modo == "Escuro" else "#e2e8f0"
+    bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
+    bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
+    tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
+    tc_st = "#f8fafc" if modo == "Escuro" else "#0f172a"
+    tc_em = "#475569" if modo == "Escuro" else "#cbd5e1"
+    
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
     for r in revisoes_lista:
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    codigo_html = f"<div style='background:#1e212b; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:#94a3b8;'>Seg</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Ter</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qua</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Qui</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sex</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Sáb</th><th style='text-align:center; padding:5px; color:#94a3b8;'>Dom</th></tr>"
+    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:{tc_th};'>Seg</th><th style='text-align:center; padding:5px; color:{tc_th};'>Ter</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qua</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qui</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sex</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sáb</th><th style='text-align:center; padding:5px; color:{tc_th};'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
-            if day == 0: codigo_html += "<td style='border:1px solid #334155; padding:10px; background:#0e1117;'></td>"
+            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em};'></td>"
             else:
                 if day in revs_dict:
                     temas = "".join([f"<div style='background:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    codigo_html += f"<td style='border:1px solid #334155; padding:5px; background:#1e293b; vertical-align:top; height:80px;'><strong style='color:#f8fafc;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid #334155; padding:5px; vertical-align:top; color:#475569; height:80px;'><strong>{day}</strong></td>"
+                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl}; vertical-align:top; height:80px;'><strong style='color:{tc_st};'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; color:{tc_em}; height:80px;'><strong>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
@@ -576,18 +598,41 @@ else:
     dados_cronogramas = _dados_cache.get("cronogramas", [])
 
     modo = user_settings.get("tema_modo", "Escuro")
-    bg_color, text_color = ("#0e1117", "#ffffff") if modo == "Escuro" else ("#f8f9fa", "#0f172a")
+    bg_color = "#0e1117" if modo == "Escuro" else "#f8f9fa"
+    text_color = "#ffffff" if modo == "Escuro" else "#0f172a"
     metric_bg = "#1e293b" if modo == "Escuro" else "#ffffff"
     metric_border = "#334155" if modo == "Escuro" else "#e2e8f0"
+    sidebar_bg = "#11151c" if modo == "Escuro" else "#f1f5f9"
+    input_bg = "#1e293b" if modo == "Escuro" else "#ffffff"
     
     st.markdown(f"""
     <style>
-    .stApp {{ background-color: {bg_color}; color: {text_color}; }} 
-    .stButton>button {{ background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important; }} 
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border}; border-radius: 8px; }} 
+    /* Forçar Fundo e Texto Global */
+    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; color: {text_color} !important; }}
+    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; }}
+    [data-testid="stHeader"] {{ background-color: transparent !important; }}
+    
+    /* Textos (Exceto spans coloridos e timer) */
+    h1:not(#tmr), h2, h3, h4, h5, h6, p, label, .stMarkdown {{ color: {text_color} !important; }}
+    
+    /* Botões Vermelhos sempre visíveis */
+    .stButton > button {{ background-color: #ef4444 !important; border: none !important; border-radius: 6px !important; }}
+    .stButton > button, .stButton > button p, .stButton > button span {{ color: white !important; font-weight: bold !important; }}
+    
+    /* Caixas (Expanders e Metrics) */
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; border-radius: 8px; background-color: {metric_bg} !important; }}
+    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+    div[data-testid="stMetricLabel"] *, div[data-testid="stMetricValue"] * {{ color: {text_color} !important; }}
+    
+    /* Imagem Perfil */
     .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #ef4444; width: 120px; height: 120px; display: block; margin: 0 auto; }}
-    /* Formatação dos Cards das Métricas */
-    div[data-testid="metric-container"] {{ background-color: {metric_bg}; border: 1px solid {metric_border}; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+    
+    /* Inputs */
+    div[data-baseweb="input"] > div, div[data-baseweb="select"] > div, div[data-baseweb="textarea"] > div {{ background-color: {input_bg} !important; border-color: {metric_border} !important; }}
+    input, textarea, div[data-baseweb="select"] span {{ color: {text_color} !important; }}
+    
+    /* Tabelas e Dataframes */
+    [data-testid="stDataFrame"] {{ background-color: {metric_bg} !important; }}
     </style>
     """, unsafe_allow_html=True)
 
