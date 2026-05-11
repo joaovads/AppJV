@@ -1710,7 +1710,8 @@ else:
             st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
             
             df_u = pd.DataFrame([{"ID da Nuvem": u.id, "Identificação": u.to_dict().get('nome')} for u in usuarios_todos])
-            st.dataframe(df_u, use_container_width=True)
+            # Esconde a coluna do ID visualmente, mas mantém o nome
+            st.dataframe(df_u, use_container_width=True, column_config={"ID da Nuvem": None})
             
             ca, cb, cc = st.columns(3)
             with ca:
