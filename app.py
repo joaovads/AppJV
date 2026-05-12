@@ -214,10 +214,14 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
-    texto = texto.replace("```json", "")
-    texto = texto.replace("
-```", "")
+    
+    # Criando as crases matematicamente para o GitHub não bugar a linha
+    crases = chr(96) + chr(96) + chr(96)
+    
+    texto = texto.replace(crases + "json", "")
+    texto = texto.replace(crases, "")
     texto = texto.strip()
+    
     try:
         return json.loads(texto)
     except:
