@@ -138,8 +138,12 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
-    texto = texto.replace("```json", "").replace("
-```", "").strip()
+    
+    # Linhas separadas para blindar contra erros de copiar/colar
+    texto = texto.replace("```json", "")
+    texto = texto.replace("```", "")
+    texto = texto.strip()
+    
     try:
         return json.loads(texto)
     except:
@@ -148,7 +152,7 @@ def extrair_json_seguro(texto):
             if match:
                 return json.loads(match.group(1))
         except Exception as e:
-            st.error(f"A IA enviou um formato corrompido que não pôde ser limpo.")
+            st.error("A IA enviou um formato corrompido que não pôde ser limpo.")
             return {}
     return {}
 
