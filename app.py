@@ -91,6 +91,87 @@ def ativar_pwa():
 ativar_pwa()
 
 # ==========================================
+# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS
+# ==========================================
+def aplicar_css_tema(modo):
+    if modo == "Escuro":
+        bg_color = "#0e1117"
+        text_color = "#f8fafc"
+        metric_bg = "#1e293b"
+        metric_border = "#334155"
+        sidebar_bg = "#11151c"
+        input_bg = "#1e293b"
+        input_text = "#f8fafc"
+        menu_text = "#94a3b8"
+        menu_hover = "#334155"
+        bg_tabela = "#1e293b"
+        cor_texto_tabela = "#f8fafc"
+    else:
+        bg_color = "#f8f9fa"
+        text_color = "#0f172a"
+        metric_bg = "#ffffff"
+        metric_border = "#cbd5e1"
+        sidebar_bg = "#ffffff"
+        input_bg = "#ffffff"
+        input_text = "#0f172a"
+        menu_text = "#64748b"
+        menu_hover = "#f1f5f9"
+        bg_tabela = "#f1f5f9"
+        cor_texto_tabela = "#0f172a"
+
+    css_str = f"""
+    <style>
+    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
+    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; }}
+    
+    /* INPUTS GERAIS */
+    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
+        background-color: {input_bg} !important; border: 1px solid {metric_border} !important;
+    }}
+    input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
+    
+    /* CORREÇÃO DAS CAIXAS DE SELEÇÃO E OPÇÕES INVISÍVEIS */
+    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
+    ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; }}
+    ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
+    
+    /* CHAT IA */
+    [data-testid="stChatInput"] {{ background-color: {bg_color} !important; }}
+    [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
+    
+    /* TODOS OS BOTÕES AZUIS */
+    button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
+        background-color: #2563eb !important; border: none !important; border-radius: 6px !important;
+    }}
+    button p, button span, button div {{ color: white !important; font-weight: bold !important; }}
+    
+    /* ABAS (TABS) COM TEXTO LEGÍVEL */
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; }}
+    
+    /* TABELAS */
+    [data-testid="stDataFrame"] > div, [data-testid="stTable"] {{ background-color: {bg_tabela} !important; }}
+    th, td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; border: 1px solid {metric_border} !important; }}
+    
+    /* CAIXAS E MÉTRICAS */
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 8px; }}
+    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; }}
+    
+    /* MENU LATERAL */
+    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 4px; background-color: transparent; transition: all 0.2s ease; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 16px; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
+    
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; width: 120px; height: 120px; display: block; margin: 0 auto; }}
+    </style>
+    """
+    st.markdown(css_str, unsafe_allow_html=True)
+
+
+# ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
 # ==========================================
 CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
@@ -113,7 +194,7 @@ def init_firebase():
 
 db = init_firebase()
 
-for d in ["materiais_estudo", "imagens_flashcards", "fotos_perfil"]:
+for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
@@ -134,7 +215,8 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     texto = texto.replace("```json", "")
-    texto = texto.replace("```", "")
+    texto = texto.replace("
+```", "")
     texto = texto.strip()
     try:
         return json.loads(texto)
@@ -161,20 +243,9 @@ PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Verm
 BANCO_IMAGENS_OSCE = {
     "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
     "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
-    "ecg_fibrilacao_atrial": "https://upload.wikimedia.org/wikipedia/commons/a/a2/Atrial_fibrillation_ecg.png",
-    "ecg_taquicardia_ventricular": "https://upload.wikimedia.org/wikipedia/commons/4/41/Ventricular_tachycardia.png",
-    "ecg_fibrilacao_ventricular": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Ventricular_fibrillation_-_lead_II.png/800px-Ventricular_fibrillation_-_lead_II.png",
     "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
     "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
-    "rx_torax_dpoc": "https://upload.wikimedia.org/wikipedia/commons/0/00/Emphysema_chest_x-ray.jpg",
-    "rx_torax_edema_agudo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Pulmonary_edema_chest_X-ray.jpg/800px-Pulmonary_edema_chest_X-ray.jpg",
-    "rx_torax_pneumotorax": "https://upload.wikimedia.org/wikipedia/commons/9/98/Pneumothorax.jpg",
-    "rx_abdomen_pneumoperitonio": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Pneumoperitoneum.jpg/800px-Pneumoperitoneum.jpg",
-    "tc_cranio_avci": "https://upload.wikimedia.org/wikipedia/commons/d/da/Ischemic_stroke_MCA_territory.jpg",
-    "tc_cranio_avch": "https://upload.wikimedia.org/wikipedia/commons/3/30/Intracerebral_hemorrhage.jpg",
-    "tc_cranio_hsa": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Subarachnoid_hemorrhage.jpg/800px-Subarachnoid_hemorrhage.jpg",
-    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg",
-    "usg_fast_positivo": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Morison%27s_pouch_fluid.jpg"
+    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -201,132 +272,13 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 MEDICAMENTOS = {
     "Pediatria (Baseado em Peso)": {
-        "Acetilcisteína (Mucolítico)": {"dose_fixa": "5 mL", "via": "VO", "obs": "Crianças > 2 anos: Xarope 20mg/mL (5mL), 2 a 3 vezes ao dia."},
-        "Adrenalina (Anafilaxia)": {"dose": 0.01, "unidade": "mg/kg", "max": 0.3, "via": "IM", "obs": "0,01 mL/kg da ampola 1:1.000 no vasto lateral."},
-        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solution 1:10.000 a cada 3-5 minutos."},
-        "Amiodarona (PCR)": {"dose": 5, "unidade": "mg/kg", "max": 300, "via": "EV Bolus", "obs": "Dose de ataque em Parada Cardiorrespiratória."},
-        "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."},
-        "Amoxicilina + Clavulanato": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Cálculo pela amoxicilina. Dividir em 2 tomadas (12/12h)."},
-        "Atropina (Bradicardia)": {"dose": 0.02, "unidade": "mg/kg", "max": 0.5, "via": "EV", "obs": "Dose mínima: 0,1mg. Dose máxima: 0,5mg."},
-        "Azitromicina (Respiratória)": {"dose": 10, "unidade": "mg/kg/dia", "max": 500, "via": "VO", "obs": "Dose única diária por 3 a 5 dias."},
-        "Cefalexina (Pele/Partes Moles)": {"dose": 50, "unidade": "mg/kg/dia", "max": 2000, "via": "VO", "obs": "25-50 mg/kg/dia, dividir em 4 tomadas (6/6h)."},
-        "Ceftriaxona (Pneumonia/Sepse)": {"dose": 50, "unidade": "mg/kg/dia", "max": 2000, "via": "EV / IM", "obs": "Dividir em 1 ou 2 doses. Meningite: 100mg/kg/dia."},
-        "Dexametasona (Crupe/Asma)": {"dose": 0.6, "unidade": "mg/kg", "max": 10, "via": "VO/IM/EV", "obs": "Laringite (Croup): 0,6 mg/kg dose única. Asma: 0,15 a 0,3 mg/kg/dose."},
-        "Diazepam (Crise Convulsiva)": {"dose": 0.3, "unidade": "mg/kg", "max": 10, "via": "EV / Retal", "obs": "0,2 a 0,3 mg/kg EV lento (1mg/min) ou via retal."},
         "Dipirona (Febre/Dor)": {"dose": 20, "unidade": "mg/kg", "max": 1000, "via": "VO / EV", "obs": "EV: 15-20 mg/kg/dose a cada 6h. VO: 1 gota/kg."},
-        "Escopolamina + Dipirona (Buscopan Comp)": {"dose": 1, "unidade": "gota/kg", "max": 40, "via": "VO", "obs": "1 gota por kg (> 1 ano), até 4 vezes ao dia."},
-        "Fenitoína (Ataque Convulsão)": {"dose": 20, "unidade": "mg/kg", "max": 1000, "via": "EV em BIC", "obs": "15-20 mg/kg. NÃO exceder 1mg/kg/min (criança)."},
-        "Ferro Profilático (RN Prematuro < 37s)": {"dose": 3, "unidade": "mg/kg/dia", "max": 50, "via": "VO", "obs": "2 a 4 mg/kg/dia. Início com 30 dias até 2 anos."},
-        "Ferro Profilático (RN Termo AME)": {"dose": 1, "unidade": "mg/kg/dia", "max": 50, "via": "VO", "obs": "A partir dos 3 meses de vida até os 2 anos."},
-        "Furosemida (Diurético)": {"dose": 2, "unidade": "mg/kg", "max": 40, "via": "VO / EV", "obs": "1-2 mg/kg/dose."},
-        "Hidrocortisona (Crise Asma)": {"dose": 5, "unidade": "mg/kg", "max": 500, "via": "EV", "obs": "Ataque: 4 a 5 mg/kg. Manutenção: 1-2 mg/kg/dose a cada 6h."},
-        "Ibuprofeno (Febre/Dor)": {"dose": 10, "unidade": "mg/kg", "max": 600, "via": "VO", "obs": "5-10 mg/kg/dose (> 6 meses) a cada 8h (com refeições)."},
-        "Metilprednisolona": {"dose": 2, "unidade": "mg/kg/dia", "max": 125, "via": "EV", "obs": "1 a 2 mg/kg/dia, dividido em 2 doses (12/12h)."},
-        "Metronidazol": {"dose": 7.5, "unidade": "mg/kg", "max": 500, "via": "EV", "obs": "7,5 mg/kg/dose a cada 8h."},
-        "Morfina (Dor Intensa)": {"dose": 0.1, "unidade": "mg/kg", "max": 4, "via": "EV Lento", "obs": "0,05 a 0,1 mg/kg/dose EV lento. CUIDADO COM OPIOIDE."},
-        "Nitrofurantoína (ITU)": {"dose": 7, "unidade": "mg/kg/dia", "max": 400, "via": "VO", "obs": "Crianças > 1 mês: 5-7 mg/kg/dia, dividir de 6/6h."},
-        "Omeprazol / Pantoprazol": {"dose": 1, "unidade": "mg/kg/dia", "max": 40, "via": "EV / VO", "obs": "1 mg/kg/dia em jejum."},
-        "Ondansetrona (Zofran)": {"dose": 0.15, "unidade": "mg/kg", "max": 8, "via": "EV", "obs": "0,15 mg/kg/dose EV lento."},
         "Paracetamol (Febre/Dor)": {"dose": 15, "unidade": "mg/kg", "max": 750, "via": "VO", "obs": "10-15 mg/kg/dose a cada 6h. Gotas 200mg/mL: 1 gota/kg."},
-        "Prednisolona / Prednisona": {"dose": 2, "unidade": "mg/kg/dia", "max": 60, "via": "VO", "obs": "1 a 2 mg/kg/dia, dose única, por 3 a 5 dias."},
-        "Salbutamol (Crise Asmática)": {"dose": 0.33, "unidade": "gota/kg", "max": 15, "via": "NBZ", "obs": "1 gota para cada 3-4 kg (máx 15) + 3-5mL SF 0,9%. Repetir 20/20m."},
-        "Soro Fisiológico 0.9% (Choque)": {"dose": 20, "unidade": "mL/kg", "max": 1000, "via": "EV Bolus", "obs": "Correr em 20-30 min. Repetir até 3x se choque persistir."},
-        "Tramadol": {"dose": 2, "unidade": "mg/kg", "max": 100, "via": "EV", "obs": "1-2 mg/kg/dose a cada 6-8h."},
-        "Vancomicina": {"dose": 60, "unidade": "mg/kg/dia", "max": 2000, "via": "EV", "obs": "40-60 mg/kg/dia dividido de 6-8h. BIC em pelo menos 1h."}
+        "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."}
     },
     "Adulto (Doses por Peso E Fixas)": {
         "AAS (SCA)": {"dose_fixa": "150-300 mg", "via": "VO (Mastigar)", "obs": "3 comprimidos infantis de 100mg macerados na boca."},
-        "Acetilcisteína (Mucolítico)": {"dose_fixa": "600 mg (15mL)", "via": "VO", "obs": "Xarope 40mg/mL (15mL), 1 vez ao dia."},
-        "Ácido Fólico (Gestante)": {"dose_fixa": "5 mg", "via": "VO", "obs": "1 cp/dia. Iniciar 3 meses antes da concepção."},
-        "Adenosina (TPSV)": {"dose_fixa": "6 mg", "via": "EV Bolus Rápido", "obs": "Push rápido + flush 20mL SF. Se refratário: 12mg."},
-        "Adrenalina (Anafilaxia)": {"dose_fixa": "0.3 a 0.5 mg", "via": "IM", "obs": "No vasto lateral da coxa. Ampola pura (1:1.000)."},
-        "Adrenalina (PCR)": {"dose_fixa": "1 mg", "via": "EV Bolus", "obs": "1 ampola pura a cada 3 a 5 minutos na RCP."},
-        "Alteplase (AVC Isquêmico)": {"dose": 0.9, "unidade": "mg/kg", "max": 90, "via": "EV", "obs": "10% bolus de 1 min. 90% em BIC por 60 min."},
-        "Amiodarona (PCR FV/TV)": {"dose_fixa": "300 mg", "via": "EV Bolus", "obs": "1ª dose (2 ampolas) pura na PCR. 2ª dose: 150mg."},
-        "Amiodarona (Taquicardia Estável)": {"dose_fixa": "150 mg", "via": "EV Lento", "obs": "Diluir 1 amp em 100mL SG 5%. Correr em 10 minutos."},
-        "Amoxicilina": {"dose_fixa": "500 mg", "via": "VO", "obs": "De 8/8h por 7 dias."},
-        "Amoxicilina + Clavulanato": {"dose_fixa": "875 / 125 mg", "via": "VO", "obs": "1 cp de 12/12h por 7 a 10 dias."},
-        "Anlodipino (HAS)": {"dose_fixa": "5 a 10 mg", "via": "VO", "obs": "1 a 2x ao dia."},
-        "Atenolol (HAS)": {"dose_fixa": "25 a 100 mg", "via": "VO", "obs": "Uma vez ao dia."},
-        "Atorvastatina (Dislipidemia)": {"dose_fixa": "40 a 80 mg", "via": "VO", "obs": "Dose única diária. Qualquer hora do dia."},
-        "Atropina (Bradicardia)": {"dose_fixa": "0.5 a 1 mg", "via": "EV Bolus", "obs": "Repetir a cada 3-5 min. Máx: 3mg."},
-        "Azitromicina": {"dose_fixa": "500 mg", "via": "VO", "obs": "1 cp/dia por 3 a 5 dias."},
-        "Bezafibrato (Triglicerídeos)": {"dose_fixa": "200 mg", "via": "VO", "obs": "3 vezes ao dia junto com refeições."},
-        "Bicarbonato de Sódio 8.4% (PCR)": {"dose": 1, "unidade": "mEq/kg", "max": 150, "via": "EV", "obs": "Dose inicial: 1 mEq/Kg (1 ml = 1 mEq)."},
-        "Buspirona (Ansiedade)": {"dose_fixa": "5 mg", "via": "VO", "obs": "Ansiolítico SUS."},
-        "Captopril (HAS Urgência)": {"dose_fixa": "25 a 75 mg", "via": "VO", "obs": "Até 3x ao dia (geralmente 1h antes refeições)."},
-        "Carvedilol (ICC/HAS)": {"dose_fixa": "3.125 a 25 mg", "via": "VO", "obs": "1 a 2x ao dia. Aumentar gradualmente."},
-        "Cefalexina": {"dose_fixa": "500 mg", "via": "VO", "obs": "De 6/6h por 7 a 14 dias (Pele/ITU)."},
-        "Cefepime": {"dose_fixa": "1 a 2 g", "via": "EV", "obs": "A cada 12h. Neutropenia febril: 2g a cada 8h."},
-        "Ceftriaxona": {"dose_fixa": "1 a 2 g", "via": "EV / IM", "obs": "A cada 12h ou 24h."},
-        "Celecoxibe (AINE)": {"dose_fixa": "200 mg", "via": "VO", "obs": "1 cp de 12/12h."},
-        "Cetamina (Indução IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 200, "via": "EV Bolus", "obs": "Excelente no choque. Cuidado na hipertensão grave."},
-        "Cetoprofeno (AINE Injetável)": {"dose_fixa": "100 mg", "via": "EV / IM", "obs": "Diluir em 100mL SF 0,9%, correr em 20 min."},
-        "Clonazepam": {"dose_fixa": "0.5 a 2 mg", "via": "VO", "obs": "Comprimidos ou gotas (2.5mg/mL)."},
-        "Clopidogrel (SCA)": {"dose_fixa": "300 a 600 mg", "via": "VO", "obs": "Ataque 300mg. 600mg para angioplastia primária."},
-        "Dapagliflozina (DM2 / ICC)": {"dose_fixa": "10 mg", "via": "VO", "obs": "Uma vez ao dia (Critérios: HbA1c > 7.5%, > 55 anos)."},
-        "Dexametasona": {"dose_fixa": "4 a 10 mg", "via": "VO / IM / EV", "obs": "Laringite, alergias, antiemético."},
-        "Diazepam (Convulsão)": {"dose_fixa": "5 a 10 mg", "via": "EV Lento", "obs": "Correr lento (2mg/min)."},
-        "Diclofenaco Sódico": {"dose_fixa": "50 a 75 mg", "via": "VO / IM", "obs": "IM: 1 ampola (75mg). VO: 50mg de 8/8h."},
-        "Dimenidrinato (Dramin)": {"dose_fixa": "50 mg", "via": "EV / IM / VO", "obs": "Diluir ampola EV para evitar hipotensão."},
-        "Dipirona": {"dose_fixa": "500 mg a 1 g", "via": "EV / VO", "obs": "EV diluído em 100mL SF 0.9% em 30min, a cada 6h."},
-        "Dobutamina (Choque)": {"dose_fixa": "2 a 20 mcg/kg/min", "via": "BIC", "obs": "1 amp (250mg) + 230mL SG 5%."},
-        "Enalapril (HAS)": {"dose_fixa": "10 a 20 mg", "via": "VO", "obs": "1 a 2 tomadas ao dia."},
-        "Enoxaparina (Profilaxia TVP)": {"dose_fixa": "40 mg", "via": "SC", "obs": "1x ao dia."},
-        "Enoxaparina (Tratamento TVP/TEP)": {"dose": 1, "unidade": "mg/kg", "max": 150, "via": "SC", "obs": "12/12h. Ajustar se ClCr < 30."},
-        "Escopolamina + Dipirona (Buscopan)": {"dose_fixa": "1 a 2 cp / 1 amp", "via": "VO / EV", "obs": "De 6/6h para cólicas abdominais. EV Lento."},
-        "Espironolactona": {"dose_fixa": "25 a 50 mg", "via": "VO", "obs": "Diurético poupador de potássio. 1-2x ao dia."},
-        "Etomidato (Indução IOT)": {"dose": 0.3, "unidade": "mg/kg", "max": 40, "via": "EV Bolus", "obs": "Estabilidade hemodinâmica perfeita."},
-        "Ezetimiba (Dislipidemia)": {"dose_fixa": "10 mg", "via": "VO", "obs": "Associado com estatina."},
-        "Fenitoína (Ataque Convulsão)": {"dose": 20, "unidade": "mg/kg", "max": 2000, "via": "EV em BIC", "obs": "15-20 mg/kg. MÁX: 50mg/min. Monitorização cardíaca."},
-        "Fentanil (Indução/Analgesia)": {"dose": 3, "unidade": "mcg/kg", "max": 300, "via": "EV Lento", "obs": "Dose IOT. Ampola = 50mcg/mL. Causa depressão resp."},
-        "Fluoxetina (Depressão)": {"dose_fixa": "20 mg", "via": "VO", "obs": "1x ao dia."},
-        "Fosfomicina (ITU)": {"dose_fixa": "3 g (1 envelope)", "via": "VO", "obs": "Dose única diluída em água."},
-        "Furosemida": {"dose_fixa": "20 a 40 mg", "via": "EV / VO", "obs": "EV Lento. Pode titular."},
-        "Haloperidol (Agitação)": {"dose_fixa": "5 mg", "via": "IM", "obs": "Pode associar com Prometazina."},
-        "Heparina Não Fracionada (Ataque)": {"dose": 80, "unidade": "UI/kg", "max": 10000, "via": "EV Bolus", "obs": "Manutenção em BIC a 18 UI/kg/h. Guiar por TTPA."},
-        "Hidralazina (HAS Grave)": {"dose_fixa": "50 a 200 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas."},
-        "Hidroclorotiazida (HAS)": {"dose_fixa": "25 mg", "via": "VO", "obs": "1x ao dia pela manhã."},
-        "Hidrocortisona (Asma/Anafilaxia)": {"dose_fixa": "100 a 500 mg", "via": "EV", "obs": "Diluir em 100mL SF, correr em 30 min."},
-        "Ibuprofeno": {"dose_fixa": "400 a 600 mg", "via": "VO", "obs": "A cada 8h (com refeições)."},
-        "Insulina NPH (Basal)": {"dose": 0.2, "unidade": "UI/kg", "max": 50, "via": "SC", "obs": "Início com 10 UI ou 0.1 a 0.2 UI/kg ao deitar."},
-        "Insulina Regular (Cetoacidose)": {"dose_fixa": "0.1 U/kg/h BIC", "via": "EV", "obs": "Ataque 0.1 U/kg EV. Titular pela glicemia capilar."},
-        "Ipratrópio (Atrovent)": {"dose_fixa": "40 gotas", "via": "NBZ", "obs": "Em crises graves associar ao Salbutamol."},
-        "Levotiroxina (Hipotireoidismo)": {"dose": 1.6, "unidade": "mcg/kg/dia", "max": 200, "via": "VO", "obs": "Em jejum, 30-60 min antes do café."},
-        "Losartana (HAS)": {"dose_fixa": "50 a 100 mg", "via": "VO", "obs": "1 ou 2 tomadas."},
-        "Metformina (DM2)": {"dose_fixa": "500 a 850 mg", "via": "VO", "obs": "1 a 2x/dia após refeições. Máx 2.550 mg/dia."},
-        "Metildopa (HAS Gestante)": {"dose_fixa": "500 a 2000 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas. 1ª escolha gestação."},
-        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 horas. Pulso: até 1g/dia."},
-        "Metimazol (Hipertireoidismo)": {"dose_fixa": "10 a 40 mg/dia", "via": "VO", "obs": "Dose única diária inicial."},
-        "Metoprolol (Controle FA)": {"dose_fixa": "5 mg", "via": "EV Lento", "obs": "Em 5 min. Pode repetir cada 5min (Máx 15mg)."},
-        "Metronidazol": {"dose_fixa": "500 mg", "via": "EV / VO", "obs": "EV de 8/8h. VO de 12/12h para vaginose (7d)."},
-        "Morfina (Dor Intensa)": {"dose_fixa": "2 a 4 mg", "via": "EV Lento", "obs": "Diluído em 9ml SF. Fazer a cada 4h."},
-        "Nimesulida (AINE)": {"dose_fixa": "100 mg", "via": "VO", "obs": "1cp de 12/12h."},
-        "Nitrofurantoína (ITU)": {"dose_fixa": "100 mg", "via": "VO", "obs": "De 6/6h por 5 a 7 dias com alimento."},
-        "Nitroglicerina (Tridil)": {"dose_fixa": "5 a 20 mcg/min", "via": "BIC", "obs": "Diluir 1 amp (50mg) em 240mL SG5%. Não protege da luz."},
-        "Norepinefrina (Choque)": {"dose_fixa": "0.05 a 0.5 mcg/kg/min", "via": "BIC", "obs": "Padrão: 5 amp (20mL) + 180mL SF. Titular PAM > 65."},
-        "Omeprazol / Pantoprazol": {"dose_fixa": "40 mg", "via": "EV / VO", "obs": "1x ao dia em jejum."},
-        "Ondansetrona (Zofran)": {"dose_fixa": "8 mg", "via": "EV Lento", "obs": "Antiemético."},
-        "Oseltamivir (Tamiflu)": {"dose_fixa": "75 mg", "via": "VO", "obs": "De 12/12h por 5 dias. Iniciar em 48h."},
-        "Paracetamol": {"dose_fixa": "750 mg", "via": "VO", "obs": "A cada 6h (Máx: 4g/dia)."},
-        "Piperacilina + Tazobactam (Tazocin)": {"dose_fixa": "4.5 g", "via": "EV", "obs": "De 6/6h. Infusão estendida (4h) na sepse."},
-        "Polimixina B": {"dose_fixa": "15.000 a 25.000 U/kg/dia", "via": "EV", "obs": "Divididas de 12/12h. Máx: 2.000.000 U."},
-        "Prednisona": {"dose_fixa": "20 a 60 mg/dia", "via": "VO", "obs": "Dose única diária por 5 a 7 dias."},
-        "Propiltiouracila (PTU)": {"dose_fixa": "100 a 150 mg", "via": "VO", "obs": "De 8/8h. Escolha no 1º trimestre gestação."},
-        "Propofol (Indução IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 250, "via": "EV Bolus", "obs": "Hipotensor. Evitar em pacientes chocados."},
-        "Propranolol (Tremor/HAS)": {"dose_fixa": "10 a 40 mg", "via": "VO", "obs": "De 6/6h ou 8/8h para sintomas adrenérgicos."},
-        "Rocurônio (Bloqueador IOT)": {"dose_fixa": "1.2", "unidade": "mg/kg", "max": 150, "via": "EV Bolus", "obs": "Dose de Sequência Rápida de Intubação."},
-        "Rosuvastatina (Dislipidemia)": {"dose_fixa": "5 a 40 mg", "via": "VO", "obs": "Dose única diária. Qualquer hora do dia."},
-        "Salbutamol (Inalatório)": {"dose_fixa": "10 a 20 gotas", "via": "NBZ", "obs": "Nebulização com 3-5mL SF. Repetir 20/20m."},
-        "Sertralina (Depressão)": {"dose_fixa": "25 a 50 mg", "via": "VO", "obs": "1x ao dia."},
-        "Sinvastatina (Dislipidemia)": {"dose_fixa": "10 a 40 mg", "via": "VO", "obs": "Dose única diária, OBRIGATÓRIO à noite."},
-        "Soro Fisiológico 0.9% (Expansão Adulto)": {"dose_fixa": "500 a 1000 mL", "via": "EV Bolus", "obs": "Correr em 30 a 60 minutos. Reavaliar perfusão."},
-        "Succinilcolina (Bloqueador IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 150, "via": "EV Bolus", "obs": "Contraindicado em hipercalemia."},
-        "Sulfato de Magnésio 50% (PCR/Eclâmpsia)": {"dose_fixa": "1 a 2 g", "via": "EV", "obs": "Ampola 10mL = 5g."},
-        "Sulfato Ferroso (Gestante)": {"dose_fixa": "40 mg Fe elementar", "via": "VO", "obs": "1cp/dia. Tomar com suco cítrico. Início 20ª sem."},
-        "Tenoxicam (AINE)": {"dose_fixa": "20 mg", "via": "VO / EV / IM", "obs": "1x ao dia."},
-        "Tramadol": {"dose_fixa": "100 mg", "via": "EV", "obs": "Diluído em 100mL SF, correr em 30 min, a cada 8h."},
-        "Vancomicina": {"dose": 15, "unidade": "mg/kg/dose", "max": 2000, "via": "EV", "obs": "A cada 8-12h. Correr em BIC em pelo menos 1h."}
+        "Dipirona": {"dose_fixa": "500 mg a 1 g", "via": "EV / VO", "obs": "EV diluído em 100mL SF 0.9% em 30min, a cada 6h."}
     }
 }
 
@@ -462,13 +414,18 @@ if not st.session_state.logado and saved_token:
     except: pass 
 
 if not st.session_state.logado:
+    if "temp_theme" not in st.session_state: st.session_state.temp_theme = "Escuro"
+    aplicar_css_tema(st.session_state.temp_theme)
+    
     st.title("🏥 Residência PRO")
+    st.session_state.temp_theme = st.radio("Tema Visual:", ["Escuro", "Claro"], horizontal=True, index=0 if st.session_state.temp_theme == "Escuro" else 1)
+    
     aba_l, aba_c = st.tabs(["🔑 Entrar", "📝 Criar Conta"])
     with aba_l:
         if cookie_controller is None: st.warning("⚠️ Biblioteca 'streamlit-cookies-controller' não detectada.")
         with st.form("login_form"):
             u, p, lembrar = st.text_input("Usuário"), st.text_input("Senha", type="password"), st.checkbox("Manter-me conectado")
-            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+            if st.form_submit_button("Entrar", use_container_width=True):
                 try:
                     logou = False
                     for doc in db.collection("usuarios").get():
@@ -489,7 +446,7 @@ if not st.session_state.logado:
             if st.form_submit_button("Cadastrar", use_container_width=True):
                 if db.collection("usuarios").where("nome", "==", nu).get(): st.error("Usuário já existe.")
                 else:
-                    db.collection("usuarios").add({"nome": nu, "senha": hash_senha(np), "tema_modo": "Escuro"})
+                    db.collection("usuarios").add({"nome": nu, "senha": hash_senha(np), "tema_modo": st.session_state.temp_theme})
                     st.success("Conta criada! Faça login.")
 
 # ==========================================
@@ -506,7 +463,7 @@ else:
         }
 
     if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Sincronizando e Restaurando banco de dados..."):
+        with st.spinner("Sincronizando banco de dados..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
@@ -571,108 +528,13 @@ else:
     dados_materiais = _dados_cache.get("materiais", [])
     dados_cronogramas = _dados_cache.get("cronogramas", [])
 
-    modo = user_settings.get("tema_modo", "Escuro")
-    
-    # CSS DINÂMICO E SEGURO
-    if modo == "Escuro":
-        bg_color = "#0e1117"
-        text_color = "#f8fafc"
-        metric_bg = "#1e293b"
-        metric_border = "#334155"
-        sidebar_bg = "#11151c"
-        input_bg = "#1e293b"
-        menu_text = "#94a3b8"
-        menu_hover = "#334155"
-        bg_tabela = "#1e293b"
-        cor_texto_tabela = "#f8fafc"
-    else:
-        bg_color = "#f8f9fa"
-        text_color = "#0f172a"
-        metric_bg = "#ffffff"
-        metric_border = "#cbd5e1"
-        sidebar_bg = "#ffffff"
-        input_bg = "#ffffff"
-        menu_text = "#64748b"
-        menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9" # Cinza claro para tabela como pedido
-        cor_texto_tabela = "#0f172a"
+    # APLICA O TEMA DO USUARIO LOGADO
+    modo_atual = user_settings.get("tema_modo", "Escuro")
+    aplicar_css_tema(modo_atual)
 
-    css_fix = f"""
-    <style>
-    /* FUNDO GERAL E TEXTO */
-    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; }}
-    
-    /* TODOS OS BOTÕES EM AZUL */
-    .stButton>button, button[kind="primary"], button[kind="secondary"], button[data-testid="baseButton-secondary"], div[data-testid="stFormSubmitButton"] > button {{ 
-        background-color: #2563eb !important; 
-        color: white !important; 
-        border: none !important; 
-        font-weight: bold !important; 
-        border-radius: 6px !important; 
-    }} 
-    .stButton>button p, button[kind="primary"] p, button[kind="secondary"] p, button[data-testid="baseButton-secondary"] p, div[data-testid="stFormSubmitButton"] > button p {{
-        color: white !important;
-    }}
-    
-    /* CORRECAO DAS CAIXAS DE INTERAÇÃO E CHAT */
-    div[data-baseweb="input"] > div, div[data-baseweb="textarea"] > div, div[data-baseweb="select"] > div, [data-testid="stChatInput"] > div {{
-        background-color: {input_bg} !important;
-        border: 1px solid {metric_border} !important;
-    }}
-    input, textarea, div[data-baseweb="select"] span {{
-        color: {text_color} !important;
-        -webkit-text-fill-color: {text_color} !important;
-    }}
-    
-    /* O SEGREDO PARA AS OPÇÕES DO SELECTBOX NÃO SUMIREM */
-    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{
-        background-color: {input_bg} !important;
-        border: 1px solid {metric_border} !important;
-    }}
-    ul[data-baseweb="menu"] li {{
-        background-color: transparent !important;
-        color: {text_color} !important;
-    }}
-    ul[data-baseweb="menu"] li:hover {{
-        background-color: {menu_hover} !important;
-    }}
-    
-    /* TABELAS COM FUNDO CINZA (st.dataframe e st.table) */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] {{
-        background-color: {bg_tabela} !important;
-    }}
-    th, td {{
-        background-color: {bg_tabela} !important;
-        color: {cor_texto_tabela} !important;
-        border: 1px solid {metric_border} !important;
-    }}
-    
-    /* ABAS (TABS) - Texto visível */
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{
-        color: {text_color} !important;
-    }}
-    
-    /* EXPANDERS E CONTAINERS */
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 8px; }} 
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-    
-    /* FOTO DE PERFIL E MENU LATERAL */
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; width: 120px; height: 120px; display: block; margin: 0 auto; }}
-    
-    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 4px; background-color: transparent; transition: all 0.2s ease; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 16px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
-    </style>
-    """
-    st.markdown(css_fix, unsafe_allow_html=True)
-
-    if user_settings.get('foto_perfil') and os.path.exists(user_settings['foto_perfil']):
-        st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{base64.b64encode(open(user_settings["foto_perfil"], "rb").read()).decode("utf-8")}" class="profile-img">', unsafe_allow_html=True)
+    # BARRA LATERAL (PROFILE)
+    if user_settings.get('foto_perfil_b64'):
+        st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
         st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 10px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
     else: st.sidebar.title(f"👤 {st.session_state.user_nome}")
 
@@ -708,7 +570,7 @@ else:
     menu = st.sidebar.radio("Navegação", opcoes_menu)
 
     # ==========================================
-    # TELAS DO MENU
+    # TELAS
     # ==========================================
     if menu == "📱 Instalar App":
         st.header("Transforme o sistema em um Aplicativo Nativo")
@@ -716,204 +578,96 @@ else:
         with col1: st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
         with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
-    # -------------------------------------------------------------------------
-    # TELA: CRONOGRAMA INTELIGENTE 
-    # -------------------------------------------------------------------------
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
-        
         aba_lista, aba_importar = st.tabs(["✅ Minhas Metas", "📸 Adicionar Cronograma"])
-        
         with aba_importar:
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             col_btn, col_arq = st.columns(2)
-            
             colagem_img = None
             with col_btn:
                 st.markdown("### 📋 Colar Print Direto")
-                st.caption("Você pode copiar (Ctrl+C) seu print e clicar no botão azul abaixo para colar (Ctrl+V).")
                 if paste_image_button is not None:
-                    paste_result = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8"
-                    )
+                    paste_result = paste_image_button(label="CLIQUE AQUI E APERTE Ctrl+V", background_color="#2563eb", hover_background_color="#1d4ed8")
                     if paste_result.image_data is not None:
                         colagem_img = paste_result.image_data
-                        st.success("✅ Imagem colada e pronta para extração!")
+                        st.success("✅ Imagem colada!")
                         st.image(colagem_img, use_container_width=True)
-                else:
-                    st.warning("⚠️ Para habilitar o botão de colar mágico, por favor, adicione a linha `streamlit-paste-button` no arquivo `requirements.txt` do seu GitHub.")
-                    
             with col_arq:
                 st.markdown("### 📂 Enviar Arquivos Tradicional")
-                st.caption("Prefere anexar os arquivos? Solte eles aqui.")
                 imgs_crono = st.file_uploader("Selecione os arquivos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, label_visibility="collapsed")
-            
             st.divider()
             
             if (imgs_crono or colagem_img) and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
                 client_ia = get_ia_client()
-                if not client_ia:
-                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
+                if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
+                    with st.spinner("Analisando..."):
                         try:
-                            prompt_visao = """Analise estes prints de cronograma. Extraia todos os dias, as matérias e os temas a serem estudados.
-                            MUITO IMPORTANTE: Observe a COR de cada aula/marcação no print e atribua uma "prioridade" (número de 1 a 5) com base na seguinte regra exata:
-                            - Se a cor for Azul (Diamante), prioridade = 1
-                            - Se a cor for Verde, prioridade = 2
-                            - Se a cor for Amarelo, prioridade = 3
-                            - Se a cor for Vermelho, prioridade = 4
-                            - Se a cor for Roxo, prioridade = 5
-                            Se não tiver cor clara ou você não tiver certeza, use 3.
-                            Você DEVE retornar APENAS um JSON estrito contendo uma chave "tarefas" com uma lista de dicionários, sem nenhum texto ou explicação adicional:
-                            {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
-                            
+                            prompt_visao = """Analise estes prints de cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5. Retorne APENAS um JSON: {"tarefas": [{"dia": "Seg", "materia": "Gineco", "tema": "Sangramento", "prioridade": 1}]}"""
                             conteudo_api = [{"type": "text", "text": prompt_visao}]
-                            
                             if imgs_crono:
-                                for img in imgs_crono:
-                                    img_b64 = base64.b64encode(img.getvalue()).decode('utf-8')
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}})
-                            
+                                for img in imgs_crono: conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(img.getvalue()).decode('utf-8')}"}})
                             if colagem_img:
                                 buffered = io.BytesIO()
                                 colagem_img.save(buffered, format="PNG")
-                                img_b64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
-                                conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}})
+                                conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode('utf-8')}"}})
                             
-                            resposta = client_ia.chat.completions.create(
-                                model=MODELO_VISAO, 
-                                messages=[{"role": "user", "content": conteudo_api}], 
-                                temperature=0.1
-                            )
-                            
-                            texto_json = resposta.choices[0].message.content
-                            dados_extraidos = extrair_json_seguro(texto_json)
-                            tarefas = dados_extraidos.get("tarefas", [])
-                            
-                            if not tarefas:
-                                st.warning("A IA processou a imagem, mas não encontrou tarefas no formato esperado.")
+                            resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=[{"role": "user", "content": conteudo_api}], temperature=0.1)
+                            tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
+                            if not tarefas: st.warning("A IA não encontrou tarefas.")
                             else:
                                 batch = db.batch()
                                 for t in tarefas:
                                     doc_ref = db.collection("cronogramas").document()
-                                    batch.set(doc_ref, {
-                                        "usuario_id": u_id,
-                                        "semana": nome_semana,
-                                        "dia": t.get("dia", "Geral"),
-                                        "materia": t.get("materia", ""),
-                                        "tema": t.get("tema", ""),
-                                        "prioridade": safe_int(t.get("prioridade", 3)),
-                                        "concluido": False,
-                                        "data_importacao": str(hoje),
-                                        "data_conclusao": None
-                                    })
+                                    batch.set(doc_ref, {"usuario_id": u_id, "semana": nome_semana, "dia": t.get("dia", "Geral"), "materia": t.get("materia", ""), "tema": t.get("tema", ""), "prioridade": safe_int(t.get("prioridade", 3)), "concluido": False, "data_importacao": str(hoje), "data_conclusao": None})
                                 batch.commit()
-                                
-                                st.success(f"✅ {len(tarefas)} aulas importadas com sucesso! Vá para a aba 'Minhas Metas'.")
-                                invalidar_cache()
-                                time.sleep(2)
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
+                                invalidar_cache(); st.rerun()
+                        except Exception as e: st.error(f"Erro: {e}")
 
         with aba_lista:
             meu_crono = dados_cronogramas
             semanas_unicas = sorted(list(set([c.get("semana", "Semana Geral") for c in meu_crono])))
-            
-            if not meu_crono:
-                st.info("Você ainda não tem nenhum cronograma. Vá na aba 'Adicionar Cronograma' para começar!")
+            if not meu_crono: st.info("Você ainda não tem nenhum cronograma.")
             
             for sem in semanas_unicas:
                 st.write("---")
                 col_titulo, col_del_sem = st.columns([0.7, 0.3])
-                with col_titulo:
-                    st.subheader(f"📂 {sem}")
+                with col_titulo: st.subheader(f"📂 {sem}")
                 with col_del_sem:
                     if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
                         batch = db.batch()
-                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
-                            batch.delete(db.collection("cronogramas").document(t_del['id']))
-                        batch.commit()
-                        invalidar_cache()
-                        st.rerun()
+                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: batch.delete(db.collection("cronogramas").document(t_del['id']))
+                        batch.commit(); invalidar_cache(); st.rerun()
 
                 tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
-                
                 pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                 
                 if pendentes:
-                    st.write("Dê um 'check' assim que assistir. Você pode alterar a prioridade manualmente se a IA errar a cor:")
                     for t in pendentes:
                         with st.container(border=True):
                             col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
                             with col1:
-                                if st.button("✔️", key=f"btn_{t['id']}", help="Marcar Concluída"):
-                                    db.collection("cronogramas").document(t['id']).update({
-                                        "concluido": True,
-                                        "data_conclusao": str(get_agora().date())
-                                    })
-                                    invalidar_cache()
-                                    st.rerun()
-                            with col2:
-                                st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
+                                if st.button("✔️", key=f"btn_{t['id']}"):
+                                    db.collection("cronogramas").document(t['id']).update({"concluido": True, "data_conclusao": str(get_agora().date())})
+                                    invalidar_cache(); st.rerun()
+                            with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
                                 p_val = safe_int(t.get('prioridade', 3))
-                                novo_p = st.selectbox(
-                                    "Prioridade",
-                                    options=[1, 2, 3, 4, 5],
-                                    format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"),
-                                    index=[1, 2, 3, 4, 5].index(p_val) if p_val in [1, 2, 3, 4, 5] else 2,
-                                    key=f"pri_{t['id']}",
-                                    label_visibility="collapsed"
-                                )
-                                if novo_p != p_val:
-                                    db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p})
-                                    invalidar_cache()
-                                    st.rerun()
+                                novo_p = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"pri_{t['id']}", label_visibility="collapsed")
+                                if novo_p != p_val: db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p}); invalidar_cache(); st.rerun()
                             with col4:
-                                if st.button("🗑️", key=f"del_p_{t['id']}", help="Excluir Aula"):
-                                    db.collection("cronogramas").document(t['id']).delete()
-                                    invalidar_cache()
-                                    st.rerun()
-                else:
-                    st.success("🎉 Nenhuma aula pendente nesta semana!")
-
+                                if st.button("🗑️", key=f"del_p_{t['id']}"): db.collection("cronogramas").document(t['id']).delete(); invalidar_cache(); st.rerun()
                 if concluidos:
                     st.divider()
-                    with st.expander(f"✅ Histórico de Aulas Assistidas ({len(concluidos)})"):
-                        st.caption("Aulas concluídas e salvas no histórico.")
+                    with st.expander(f"✅ Histórico ({len(concluidos)})"):
                         for t in reversed(concluidos):
-                            col_a, col_b, col_c = st.columns([0.7, 0.2, 0.1])
-                            data_c = formatar_data_br(t.get('data_conclusao', ''))
-                            p_val = safe_int(t.get('prioridade', 3))
-                            p_icon = PRIORIDADES.get(p_val, "🟨 Amarelo")
-                            
-                            col_a.markdown(f"~~[{p_icon}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Assistida em: {data_c})*")
-                            with col_b:
-                                if st.button("Desfazer", key=f"undo_{t['id']}"):
-                                    db.collection("cronogramas").document(t['id']).update({
-                                        "concluido": False,
-                                        "data_conclusao": None
-                                    })
-                                    invalidar_cache()
-                                    st.rerun()
-                            with col_c:
-                                if st.button("🗑️", key=f"del_c_{t['id']}", help="Excluir Definitivamente"):
-                                    db.collection("cronogramas").document(t['id']).delete()
-                                    invalidar_cache()
-                                    st.rerun()
+                            st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~")
 
-    # ==========================================
-    # 🧮 CALCULADORA E OUTRAS ABAS
-    # ==========================================
     elif menu == "🧮 Calculadora de Doses":
-        st.header("Calculadora Avançada (Diretrizes Nacionais)")
+        st.header("Calculadora Avançada")
         aba_doses, aba_holliday, aba_obstetricia = st.tabs(["💊 Doses e Condutas", "💧 Hidratação", "🤰 Obstetrícia"])
         with aba_doses:
             col_tipo, col_peso = st.columns(2)
@@ -969,7 +723,7 @@ else:
                 if t_questoes_g > 0: 
                     fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
                     fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_pie1, use_container_width=True)
+                    st.plotly_chart(fig_pie1, use_container_width=True, theme=None)
             with col_g2:
                 todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
@@ -978,7 +732,7 @@ else:
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
                     fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
-                    st.plotly_chart(fig_bar1, use_container_width=True)
+                    st.plotly_chart(fig_bar1, use_container_width=True, theme=None)
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -1081,11 +835,11 @@ else:
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
                         fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                        st.plotly_chart(fig1, use_container_width=True)
+                        st.plotly_chart(fig1, use_container_width=True, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
                         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                        st.plotly_chart(fig2, use_container_width=True)
+                        st.plotly_chart(fig2, use_container_width=True, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -1317,16 +1071,40 @@ else:
                     invalidar_cache(); st.session_state.foco_iniciado = False; st.rerun()
 
     elif menu == "📁 Materiais e Simulados":
-        arq = st.file_uploader("Upload PDF")
-        if arq and st.button("Salvar na Nuvem"):
-            db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "data_upload": str(hoje)})
-            invalidar_cache(); st.success("Salvo!")
+        st.header("Gerenciador de PDFs")
+        arq = st.file_uploader("Upload PDF de Estudo", type=['pdf'])
+        if arq and st.button("Salvar na Nuvem", use_container_width=True):
+            caminho = os.path.join("materiais_estudo", arq.name)
+            with open(caminho, "wb") as f: f.write(arq.getbuffer())
+            db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
+            invalidar_cache()
+            st.success("Salvo com sucesso!")
+            
         if dados_materiais: 
-            st.table(pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais]))
+            st.write("---")
+            st.subheader("Meus Arquivos")
+            for mat in dados_materiais:
+                with st.container(border=True):
+                    col_t, col_d, col_v, col_del = st.columns([4, 1, 1, 1])
+                    col_t.markdown(f"**{mat.get('titulo')}**")
+                    col_d.caption(f"Data: {formatar_data_br(mat.get('data_upload'))}")
+                    
+                    if os.path.exists(mat.get('path', '')):
+                        with open(mat['path'], "rb") as pdf_file:
+                            pdf_bytes = pdf_file.read()
+                            col_v.download_button("📥 Baixar", data=pdf_bytes, file_name=mat.get('titulo'), key=f"dl_{mat['id']}")
+                    else:
+                        col_v.warning("Arquivo perdido.")
+                        
+                    if col_del.button("🗑️ Excluir", key=f"del_{mat['id']}"):
+                        db.collection("materiais").document(mat['id']).delete()
+                        if os.path.exists(mat.get('path', '')): os.remove(mat['path'])
+                        invalidar_cache()
+                        st.rerun()
 
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador Interativo")
-        aba_p, aba_simulado, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA", "🗣️ Consultório OSCE"])
+        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
         
         with aba_p:
             with st.form("sim_f", clear_on_submit=True):
@@ -1348,7 +1126,7 @@ else:
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
                     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
 
         with aba_simulado:
             col_sim1, col_sim2 = st.columns(2)
@@ -1423,6 +1201,43 @@ else:
                     
                 if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
 
+        with aba_sim_pdf:
+            st.subheader("Gerar Simulado baseado em seus Materiais (PDF)")
+            if not dados_materiais:
+                st.warning("Você não tem PDFs salvos na aba 'Materiais e Simulados'.")
+            else:
+                mat_escolhido = st.selectbox("Escolha o PDF de Estudo:", [m['titulo'] for m in dados_materiais])
+                qtd_q = st.slider("Quantidade de Questões", 5, 100, 10)
+                st.caption("Atenção: PDFs muito extensos podem ser cortados pela IA devido ao limite de leitura.")
+                
+                if st.button("Gerar Simulado Exclusivo", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia and PyPDF2:
+                        caminho_pdf = next(m['path'] for m in dados_materiais if m['titulo'] == mat_escolhido)
+                        if os.path.exists(caminho_pdf):
+                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questões..."):
+                                try:
+                                    reader = PyPDF2.PdfReader(caminho_pdf)
+                                    texto_pdf = ""
+                                    for page in reader.pages: texto_pdf += page.extract_text() + "\n"
+                                    texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
+                                    
+                                    prompt = f"Baseado puramente no seguinte material médico, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne APENAS um JSON válido no formato: {{\"questoes\": [{{\"num\": 1, \"texto\": \"...\", \"opcoes\": {{\"A\": \"...\", \"B\": \"...\"}}, \"correta\": \"A\", \"comentario\": \"...\"}}]}}. \n\nMaterial: {texto_pdf}"
+                                    
+                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2)
+                                    questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
+                                    
+                                    if questoes_pdf:
+                                        st.session_state.prova_ativa = questoes_pdf
+                                        st.session_state.respostas_usuario = {}
+                                        st.success("Simulado gerado! Acesse a aba 'Simulado IA' ou feche e abra o app para renderizar o cache.")
+                                    else:
+                                        st.error("A IA não conseguiu formatar o PDF.")
+                                except Exception as e:
+                                    st.error(f"Erro ao analisar PDF: {e}")
+                        else:
+                            st.error("Arquivo PDF não encontrado no servidor físico.")
+
         with aba_osce:
             client_ia = get_ia_client()
             if client_ia:
@@ -1482,10 +1297,17 @@ else:
         st.header("Controle de Perfil")
         uf = st.file_uploader("Foto de Perfil", type=['jpg', 'png'])
         if uf and st.button("Confirmar Foto", use_container_width=True):
-            p = os.path.join("fotos_perfil", f"{u_id}.jpg")
-            with open(p, "wb") as f: f.write(uf.getbuffer())
-            db.collection("usuarios").document(u_id).update({"foto_perfil": p})
-            st.session_state.user_settings["foto_perfil"] = p; st.rerun()
+            b64_img = base64.b64encode(uf.read()).decode("utf-8")
+            db.collection("usuarios").document(u_id).update({"foto_perfil_b64": b64_img})
+            st.session_state.user_settings["foto_perfil_b64"] = b64_img
+            st.rerun()
+
+        with st.form("tema_form"):
+            mo = st.radio("Cores do Sistema", ["Escuro", "Claro"], index=0 if user_settings.get("tema_modo") == "Escuro" else 1)
+            if st.form_submit_button("Aplicar Estilo Global", use_container_width=True):
+                db.collection("usuarios").document(u_id).update({"tema_modo": mo})
+                st.session_state.user_settings["tema_modo"] = mo
+                st.rerun()
 
     elif is_super_admin(st.session_state.user_nome) and menu == "👑 Admin":
         st.header("Painel de Administração Global (Firebase)")
@@ -1493,7 +1315,7 @@ else:
             usuarios_todos = db.collection("usuarios").get()
             st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
             df_u = pd.DataFrame([{"ID Nuvem": u.id, "Nome": u.to_dict().get('nome')} for u in usuarios_todos])
-            st.table(df_u)
+            st.dataframe(df_u, use_container_width=True, column_config={"ID Nuvem": None})
             
             c1, c2, c3 = st.columns(3)
             with c1:
