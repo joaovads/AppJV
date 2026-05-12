@@ -65,7 +65,7 @@ def ativar_pwa():
             const manifest = {
                 "name": "Residência PRO",
                 "short_name": "Residência",
-                "theme_color": "#ef4444",
+                "theme_color": "#2563eb",
                 "background_color": "#0e1117",
                 "display": "standalone",
                 "orientation": "portrait",
@@ -137,22 +137,18 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def extrair_json_seguro(texto):
-    """Função blindada sem Regex complexa para evitar erros de sintaxe."""
     if not texto: return {}
-    
-    # Limpa as aspas de markdown de forma bruta e segura
-    texto = texto.replace("```json", "").replace("```", "").strip()
-    
+    texto = texto.replace("```json", "").replace("
+```", "").strip()
     try:
         return json.loads(texto)
     except:
         try:
-            # Tenta encontrar e isolar o JSON
             match = re.search(r'(\{.*\})', texto, re.DOTALL)
             if match:
                 return json.loads(match.group(1))
         except Exception as e:
-            st.error(f"A IA enviou um formato corrompido que não pôde ser limpo. Retorno cru: {texto[:150]}...")
+            st.error(f"A IA enviou um formato corrompido que não pôde ser limpo.")
             return {}
     return {}
 
@@ -193,7 +189,7 @@ BANCO_IMAGENS_OSCE = {
 
 def renderizar_mensagem_osce(texto):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    bg_osce = "#1e293b" if modo == "Escuro" else "#f8f9fa"
+    bg_osce = "#1e293b" if modo == "Escuro" else "#ffffff"
     bd_osce = "#334155" if modo == "Escuro" else "#cbd5e1"
     
     padrao = r"(?i)\[EXAME:\s*([^\]]+)\]"
@@ -207,7 +203,7 @@ def renderizar_mensagem_osce(texto):
                 img_url = BANCO_IMAGENS_OSCE[chave]
                 html_str = f"""
                 <div style="border: 1px solid {bd_osce}; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: {bg_osce};">
-                    <p style="color: #ef4444; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
+                    <p style="color: #2563eb; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
                     <img src="{img_url}" 
                          onerror="this.onerror=null; this.src='https://upload.wikimedia.org/wikipedia/commons/a/ac/No_image_available.svg';" 
                          style="width: 100%; border-radius: 5px;">
@@ -401,14 +397,14 @@ def get_user_docs(collection_name, user_id):
         return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
-    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
-    bd_cl = "#334155" if modo == "Escuro" else "#cbd5e1"
-    bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
-    bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
-    tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
-    tc_st = "#f8fafc" if modo == "Escuro" else "#0f172a"
-    tc_em = "#475569" if modo == "Escuro" else "#cbd5e1"
+    # Fundo do calendário forçado para AZUL BEM CLARO como solicitado
+    bg_ct = "#e0f2fe" 
+    bd_cl = "#bae6fd"
+    bg_em = "#f0f9ff"
+    bg_cl = "#ffffff"
+    tc_th = "#0f172a"
+    tc_st = "#0f172a"
+    tc_em = "#64748b"
     
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
@@ -416,29 +412,29 @@ def gerar_calendario_html(aulas_lista, ano, mes):
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-top:5px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:{tc_th};'>Seg</th><th style='text-align:center; padding:5px; color:{tc_th};'>Ter</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qua</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qui</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sex</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sáb</th><th style='text-align:center; padding:5px; color:{tc_th};'>Dom</th></tr>"
+    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-top:5px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Seg</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Ter</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Qua</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Qui</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Sex</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Sáb</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
-            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em};'></td>"
+            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em} !important;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(a.get('tema', 'Aula')))}'>{html.escape(limpar_texto(a.get('tema', 'Aula')))}</div>" for a in aulas_dict[day]])
-                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl}; vertical-align:top; height:80px;'><strong style='color:{tc_st};'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; color:{tc_em}; height:80px;'><strong>{day}</strong></td>"
+                    temas = "".join([f"<div style='background:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(a.get('tema', 'Aula')))}'>{html.escape(limpar_texto(a.get('tema', 'Aula')))}</div>" for a in aulas_dict[day]])
+                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl} !important; vertical-align:top; height:80px;'><strong style='color:{tc_st} !important;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; background:{bg_cl} !important; color:{tc_em} !important; height:80px;'><strong style='color:{tc_em} !important;'>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
-    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
-    bd_cl = "#334155" if modo == "Escuro" else "#cbd5e1"
-    bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
-    bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
-    tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
-    tc_st = "#f8fafc" if modo == "Escuro" else "#0f172a"
-    tc_em = "#475569" if modo == "Escuro" else "#cbd5e1"
+    # Fundo do calendário forçado para AZUL BEM CLARO como solicitado
+    bg_ct = "#e0f2fe" 
+    bd_cl = "#bae6fd"
+    bg_em = "#f0f9ff"
+    bg_cl = "#ffffff"
+    tc_th = "#0f172a"
+    tc_st = "#0f172a"
+    tc_em = "#64748b"
     
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
@@ -446,16 +442,16 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; color:{tc_th};'>Seg</th><th style='text-align:center; padding:5px; color:{tc_th};'>Ter</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qua</th><th style='text-align:center; padding:5px; color:{tc_th};'>Qui</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sex</th><th style='text-align:center; padding:5px; color:{tc_th};'>Sáb</th><th style='text-align:center; padding:5px; color:{tc_th};'>Dom</th></tr>"
+    codigo_html = f"<div style='background:{bg_ct}; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'><tr><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Seg</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Ter</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Qua</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Qui</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Sex</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Sáb</th><th style='text-align:center; padding:5px; background:transparent !important; color:{tc_th} !important;'>Dom</th></tr>"
     for week in cal:
         codigo_html += "<tr>"
         for day in week:
-            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em};'></td>"
+            if day == 0: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:10px; background:{bg_em} !important;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl}; vertical-align:top; height:80px;'><strong style='color:{tc_st};'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
-                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; color:{tc_em}; height:80px;'><strong>{day}</strong></td>"
+                    temas = "".join([f"<div style='background:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
+                    codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; background:{bg_cl} !important; vertical-align:top; height:80px;'><strong style='color:{tc_st} !important;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
+                else: codigo_html += f"<td style='border:1px solid {bd_cl}; padding:5px; vertical-align:top; background:{bg_cl} !important; color:{tc_em} !important; height:80px;'><strong style='color:{tc_em} !important;'>{day}</strong></td>"
         codigo_html += "</tr>"
     codigo_html += "</table></div>"
     return codigo_html
@@ -620,55 +616,72 @@ else:
         menu_hover = "#f1f5f9"
         text_color_plotly = "#0f172a"
 
+    # CSS MESTRE - CORRIGIDO CIRURGICAMENTE
     css_global = f"""
     <style>
-    /* FUNDO GERAL */
-    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; }}
+    /* FUNDO GERAL DA PÁGINA */
+    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; color: {text_color} !important; }}
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
     
-    /* TEXTOS (sem pegar spans coloridos inline nem botões de abas) */
-    h1:not(#tmr), h2, h3, h4, h5, h6, label {{ color: {text_color} !important; }}
-    p {{ color: {text_color}; }} 
-    
-    /* INPUTS E DROPDOWNS */
-    [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"], [data-testid="stFileUploadDropzone"] {{ 
-        background-color: {input_bg} !important; border: 1px solid {metric_border} !important; 
+    /* FIX: FORÇAR FUNDOS PARA CAIXAS QUE O STREAMLIT TENTA DEIXAR PRETAS NO TEMA CLARO */
+    [data-testid="stForm"], 
+    [data-testid="stFileUploader"] > section, 
+    [data-testid="stChatInput"], 
+    [data-testid="stChatInput"] > div, 
+    [data-testid="stChatInput"] textarea {{
+        background-color: {metric_bg} !important;
+        border-color: {metric_border} !important;
+        color: {text_color} !important;
     }}
-    input, textarea, div[data-baseweb="select"] span {{ color: {text_color} !important; -webkit-text-fill-color: {text_color} !important; }}
-    ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
-    ul[data-baseweb="menu"] li {{ color: {text_color} !important; background-color: transparent !important; }}
+    
+    /* INPUTS GERAIS */
+    [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"] > div {{
+        background-color: {input_bg} !important;
+        border: 1px solid {metric_border} !important;
+    }}
+    input, textarea, div[data-baseweb="select"] span {{
+        color: {text_color} !important;
+        -webkit-text-fill-color: {text_color} !important;
+    }}
+    ::placeholder {{ color: #94a3b8 !important; opacity: 1 !important; }}
     
     /* CONTAINERS E MÉTRICAS */
     div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; }} 
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; }}
-    [data-testid="stMetricValue"] > div {{ color: {text_color} !important; }}
-    [data-testid="stMetricLabel"] > div > div > p {{ color: #64748b !important; }}
+    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; padding: 15px; }}
     
-    /* CORREÇÃO DAS ABAS (TABS) - Faz o texto aparecer! */
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; }}
-    button[data-baseweb="tab"] {{ background-color: transparent !important; }}
+    /* GARANTIR QUE OS TEXTOS DE ABAS E FORMULÁRIOS SEJAM VISÍVEIS */
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span, [data-testid="stFileUploader"] * {{
+        color: {text_color} !important;
+    }}
     
-    /* BOTÕES VERMELHOS (APENAS BOTÕES DE AÇÃO / FORMULÁRIO) */
+    /* TABELAS COM FUNDO CINZA ELEGANTE EM QUALQUER MODO */
+    table {{ width: 100%; border-collapse: collapse; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }}
+    th {{ background-color: #cbd5e1 !important; color: #0f172a !important; padding: 10px; text-align: left; font-weight: bold; border: 1px solid #94a3b8; }}
+    td {{ background-color: #f1f5f9 !important; color: #0f172a !important; padding: 10px; border: 1px solid #cbd5e1; }}
+    
+    /* BOTÕES AZUIS (TODOS OS DE AÇÃO/FORM) */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], 
-    button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"] {{
-        background-color: #ef4444 !important; border: none !important; border-radius: 6px !important;
+    button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"],
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
+        background-color: #2563eb !important; /* Azul Forte */
+        border: none !important; 
+        border-radius: 6px !important;
     }}
-    button[kind="primary"] p, button[kind="secondary"] p, button[kind="formSubmit"] p,
-    button[data-testid="baseButton-secondary"] p, button[data-testid="baseButton-primary"] p, button[data-testid="baseButton-formSubmit"] p,
-    button[kind="primary"] span, button[kind="secondary"] span, button[kind="formSubmit"] span {{ 
-        color: white !important; font-weight: bold !important; 
+    button p, button span, button div {{ 
+        color: white !important; 
+        font-weight: bold !important; 
     }}
     
-    /* MENU LATERAL - ESTILO ESTRATÉGIA MED */
+    /* MENU LATERAL - ESTILO ESTRATÉGIA MED (AZUL) */
     [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s ease; background-color: transparent; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label p {{ font-size: 16px; font-weight: 500; color: {menu_text} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #0ea5e9 !important; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2); }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); }}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: #ffffff !important; font-weight: 600 !important; }}
     
     /* FOTO DE PERFIL */
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #0ea5e9; width: 120px; height: 120px; display: block; margin: 0 auto; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; width: 120px; height: 120px; display: block; margin: 0 auto; }}
     </style>
     """
     st.markdown(css_global, unsafe_allow_html=True)
@@ -733,12 +746,12 @@ else:
             colagem_img = None
             with col_btn:
                 st.markdown("### 📋 Colar Print Direto")
-                st.caption("Você pode copiar (Ctrl+C) seu print e clicar no botão vermelho abaixo para colar (Ctrl+V).")
+                st.caption("Você pode copiar (Ctrl+C) seu print e clicar no botão azul abaixo para colar (Ctrl+V).")
                 if paste_image_button is not None:
                     paste_result = paste_image_button(
                         label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#ef4444",
-                        hover_background_color="#dc2626"
+                        background_color="#2563eb",
+                        hover_background_color="#1d4ed8"
                     )
                     if paste_result.image_data is not None:
                         colagem_img = paste_result.image_data
@@ -834,7 +847,7 @@ else:
                 with col_titulo:
                     st.subheader(f"📂 {sem}")
                 with col_del_sem:
-                    if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}", type="primary"):
+                    if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
                         batch = db.batch()
                         for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
                             batch.delete(db.collection("cronogramas").document(t_del['id']))
@@ -976,7 +989,7 @@ else:
             col_g1, col_g2 = st.columns([1, 1.5])
             with col_g1:
                 if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
+                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
                     fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                     st.plotly_chart(fig_pie1, use_container_width=True, theme=None)
                 else:
@@ -1007,7 +1020,7 @@ else:
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
             
             if t_questoes_f > 0:
-                fig_pie2 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
+                fig_pie2 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
                 fig_pie2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                 st.plotly_chart(fig_pie2, use_container_width=True, theme=None)
             else:
@@ -1130,7 +1143,7 @@ else:
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
                     
                     st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.dataframe(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]], use_container_width=True)
+                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
                     
                     st.divider()
                     with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
@@ -1176,7 +1189,6 @@ else:
                     st.rerun()
             
             if dados_questoes: 
-                # ORDENAÇÃO E EXIBIÇÃO CORRETA DAS QUESTÕES NA TABELA
                 lista_q = []
                 for b in dados_questoes:
                     lista_q.append({
@@ -1189,7 +1201,7 @@ else:
                     })
                 df_q = pd.DataFrame(lista_q)
                 df_q = df_q.sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"])
-                st.dataframe(df_q, use_container_width=True)
+                st.table(df_q)
                 
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
@@ -1443,7 +1455,7 @@ else:
         else:
             t_seg = int((st.session_state.foco_fim - get_agora()).total_seconds())
             if t_seg > 0:
-                components.html(f"""<div style="text-align:center;"><h1 id="tmr" style="font-size:80px;color:#ef4444;">--:--</h1></div><script>var d={t_seg}*1000,el=document.getElementById("tmr");function upd(){{if(d<=0){{el.innerHTML="00:00";return;}}var m=Math.floor(d/60000),s=Math.floor((d%60000)/1000);el.innerHTML=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);d-=1000;}}upd();setInterval(upd,1000);</script>""", height=120)
+                components.html(f"""<div style="text-align:center;"><h1 id="tmr" style="font-size:80px;color:#2563eb;">--:--</h1></div><script>var d={t_seg}*1000,el=document.getElementById("tmr");function upd(){{if(d<=0){{el.innerHTML="00:00";return;}}var m=Math.floor(d/60000),s=Math.floor((d%60000)/1000);el.innerHTML=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);d-=1000;}}upd();setInterval(upd,1000);</script>""", height=120)
                 if st.button("❌ Cancelar"): st.session_state.foco_iniciado = False; st.rerun()
             else:
                 st.success("✅ Concluído!")
@@ -1460,7 +1472,9 @@ else:
             db.collection("materiais").add(novo_mat)
             invalidar_cache()
             st.success("Salvo!")
-        if dados_materiais: st.dataframe(pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais]), use_container_width=True)
+        if dados_materiais: 
+            df_mat = pd.DataFrame([{"Título": m.get('titulo'), "Data": formatar_data_br(m.get('data_upload'))} for m in dados_materiais])
+            st.table(df_mat)
 
     # ==========================================
     # 🏥 SIMULADOS INTERATIVOS E OSCE
@@ -1488,9 +1502,9 @@ else:
                     f_u = pd.to_numeric(pd.to_datetime(fut)).values.reshape(-1, 1)
                     p = m.predict(f_u)
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#ef4444", width=3)))
-                    fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA da sua Nota", line=dict(color="#3b82f6", dash='dot')))
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
+                    fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
+                    fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA da sua Nota", line=dict(color="#ef4444", dash='dot')))
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
                     st.plotly_chart(fig, use_container_width=True, theme=None)
 
         with aba_simulado:
@@ -1504,8 +1518,8 @@ else:
                 if paste_image_button is not None:
                     paste_result_sim = paste_image_button(
                         label="Ou cole um print de questão (Ctrl+V)",
-                        background_color="#ef4444",
-                        hover_background_color="#dc2626",
+                        background_color="#2563eb",
+                        hover_background_color="#1d4ed8",
                         key="paste_sim"
                     )
                     if paste_result_sim.image_data is not None:
@@ -1754,8 +1768,8 @@ else:
             usuarios_todos = db.collection("usuarios").get()
             st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
             
-            df_u = pd.DataFrame([{"ID da Nuvem": u.id, "Identificação": u.to_dict().get('nome')} for u in usuarios_todos])
-            st.dataframe(df_u, use_container_width=True, column_config={"ID da Nuvem": None})
+            df_u = pd.DataFrame([{"Identificação": u.to_dict().get('nome')} for u in usuarios_todos])
+            st.table(df_u)
             
             ca, cb, cc = st.columns(3)
             with ca:
