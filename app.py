@@ -194,7 +194,7 @@ BANCO_IMAGENS_OSCE = {
 def renderizar_mensagem_osce(texto):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
     bg_osce = "#1e293b" if modo == "Escuro" else "#f8f9fa"
-    bd_osce = "#334155" if modo == "Escuro" else "#e2e8f0"
+    bd_osce = "#334155" if modo == "Escuro" else "#cbd5e1"
     
     padrao = r"(?i)\[EXAME:\s*([^\]]+)\]"
     partes = re.split(padrao, texto)
@@ -403,7 +403,7 @@ def get_user_docs(collection_name, user_id):
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
     bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
-    bd_cl = "#334155" if modo == "Escuro" else "#e2e8f0"
+    bd_cl = "#334155" if modo == "Escuro" else "#cbd5e1"
     bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
     bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
     tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
@@ -433,7 +433,7 @@ def gerar_calendario_html(aulas_lista, ano, mes):
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
     bg_ct = "#1e212b" if modo == "Escuro" else "#ffffff"
-    bd_cl = "#334155" if modo == "Escuro" else "#e2e8f0"
+    bd_cl = "#334155" if modo == "Escuro" else "#cbd5e1"
     bg_em = "#0e1117" if modo == "Escuro" else "#f8f9fa"
     bg_cl = "#1e293b" if modo == "Escuro" else "#f1f5f9"
     tc_th = "#94a3b8" if modo == "Escuro" else "#64748b"
@@ -600,83 +600,54 @@ else:
     modo = user_settings.get("tema_modo", "Escuro")
     
     if modo == "Escuro":
-        bg_color = "#0e1117"
-        text_color = "#f8fafc"
-        metric_bg = "#1e293b"
-        metric_border = "#334155"
-        sidebar_bg = "#11151c"
-        input_bg = "#1e293b"
-        menu_text = "#94a3b8"
+        css_theme = """
+        .stApp, [data-testid="stAppViewContainer"] { background-color: #0e1117 !important; }
+        [data-testid="stSidebar"] { background-color: #11151c !important; border-right: 1px solid #334155 !important; }
+        h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div { color: #f8fafc !important; }
+        [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"], [data-testid="stFileUploadDropzone"] { background-color: #1e293b !important; border: 1px solid #334155 !important; }
+        input, textarea, div[data-baseweb="select"] span { color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }
+        ul[data-baseweb="menu"] { background-color: #1e293b !important; }
+        ul[data-baseweb="menu"] li { color: #f8fafc !important; }
+        div[data-testid='stExpander'] { border: 1px solid #334155 !important; background-color: #1e293b !important; } 
+        div[data-testid="metric-container"] { background-color: #1e293b !important; border: 1px solid #334155 !important; }
+        """
         menu_hover = "#1e293b"
-        menu_active_bg = "#0ea5e9" # Azul/Teal estilo Estratégia
+        menu_text = "#94a3b8"
+        text_color_plotly = "#f8fafc"
     else:
-        bg_color = "#f1f5f9" # Fundo levemente cinza para destacar os cards brancos
-        text_color = "#0f172a"
-        metric_bg = "#ffffff"
-        metric_border = "#e2e8f0"
-        sidebar_bg = "#ffffff"
-        input_bg = "#ffffff"
+        css_theme = """
+        .stApp, [data-testid="stAppViewContainer"] { background-color: #f8f9fa !important; }
+        [data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #cbd5e1 !important; }
+        h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div { color: #0f172a !important; }
+        [data-baseweb="input"] > div, [data-baseweb="select"] > div, [data-baseweb="textarea"], [data-testid="stFileUploadDropzone"] { background-color: #ffffff !important; border: 1px solid #cbd5e1 !important; }
+        input, textarea, div[data-baseweb="select"] span { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; }
+        ul[data-baseweb="menu"] { background-color: #ffffff !important; }
+        ul[data-baseweb="menu"] li, ul[data-baseweb="menu"] li span { color: #0f172a !important; background-color: transparent !important; }
+        div[data-testid='stExpander'] { border: 1px solid #cbd5e1 !important; background-color: #ffffff !important; } 
+        div[data-testid="metric-container"] { background-color: #ffffff !important; border: 1px solid #cbd5e1 !important; }
+        [data-testid="stDataFrame"] { filter: invert(0.92) hue-rotate(180deg); opacity: 0.95; }
+        """
+        menu_hover = "#f1f5f9"
         menu_text = "#64748b"
-        menu_hover = "#f8fafc"
-        menu_active_bg = "#0ea5e9"
+        text_color_plotly = "#0f172a"
 
-    st.markdown(f"""
+    css_global = f"""
     <style>
-    /* FUNDO GERAL */
-    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; }}
-    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border}; }}
-    
-    /* TEXTOS GERAIS */
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; }}
-    
-    /* CORREÇÃO DE INPUTS (Tema Claro usável) */
-    .stTextInput input, .stTextArea textarea, div[data-baseweb="select"] > div, div[data-baseweb="base-input"] {{
-        background-color: {input_bg} !important;
-        color: {text_color} !important;
-        border: 1px solid {metric_border} !important;
+    {css_theme}
+    button[kind="primary"], button[kind="secondary"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"] {{
+        background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important;
     }}
-    ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
-    ul[data-baseweb="menu"] li {{ color: {text_color} !important; background-color: {input_bg} !important; }}
-    
-    /* MENU LATERAL - ESTILO ESTRATÉGIA MED */
-    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{
-        display: none !important;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{
-        padding: 12px 16px;
-        border-radius: 12px;
-        margin-bottom: 4px;
-        transition: all 0.2s ease;
-        background-color: transparent;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{
-        background-color: {menu_hover};
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{
-        font-size: 16px;
-        font-weight: 500;
-        color: {menu_text} !important;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
-        background-color: {menu_active_bg} !important;
-        box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{
-        color: #ffffff !important;
-        font-weight: 600 !important;
-    }}
-
-    /* BOTÕES AÇÃO */
-    .stButton>button {{ background-color: #ef4444 !important; color: white !important; border: none !important; font-weight: bold !important; border-radius: 6px !important; }} 
-    
-    /* CARDS E MÉTRICAS */
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; border-radius: 8px; background-color: {metric_bg} !important; }} 
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-    
-    /* FOTO DE PERFIL */
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid {menu_active_bg}; width: 120px; height: 120px; display: block; margin: 0 auto; }}
+    button p, button span, button div {{ color: white !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 4px; transition: all 0.2s ease; background-color: transparent; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ font-size: 16px; font-weight: 500; color: {menu_text} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #0ea5e9 !important; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2); }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: #ffffff !important; font-weight: 600 !important; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #0ea5e9; width: 120px; height: 120px; display: block; margin: 0 auto; }}
     </style>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(css_global, unsafe_allow_html=True)
 
     if user_settings.get('foto_perfil') and os.path.exists(user_settings['foto_perfil']):
         st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{get_image_base64(user_settings["foto_perfil"])}" class="profile-img">', unsafe_allow_html=True)
@@ -982,17 +953,19 @@ else:
             with col_g1:
                 if t_questoes_g > 0: 
                     fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                     st.plotly_chart(fig_pie1, use_container_width=True, theme=None)
                 else:
                     st.info("Registre questões para ver o gráfico.")
             with col_g2:
-                df_r = pd.DataFrame([{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all])
+                # O Erro do Gráfico de Barras foi corrigido aqui! Puxando os dados das questões normais TAMBÉM.
+                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
+                df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
                 if not df_r.empty:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color, showlegend=False)
+                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly, showlegend=False)
                     st.plotly_chart(fig_bar1, use_container_width=True, theme=None)
 
         with aba_detalhada:
@@ -1012,7 +985,7 @@ else:
             
             if t_questoes_f > 0:
                 fig_pie2 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
-                fig_pie2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                fig_pie2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                 st.plotly_chart(fig_pie2, use_container_width=True, theme=None)
             else:
                 st.info(f"Nenhuma questão registrada para {filtro_dash} ainda.")
@@ -1123,11 +1096,11 @@ else:
                     c1g, c2g = st.columns(2)
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"}, labels={"value": "Quantidade", "variable": "Desempenho"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                         st.plotly_chart(fig1, use_container_width=True, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards", labels={"Cards": "Flashcards Feitos", "Data": "Data da Revisão"})
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                         st.plotly_chart(fig2, use_container_width=True, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
@@ -1494,7 +1467,7 @@ else:
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#ef4444", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA da sua Nota", line=dict(color="#3b82f6", dash='dot')))
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color_plotly)
                     st.plotly_chart(fig, use_container_width=True, theme=None)
 
         with aba_simulado:
