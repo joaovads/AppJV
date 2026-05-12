@@ -52,7 +52,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="ResiPRO", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 # NOME OFICIAL E ATIVO DOS MODELOS DA GROQ
 MODELO_VISAO = "meta-llama/llama-4-scout-17b-16e-instruct"
@@ -981,7 +981,9 @@ else:
             col_g1, col_g2 = st.columns([1, 1.5])
             with col_g1:
                 if t_questoes_g > 0: 
-                    st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
+                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
+                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                    st.plotly_chart(fig_pie1, use_container_width=True, theme=None)
                 else:
                     st.info("Registre questões para ver o gráfico.")
             with col_g2:
@@ -989,7 +991,9 @@ else:
                 if not df_r.empty:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
-                    st.plotly_chart(px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS).update_layout(showlegend=False), use_container_width=True)
+                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
+                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color, showlegend=False)
+                    st.plotly_chart(fig_bar1, use_container_width=True, theme=None)
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -1007,7 +1011,9 @@ else:
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
             
             if t_questoes_f > 0:
-                st.plotly_chart(px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444']), use_container_width=True)
+                fig_pie2 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_f, t_erros_f], hole=0.6, color_discrete_sequence=["#3b82f6", '#ef4444'])
+                fig_pie2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                st.plotly_chart(fig_pie2, use_container_width=True, theme=None)
             else:
                 st.info(f"Nenhuma questão registrada para {filtro_dash} ainda.")
 
@@ -1117,10 +1123,12 @@ else:
                     c1g, c2g = st.columns(2)
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"}, labels={"value": "Quantidade", "variable": "Desempenho"})
-                        st.plotly_chart(fig1, use_container_width=True)
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                        st.plotly_chart(fig1, use_container_width=True, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards", labels={"Cards": "Flashcards Feitos", "Data": "Data da Revisão"})
-                        st.plotly_chart(fig2, use_container_width=True)
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                        st.plotly_chart(fig2, use_container_width=True, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -1252,7 +1260,7 @@ else:
                         st.rerun()
 
         with aba_flash:
-            aba_f1, aba_f2 = st.tabs(["Modo Estudo", "Adicionar"])
+            aba_f1, aba_f2, aba_f3 = st.tabs(["Modo Estudo", "Adicionar", "📥 Importar Anki (CSV)"])
             with aba_f1:
                 cards_hoje = [d for d in dados_flashcards if parse_data(d.get('data_prox_revisao')) <= hoje]
                 if cards_hoje:
@@ -1278,6 +1286,7 @@ else:
                             if b2.button("🟡 Bom", use_container_width=True): avaliar('bom')
                             if b3.button("🟢 Fácil", use_container_width=True): avaliar('facil')
                 else: st.success("🎉 Você zerou o deck de hoje. Parabéns!")
+            
             with aba_f2:
                 with st.form("add_fc", clear_on_submit=True):
                     a, t = st.selectbox("Área", AREAS_MED), st.text_input("Tema")
@@ -1287,6 +1296,45 @@ else:
                         db.collection("flashcards").add(novo_card)
                         invalidar_cache()
                         st.success("Salvo!"); st.rerun()
+            
+            with aba_f3:
+                st.markdown("### 📥 Importação em Massa")
+                st.info("Envie um arquivo **.csv** contendo exatamente as colunas: **Area**, **Tema**, **Frente**, **Verso**.")
+                arq_csv = st.file_uploader("Upload do CSV (Anki)", type=["csv"])
+                
+                if arq_csv and st.button("Importar 200+ Flashcards", use_container_width=True, type="primary"):
+                    try:
+                        df_anki = pd.read_csv(arq_csv, sep=None, engine='python') 
+                        if all(col in df_anki.columns for col in ['Area', 'Tema', 'Frente', 'Verso']):
+                            with st.spinner("Injetando flashcards no banco de dados..."):
+                                batch = db.batch()
+                                contador = 0
+                                for _, row in df_anki.iterrows():
+                                    novo_card = {
+                                        "usuario_id": u_id, 
+                                        "area": str(row['Area']).strip(), 
+                                        "tema": str(row['Tema']).strip(), 
+                                        "frente": str(row['Frente']).strip(), 
+                                        "verso": str(row['Verso']).strip(), 
+                                        "path_imagem": None, 
+                                        "data_prox_revisao": str(get_agora().date()), 
+                                        "intervalo": 0, 
+                                        "facilidade": 2.5
+                                    }
+                                    doc_ref = db.collection("flashcards").document()
+                                    batch.set(doc_ref, novo_card)
+                                    contador += 1
+                                    
+                                batch.commit()
+                                invalidar_cache()
+                                
+                            st.success(f"✅ Fenomenal! {contador} flashcards importados com sucesso!")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error("⚠️ O arquivo CSV precisa ter os cabeçalhos exatos: Area, Tema, Frente, Verso. Verifique a primeira linha da sua planilha.")
+                    except Exception as e:
+                        st.error(f"Erro ao ler o arquivo. Verifique se salvou como CSV UTF-8. Detalhes: {e}")
 
         with aba_feynman:
             client_ia = get_ia_client()
@@ -1446,7 +1494,8 @@ else:
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#ef4444", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA da sua Nota", line=dict(color="#3b82f6", dash='dot')))
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=text_color)
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
 
         with aba_simulado:
             st.subheader("Gerador de Questões Estruturadas (Motor Paginado)")
@@ -1710,7 +1759,6 @@ else:
             st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
             
             df_u = pd.DataFrame([{"ID da Nuvem": u.id, "Identificação": u.to_dict().get('nome')} for u in usuarios_todos])
-            # Esconde a coluna do ID visualmente, mas mantém o nome
             st.dataframe(df_u, use_container_width=True, column_config={"ID da Nuvem": None})
             
             ca, cb, cc = st.columns(3)
