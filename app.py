@@ -194,7 +194,7 @@ def init_firebase():
 
 db = init_firebase()
 
-for d in ["materiais_estudo", "imagens_flashcards"]:
+for d in ["materiais_estudo", "imagens_flashcards", "fotos_perfil"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
@@ -276,13 +276,132 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 MEDICAMENTOS = {
     "Pediatria (Baseado em Peso)": {
+        "Acetilcisteína (Mucolítico)": {"dose_fixa": "5 mL", "via": "VO", "obs": "Crianças > 2 anos: Xarope 20mg/mL (5mL), 2 a 3 vezes ao dia."},
+        "Adrenalina (Anafilaxia)": {"dose": 0.01, "unidade": "mg/kg", "max": 0.3, "via": "IM", "obs": "0,01 mL/kg da ampola 1:1.000 no vasto lateral."},
+        "Adrenalina (PCR)": {"dose": 0.01, "unidade": "mg/kg", "max": 1, "via": "EV / IO", "obs": "0,1 mL/kg da solution 1:10.000 a cada 3-5 minutos."},
+        "Amiodarona (PCR)": {"dose": 5, "unidade": "mg/kg", "max": 300, "via": "EV Bolus", "obs": "Dose de ataque em Parada Cardiorrespiratória."},
+        "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."},
+        "Amoxicilina + Clavulanato": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Cálculo pela amoxicilina. Dividir em 2 tomadas (12/12h)."},
+        "Atropina (Bradicardia)": {"dose": 0.02, "unidade": "mg/kg", "max": 0.5, "via": "EV", "obs": "Dose mínima: 0,1mg. Dose máxima: 0,5mg."},
+        "Azitromicina (Respiratória)": {"dose": 10, "unidade": "mg/kg/dia", "max": 500, "via": "VO", "obs": "Dose única diária por 3 a 5 dias."},
+        "Cefalexina (Pele/Partes Moles)": {"dose": 50, "unidade": "mg/kg/dia", "max": 2000, "via": "VO", "obs": "25-50 mg/kg/dia, dividir em 4 tomadas (6/6h)."},
+        "Ceftriaxona (Pneumonia/Sepse)": {"dose": 50, "unidade": "mg/kg/dia", "max": 2000, "via": "EV / IM", "obs": "Dividir em 1 ou 2 doses. Meningite: 100mg/kg/dia."},
+        "Dexametasona (Crupe/Asma)": {"dose": 0.6, "unidade": "mg/kg", "max": 10, "via": "VO/IM/EV", "obs": "Laringite (Croup): 0,6 mg/kg dose única. Asma: 0,15 a 0,3 mg/kg/dose."},
+        "Diazepam (Crise Convulsiva)": {"dose": 0.3, "unidade": "mg/kg", "max": 10, "via": "EV / Retal", "obs": "0,2 a 0,3 mg/kg EV lento (1mg/min) ou via retal."},
         "Dipirona (Febre/Dor)": {"dose": 20, "unidade": "mg/kg", "max": 1000, "via": "VO / EV", "obs": "EV: 15-20 mg/kg/dose a cada 6h. VO: 1 gota/kg."},
+        "Escopolamina + Dipirona (Buscopan Comp)": {"dose": 1, "unidade": "gota/kg", "max": 40, "via": "VO", "obs": "1 gota por kg (> 1 ano), até 4 vezes ao dia."},
+        "Fenitoína (Ataque Convulsão)": {"dose": 20, "unidade": "mg/kg", "max": 1000, "via": "EV em BIC", "obs": "15-20 mg/kg. NÃO exceder 1mg/kg/min (criança)."},
+        "Ferro Profilático (RN Prematuro < 37s)": {"dose": 3, "unidade": "mg/kg/dia", "max": 50, "via": "VO", "obs": "2 a 4 mg/kg/dia. Início com 30 dias até 2 anos."},
+        "Ferro Profilático (RN Termo AME)": {"dose": 1, "unidade": "mg/kg/dia", "max": 50, "via": "VO", "obs": "A partir dos 3 meses de vida até os 2 anos."},
+        "Furosemida (Diurético)": {"dose": 2, "unidade": "mg/kg", "max": 40, "via": "VO / EV", "obs": "1-2 mg/kg/dose."},
+        "Hidrocortisona (Crise Asma)": {"dose": 5, "unidade": "mg/kg", "max": 500, "via": "EV", "obs": "Ataque: 4 a 5 mg/kg. Manutenção: 1-2 mg/kg/dose a cada 6h."},
+        "Ibuprofeno (Febre/Dor)": {"dose": 10, "unidade": "mg/kg", "max": 600, "via": "VO", "obs": "5-10 mg/kg/dose (> 6 meses) a cada 8h (com refeições)."},
+        "Metilprednisolona": {"dose": 2, "unidade": "mg/kg/dia", "max": 125, "via": "EV", "obs": "1 a 2 mg/kg/dia, dividido em 2 doses (12/12h)."},
+        "Metronidazol": {"dose": 7.5, "unidade": "mg/kg", "max": 500, "via": "EV", "obs": "7,5 mg/kg/dose a cada 8h."},
+        "Morfina (Dor Intensa)": {"dose": 0.1, "unidade": "mg/kg", "max": 4, "via": "EV Lento", "obs": "0,05 a 0,1 mg/kg/dose EV lento. CUIDADO COM OPIOIDE."},
+        "Nitrofurantoína (ITU)": {"dose": 7, "unidade": "mg/kg/dia", "max": 400, "via": "VO", "obs": "Crianças > 1 mês: 5-7 mg/kg/dia, dividir de 6/6h."},
+        "Omeprazol / Pantoprazol": {"dose": 1, "unidade": "mg/kg/dia", "max": 40, "via": "EV / VO", "obs": "1 mg/kg/dia em jejum."},
+        "Ondansetrona (Zofran)": {"dose": 0.15, "unidade": "mg/kg", "max": 8, "via": "EV", "obs": "0,15 mg/kg/dose EV lento."},
         "Paracetamol (Febre/Dor)": {"dose": 15, "unidade": "mg/kg", "max": 750, "via": "VO", "obs": "10-15 mg/kg/dose a cada 6h. Gotas 200mg/mL: 1 gota/kg."},
-        "Amoxicilina (OMA/Sinusite)": {"dose": 50, "unidade": "mg/kg/dia", "max": 1500, "via": "VO", "obs": "Dividir em 3 tomadas (8/8h)."}
+        "Prednisolona / Prednisona": {"dose": 2, "unidade": "mg/kg/dia", "max": 60, "via": "VO", "obs": "1 a 2 mg/kg/dia, dose única, por 3 a 5 dias."},
+        "Salbutamol (Crise Asmática)": {"dose": 0.33, "unidade": "gota/kg", "max": 15, "via": "NBZ", "obs": "1 gota para cada 3-4 kg (máx 15) + 3-5mL SF 0,9%. Repetir 20/20m."},
+        "Soro Fisiológico 0.9% (Choque)": {"dose": 20, "unidade": "mL/kg", "max": 1000, "via": "EV Bolus", "obs": "Correr em 20-30 min. Repetir até 3x se choque persistir."},
+        "Tramadol": {"dose": 2, "unidade": "mg/kg", "max": 100, "via": "EV", "obs": "1-2 mg/kg/dose a cada 6-8h."},
+        "Vancomicina": {"dose": 60, "unidade": "mg/kg/dia", "max": 2000, "via": "EV", "obs": "40-60 mg/kg/dia dividido de 6-8h. BIC em pelo menos 1h."}
     },
     "Adulto (Doses por Peso E Fixas)": {
         "AAS (SCA)": {"dose_fixa": "150-300 mg", "via": "VO (Mastigar)", "obs": "3 comprimidos infantis de 100mg macerados na boca."},
-        "Dipirona": {"dose_fixa": "500 mg a 1 g", "via": "EV / VO", "obs": "EV diluído em 100mL SF 0.9% em 30min, a cada 6h."}
+        "Acetilcisteína (Mucolítico)": {"dose_fixa": "600 mg (15mL)", "via": "VO", "obs": "Xarope 40mg/mL (15mL), 1 vez ao dia."},
+        "Ácido Fólico (Gestante)": {"dose_fixa": "5 mg", "via": "VO", "obs": "1 cp/dia. Iniciar 3 meses antes da concepção."},
+        "Adenosina (TPSV)": {"dose_fixa": "6 mg", "via": "EV Bolus Rápido", "obs": "Push rápido + flush 20mL SF. Se refratário: 12mg."},
+        "Adrenalina (Anafilaxia)": {"dose_fixa": "0.3 a 0.5 mg", "via": "IM", "obs": "No vasto lateral da coxa. Ampola pura (1:1.000)."},
+        "Adrenalina (PCR)": {"dose_fixa": "1 mg", "via": "EV Bolus", "obs": "1 ampola pura a cada 3 a 5 minutos na RCP."},
+        "Alteplase (AVC Isquêmico)": {"dose": 0.9, "unidade": "mg/kg", "max": 90, "via": "EV", "obs": "10% bolus de 1 min. 90% em BIC por 60 min."},
+        "Amiodarona (PCR FV/TV)": {"dose_fixa": "300 mg", "via": "EV Bolus", "obs": "1ª dose (2 ampolas) pura na PCR. 2ª dose: 150mg."},
+        "Amiodarona (Taquicardia Estável)": {"dose_fixa": "150 mg", "via": "EV Lento", "obs": "Diluir 1 amp em 100mL SG 5%. Correr em 10 minutos."},
+        "Amoxicilina": {"dose_fixa": "500 mg", "via": "VO", "obs": "De 8/8h por 7 dias."},
+        "Amoxicilina + Clavulanato": {"dose_fixa": "875 / 125 mg", "via": "VO", "obs": "1 cp de 12/12h por 7 a 10 dias."},
+        "Anlodipino (HAS)": {"dose_fixa": "5 a 10 mg", "via": "VO", "obs": "1 a 2x ao dia."},
+        "Atenolol (HAS)": {"dose_fixa": "25 a 100 mg", "via": "VO", "obs": "Uma vez ao dia."},
+        "Atorvastatina (Dislipidemia)": {"dose_fixa": "40 a 80 mg", "via": "VO", "obs": "Dose única diária. Qualquer hora do dia."},
+        "Atropina (Bradicardia)": {"dose_fixa": "0.5 a 1 mg", "via": "EV Bolus", "obs": "Repetir a cada 3-5 min. Máx: 3mg."},
+        "Azitromicina": {"dose_fixa": "500 mg", "via": "VO", "obs": "1 cp/dia por 3 a 5 dias."},
+        "Bezafibrato (Triglicerídeos)": {"dose_fixa": "200 mg", "via": "VO", "obs": "3 vezes ao dia junto com refeições."},
+        "Bicarbonato de Sódio 8.4% (PCR)": {"dose": 1, "unidade": "mEq/kg", "max": 150, "via": "EV", "obs": "Dose inicial: 1 mEq/Kg (1 ml = 1 mEq)."},
+        "Buspirona (Ansiedade)": {"dose_fixa": "5 mg", "via": "VO", "obs": "Ansiolítico SUS."},
+        "Captopril (HAS Urgência)": {"dose_fixa": "25 a 75 mg", "via": "VO", "obs": "Até 3x ao dia (geralmente 1h antes refeições)."},
+        "Carvedilol (ICC/HAS)": {"dose_fixa": "3.125 a 25 mg", "via": "VO", "obs": "1 a 2x ao dia. Aumentar gradualmente."},
+        "Cefalexina": {"dose_fixa": "500 mg", "via": "VO", "obs": "De 6/6h por 7 a 14 dias (Pele/ITU)."},
+        "Cefepime": {"dose_fixa": "1 a 2 g", "via": "EV", "obs": "A cada 12h. Neutropenia febril: 2g a cada 8h."},
+        "Ceftriaxona": {"dose_fixa": "1 a 2 g", "via": "EV / IM", "obs": "A cada 12h ou 24h."},
+        "Celecoxibe (AINE)": {"dose_fixa": "200 mg", "via": "VO", "obs": "1 cp de 12/12h."},
+        "Cetamina (Indução IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 200, "via": "EV Bolus", "obs": "Excelente no choque. Cuidado na hipertensão grave."},
+        "Cetoprofeno (AINE Injetável)": {"dose_fixa": "100 mg", "via": "EV / IM", "obs": "Diluir em 100mL SF 0,9%, correr em 20 min."},
+        "Clonazepam": {"dose_fixa": "0.5 a 2 mg", "via": "VO", "obs": "Comprimidos ou gotas (2.5mg/mL)."},
+        "Clopidogrel (SCA)": {"dose_fixa": "300 a 600 mg", "via": "VO", "obs": "Ataque 300mg. 600mg para angioplastia primária."},
+        "Dapagliflozina (DM2 / ICC)": {"dose_fixa": "10 mg", "via": "VO", "obs": "Uma vez ao dia (Critérios: HbA1c > 7.5%, > 55 anos)."},
+        "Dexametasona": {"dose_fixa": "4 a 10 mg", "via": "VO / IM / EV", "obs": "Laringite, alergias, antiemético."},
+        "Diazepam (Convulsão)": {"dose_fixa": "5 a 10 mg", "via": "EV Lento", "obs": "Correr lento (2mg/min)."},
+        "Diclofenaco Sódico": {"dose_fixa": "50 a 75 mg", "via": "VO / IM", "obs": "IM: 1 ampola (75mg). VO: 50mg de 8/8h."},
+        "Dimenidrinato (Dramin)": {"dose_fixa": "50 mg", "via": "EV / IM / VO", "obs": "Diluir ampola EV para evitar hipotensão."},
+        "Dipirona": {"dose_fixa": "500 mg a 1 g", "via": "EV / VO", "obs": "EV diluído em 100mL SF 0.9% em 30min, a cada 6h."},
+        "Dobutamina (Choque)": {"dose_fixa": "2 a 20 mcg/kg/min", "via": "BIC", "obs": "1 amp (250mg) + 230mL SG 5%."},
+        "Enalapril (HAS)": {"dose_fixa": "10 a 20 mg", "via": "VO", "obs": "1 a 2 tomadas ao dia."},
+        "Enoxaparina (Profilaxia TVP)": {"dose_fixa": "40 mg", "via": "SC", "obs": "1x ao dia."},
+        "Enoxaparina (Tratamento TVP/TEP)": {"dose": 1, "unidade": "mg/kg", "max": 150, "via": "SC", "obs": "12/12h. Ajustar se ClCr < 30."},
+        "Escopolamina + Dipirona (Buscopan)": {"dose_fixa": "1 a 2 cp / 1 amp", "via": "VO / EV", "obs": "De 6/6h para cólicas abdominais. EV Lento."},
+        "Espironolactona": {"dose_fixa": "25 a 50 mg", "via": "VO", "obs": "Diurético poupador de potássio. 1-2x ao dia."},
+        "Etomidato (Indução IOT)": {"dose": 0.3, "unidade": "mg/kg", "max": 40, "via": "EV Bolus", "obs": "Estabilidade hemodinâmica perfeita."},
+        "Ezetimiba (Dislipidemia)": {"dose_fixa": "10 mg", "via": "VO", "obs": "Associado com estatina."},
+        "Fenitoína (Ataque Convulsão)": {"dose": 20, "unidade": "mg/kg", "max": 2000, "via": "EV em BIC", "obs": "15-20 mg/kg. MÁX: 50mg/min. Monitorização cardíaca."},
+        "Fentanil (Indução/Analgesia)": {"dose": 3, "unidade": "mcg/kg", "max": 300, "via": "EV Lento", "obs": "Dose IOT. Ampola = 50mcg/mL. Causa depressão resp."},
+        "Fluoxetina (Depressão)": {"dose_fixa": "20 mg", "via": "VO", "obs": "1x ao dia."},
+        "Fosfomicina (ITU)": {"dose_fixa": "3 g (1 envelope)", "via": "VO", "obs": "Dose única diluída em água."},
+        "Furosemida": {"dose_fixa": "20 a 40 mg", "via": "EV / VO", "obs": "EV Lento. Pode titular."},
+        "Haloperidol (Agitação)": {"dose_fixa": "5 mg", "via": "IM", "obs": "Pode associar com Prometazina."},
+        "Heparina Não Fracionada (Ataque)": {"dose": 80, "unidade": "UI/kg", "max": 10000, "via": "EV Bolus", "obs": "Manutenção em BIC a 18 UI/kg/h. Guiar por TTPA."},
+        "Hidralazina (HAS Grave)": {"dose_fixa": "50 a 200 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas."},
+        "Hidroclorotiazida (HAS)": {"dose_fixa": "25 mg", "via": "VO", "obs": "1x ao dia pela manhã."},
+        "Hidrocortisona (Asma/Anafilaxia)": {"dose_fixa": "100 a 500 mg", "via": "EV", "obs": "Diluir em 100mL SF, correr em 30 min."},
+        "Ibuprofeno": {"dose_fixa": "400 a 600 mg", "via": "VO", "obs": "A cada 8h (com refeições)."},
+        "Insulina NPH (Basal)": {"dose": 0.2, "unidade": "UI/kg", "max": 50, "via": "SC", "obs": "Início com 10 UI ou 0.1 a 0.2 UI/kg ao deitar."},
+        "Insulina Regular (Cetoacidose)": {"dose_fixa": "0.1 U/kg/h BIC", "via": "EV", "obs": "Ataque 0.1 U/kg EV. Titular pela glicemia capilar."},
+        "Ipratrópio (Atrovent)": {"dose_fixa": "40 gotas", "via": "NBZ", "obs": "Em crises graves associar ao Salbutamol."},
+        "Levotiroxina (Hipotireoidismo)": {"dose": 1.6, "unidade": "mcg/kg/dia", "max": 200, "via": "VO", "obs": "Em jejum, 30-60 min antes do café."},
+        "Losartana (HAS)": {"dose_fixa": "50 a 100 mg", "via": "VO", "obs": "1 ou 2 tomadas."},
+        "Metformina (DM2)": {"dose_fixa": "500 a 850 mg", "via": "VO", "obs": "1 a 2x/dia após refeições. Máx 2.550 mg/dia."},
+        "Metildopa (HAS Gestante)": {"dose_fixa": "500 a 2000 mg/dia", "via": "VO", "obs": "Divididos em 2 a 4 tomadas. 1ª escolha gestação."},
+        "Metilprednisolona (Pulsoterapia/Asma)": {"dose_fixa": "40 a 125 mg", "via": "EV", "obs": "A cada 6 a 12 horas. Pulso: até 1g/dia."},
+        "Metimazol (Hipertireoidismo)": {"dose_fixa": "10 a 40 mg/dia", "via": "VO", "obs": "Dose única diária inicial."},
+        "Metoprolol (Controle FA)": {"dose_fixa": "5 mg", "via": "EV Lento", "obs": "Em 5 min. Pode repetir cada 5min (Máx 15mg)."},
+        "Metronidazol": {"dose_fixa": "500 mg", "via": "EV / VO", "obs": "EV de 8/8h. VO de 12/12h para vaginose (7d)."},
+        "Morfina (Dor Intensa)": {"dose_fixa": "2 a 4 mg", "via": "EV Lento", "obs": "Diluído em 9ml SF. Fazer a cada 4h."},
+        "Nimesulida (AINE)": {"dose_fixa": "100 mg", "via": "VO", "obs": "1cp de 12/12h."},
+        "Nitrofurantoína (ITU)": {"dose_fixa": "100 mg", "via": "VO", "obs": "De 6/6h por 5 a 7 dias com alimento."},
+        "Nitroglicerina (Tridil)": {"dose_fixa": "5 a 20 mcg/min", "via": "BIC", "obs": "Diluir 1 amp (50mg) em 240mL SG5%. Não protege da luz."},
+        "Norepinefrina (Choque)": {"dose_fixa": "0.05 a 0.5 mcg/kg/min", "via": "BIC", "obs": "Padrão: 5 amp (20mL) + 180mL SF. Titular PAM > 65."},
+        "Omeprazol / Pantoprazol": {"dose_fixa": "40 mg", "via": "EV / VO", "obs": "1x ao dia em jejum."},
+        "Ondansetrona (Zofran)": {"dose_fixa": "8 mg", "via": "EV Lento", "obs": "Antiemético."},
+        "Oseltamivir (Tamiflu)": {"dose_fixa": "75 mg", "via": "VO", "obs": "De 12/12h por 5 dias. Iniciar em 48h."},
+        "Paracetamol": {"dose_fixa": "750 mg", "via": "VO", "obs": "A cada 6h (Máx: 4g/dia)."},
+        "Piperacilina + Tazobactam (Tazocin)": {"dose_fixa": "4.5 g", "via": "EV", "obs": "De 6/6h. Infusão estendida (4h) na sepse."},
+        "Polimixina B": {"dose_fixa": "15.000 a 25.000 U/kg/dia", "via": "EV", "obs": "Divididas de 12/12h. Máx: 2.000.000 U."},
+        "Prednisona": {"dose_fixa": "20 a 60 mg/dia", "via": "VO", "obs": "Dose única diária por 5 a 7 dias."},
+        "Propiltiouracila (PTU)": {"dose_fixa": "100 a 150 mg", "via": "VO", "obs": "De 8/8h. Escolha no 1º trimestre gestação."},
+        "Propofol (Indução IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 250, "via": "EV Bolus", "obs": "Hipotensor. Evitar em pacientes chocados."},
+        "Propranolol (Tremor/HAS)": {"dose_fixa": "10 a 40 mg", "via": "VO", "obs": "De 6/6h ou 8/8h para sintomas adrenérgicos."},
+        "Rocurônio (Bloqueador IOT)": {"dose_fixa": "1.2", "unidade": "mg/kg", "max": 150, "via": "EV Bolus", "obs": "Dose de Sequência Rápida de Intubação."},
+        "Rosuvastatina (Dislipidemia)": {"dose_fixa": "5 a 40 mg", "via": "VO", "obs": "Dose única diária. Qualquer hora do dia."},
+        "Salbutamol (Inalatório)": {"dose_fixa": "10 a 20 gotas", "via": "NBZ", "obs": "Nebulização com 3-5mL SF. Repetir 20/20m."},
+        "Sertralina (Depressão)": {"dose_fixa": "25 a 50 mg", "via": "VO", "obs": "1x ao dia."},
+        "Sinvastatina (Dislipidemia)": {"dose_fixa": "10 a 40 mg", "via": "VO", "obs": "Dose única diária, OBRIGATÓRIO à noite."},
+        "Soro Fisiológico 0.9% (Expansão Adulto)": {"dose_fixa": "500 a 1000 mL", "via": "EV Bolus", "obs": "Correr em 30 a 60 minutos. Reavaliar perfusão."},
+        "Succinilcolina (Bloqueador IOT)": {"dose": 1.5, "unidade": "mg/kg", "max": 150, "via": "EV Bolus", "obs": "Contraindicado em hipercalemia."},
+        "Sulfato de Magnésio 50% (PCR/Eclâmpsia)": {"dose_fixa": "1 a 2 g", "via": "EV", "obs": "Ampola 10mL = 5g."},
+        "Sulfato Ferroso (Gestante)": {"dose_fixa": "40 mg Fe elementar", "via": "VO", "obs": "1cp/dia. Tomar com suco cítrico. Início 20ª sem."},
+        "Tenoxicam (AINE)": {"dose_fixa": "20 mg", "via": "VO / EV / IM", "obs": "1x ao dia."},
+        "Tramadol": {"dose_fixa": "100 mg", "via": "EV", "obs": "Diluído em 100mL SF, correr em 30 min, a cada 8h."},
+        "Vancomicina": {"dose": 15, "unidade": "mg/kg/dose", "max": 2000, "via": "EV", "obs": "A cada 8-12h. Correr em BIC em pelo menos 1h."}
     }
 }
 
@@ -727,7 +846,7 @@ else:
                 if t_questoes_g > 0: 
                     fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
                     fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_pie1, use_container_width=True, theme=None)
+                    st.plotly_chart(fig_pie1, use_container_width=True)
             with col_g2:
                 todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
@@ -736,7 +855,7 @@ else:
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
                     fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
-                    st.plotly_chart(fig_bar1, use_container_width=True, theme=None)
+                    st.plotly_chart(fig_bar1, use_container_width=True)
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -839,11 +958,11 @@ else:
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
                         fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                        st.plotly_chart(fig1, use_container_width=True, theme=None)
+                        st.plotly_chart(fig1, use_container_width=True)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
                         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                        st.plotly_chart(fig2, use_container_width=True, theme=None)
+                        st.plotly_chart(fig2, use_container_width=True)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -875,8 +994,24 @@ else:
                     invalidar_cache(); st.rerun()
             
             if dados_questoes: 
-                lista_q = [{"Data_obj": parse_data(b.get('data')), "Data": formatar_data_br(b.get('data')), "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')), "Acertos": safe_int(b.get('acertos')), "Erros": safe_int(b.get('erros'))} for b in dados_questoes]
-                st.table(pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"]))
+                lista_q = []
+                for b in dados_questoes:
+                    acertos = safe_int(b.get('acertos'))
+                    erros = safe_int(b.get('erros'))
+                    total = acertos + erros
+                    porcentagem = f"{(acertos / total * 100):.1f}%" if total > 0 else "0.0%"
+                    
+                    lista_q.append({
+                        "Data_obj": parse_data(b.get('data')),
+                        "Data": formatar_data_br(b.get('data')),
+                        "Área": b.get('area'),
+                        "Subtema": limpar_texto(b.get('subtema')),
+                        "Acertos": acertos,
+                        "Erros": erros,
+                        "% Acertos": porcentagem
+                    })
+                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"])
+                st.table(df_q)
                 
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
@@ -1338,4 +1473,13 @@ else:
                         for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas"]:
                             for doc in db.collection(col).where("usuario_id", "==", uid).get(): db.collection(col).document(doc.id).delete()
                         db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
-        except Exception as e: st.error(f"Erro Admin: {e}")
+                    else: st.warning("Você não pode banir a si mesmo.")
+            
+            st.divider()
+            st.subheader("📦 Exportação de Backup em Nuvem")
+            if st.button("Baixar Dados (JSON)"):
+                with st.spinner("Coletando tudo..."):
+                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas"]}
+                    st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
+        except Exception as e:
+            st.error(f"Erro Admin: {e}")
