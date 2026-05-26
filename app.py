@@ -491,6 +491,96 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         st.error(f'Erro ao processar PDF: {e}')
         return None
 # ==========================================
+# IMPORTADOR INTELIGENTE DE PROVAS
+# ==========================================
+
+@st.cache_resource
+def carregar_easyocr():
+    return easyocr.Reader(['pt', 'en'], gpu=False)
+
+
+def processar_pdf_prova(uploaded_pdf):
+
+    reader = carregar_easyocr()
+
+    pdf_bytes = uploaded_pdf.read()
+
+    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+
+    resultado = {
+        "questoes": [],
+        "imagens": []
+    }
+
+    texto_total = ""
+
+    for pagina_idx in range(len(doc)):
+
+        page = doc[pagina_idx]
+
+        pix = page.get_pixmap(
+            matrix=fitz.Matrix(4, 4)
+        )
+
+        nome_img = f"pagina_{pagina_idx}.png"
+
+        pix.save(nome_img)
+
+        resultado_ocr = reader.readtext(
+            nome_img,
+            detail=0
+        )
+
+        texto_pagina = "\n".join(resultado_ocr)
+
+        texto_total += "\n" + texto_pagina
+
+        try:
+            imagens = page.get_images(full=True)
+
+            for img_index, img in enumerate(imagens):
+
+                xref = img[0]
+
+                base_image = doc.extract_image(xref)
+
+                image_bytes = base_image["image"]
+
+                nome_extraida = (
+                    f"pagina_{pagina_idx}_img_{img_index}.png"
+                )
+
+                with open(nome_extraida, "wb") as f:
+                    f.write(image_bytes)
+
+                resultado["imagens"].append(
+                    nome_extraida
+                )
+
+        except:
+            pass
+
+    partes = re.split(
+        r'(QUESTÃO\s*\d+|Questão\s*\d+)',
+        texto_total
+    )
+
+    contador = 1
+
+    for p in partes:
+
+        if len(p.strip()) > 100:
+
+            resultado["questoes"].append({
+                "numero": contador,
+                "texto": p,
+                "imagens": []
+            })
+
+            contador += 1
+
+    return resultado
+# ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
 # ==========================================
 if 'logado' not in st.session_state: 
