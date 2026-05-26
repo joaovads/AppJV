@@ -21,6 +21,10 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import html
 import streamlit.components.v1 as components
+import fitz
+import cv2
+import easyocr
+from pdf2image import convert_from_bytes
 
 # ==========================================
 # IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS E IA
@@ -415,7 +419,77 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
+# ==========================================
 
+    try:
+        reader = carregar_easyocr()
+
+        pdf_bytes = uploaded_pdf.read()
+
+        doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+
+        texto_completo = ''
+
+        for pagina_idx in range(len(doc)):
+            page = doc[pagina_idx]
+
+            pix = page.get_pixmap(matrix=fitz.Matrix(4, 4))
+
+            nome_pagina = os.path.join(
+                pasta_temp,
+                f'pagina_{pagina_idx}.png'
+            )
+
+            pix.save(nome_pagina)
+
+            imagens_pdf = extrair_imagens_da_pagina(
+                page,
+                doc,
+                pasta_temp,
+                pagina_idx
+            )
+
+            crops_detectados = detectar_blocos_visuais(
+                nome_pagina,
+                pasta_temp,
+                pagina_idx
+            )
+
+            todas_imgs = imagens_pdf + crops_detectados
+
+            resultado_final['imagens'].extend(todas_imgs)
+
+            resultado_ocr = reader.readtext(nome_pagina, detail=0)
+
+            texto_pagina = '\n'.join(resultado_ocr)
+
+            texto_completo += '\n' + texto_pagina
+
+        questoes_extraidas = separar_questoes_por_regex(texto_completo)
+
+        for idx, q in enumerate(questoes_extraidas):
+            resultado_final['questoes'].append({
+                'numero': idx + 1,
+                'texto': q,
+                'imagens': []
+            })
+
+        for img_path in resultado_final['imagens']:
+            nome = os.path.basename(img_path)
+
+            match = re.search(r'pagina_(\d+)', nome)
+
+            if match:
+                pagina_rel = int(match.group(1))
+
+                if pagina_rel < len(resultado_final['questoes']):
+                    resultado_final['questoes'][pagina_rel]['imagens'].append(img_path)
+
+        return resultado_final
+
+    except Exception as e:
+        st.error(f'Erro ao processar PDF: {e}')
+        return None
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
 # ==========================================
@@ -583,6 +657,7 @@ else:
         "🎯 Questões",
         "📚 Registro de Aulas",
         "📅 Agenda de Revisões",
+        "🧠 Importador de Provas",
         "✨ AI Tutor & Flashcards",
         "📁 Materiais e Simulados",
         "🏥 Simulados & OSCE",
@@ -805,6 +880,88 @@ else:
                         for t in reversed(concluidos):
                             st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~")
 
+     elif menu == "🧠 Importador de Provas":
+
+        st.header("🧠 Importador Inteligente de Provas Médicas")
+
+        st.markdown(
+            """
+            Faça upload de provas completas em PDF.
+
+            O sistema irá:
+            - separar questões
+            - extrair imagens
+            - detectar RX/ECG/US
+            - gerar estrutura automática
+            """
+        )
+
+        uploaded_pdf = st.file_uploader(
+            "Envie a prova em PDF",
+            type=['pdf']
+        )
+
+        if uploaded_pdf:
+
+            if st.button(
+                "🚀 Processar Prova Completa",
+                use_container_width=True
+            ):
+
+                with st.spinner(
+                    "Analisando prova médica..."
+                ):
+
+                    resultado = processar_pdf_prova(uploaded_pdf)
+
+                    if resultado:
+
+                        st.success(
+                            f"✅ {len(resultado['questoes'])} questões encontradas"
+                        )
+
+                        st.info(
+                            f"🖼️ {len(resultado['imagens'])} imagens detectadas"
+                        )
+
+                        for q in resultado['questoes']:
+
+                            with st.expander(
+                                f"Questão {q['numero']}"
+                            ):
+
+                                st.write(q['texto'])
+
+                                if q['imagens']:
+
+                                    st.markdown("### Imagens Detectadas")
+
+                                    cols = st.columns(2)
+
+                                    for idx, img in enumerate(q['imagens']):
+
+                                        with cols[idx % 2]:
+                                            st.image(img)
+
+                                if st.button(
+                                    f"💾 Salvar Questão {q['numero']}",
+                                    key=f"save_q_{q['numero']}"
+                                ):
+
+                                    db.collection(
+                                        'questoes_importadas'
+                                    ).add({
+                                        'usuario_id': u_id,
+                                        'numero': q['numero'],
+                                        'texto': q['texto'],
+                                        'imagens': q['imagens'],
+                                        'data_importacao': str(hoje)
+                                    })
+
+                                    st.toast(
+                                        'Questão salva!',
+                                        icon='✅'
+                                    )
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
         alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
