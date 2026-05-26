@@ -880,88 +880,88 @@ else:
                         for t in reversed(concluidos):
                             st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~")
 
-     elif menu == "🧠 Importador de Provas":
+    elif menu == "🧠 Importador de Provas":
 
-        st.header("🧠 Importador Inteligente de Provas Médicas")
+    st.header("🧠 Importador Inteligente de Provas Médicas")
 
-        st.markdown(
-            """
-            Faça upload de provas completas em PDF.
+    st.markdown(
+        """
+        Faça upload de provas completas em PDF.
 
-            O sistema irá:
-            - separar questões
-            - extrair imagens
-            - detectar RX/ECG/US
-            - gerar estrutura automática
-            """
-        )
+        O sistema irá:
+        - separar questões
+        - extrair imagens
+        - detectar RX/ECG/US
+        - gerar estrutura automática
+        """
+    )
 
-        uploaded_pdf = st.file_uploader(
-            "Envie a prova em PDF",
-            type=['pdf']
-        )
+    uploaded_pdf = st.file_uploader(
+        "Envie a prova em PDF",
+        type=['pdf']
+    )
 
-        if uploaded_pdf:
+    if uploaded_pdf:
 
-            if st.button(
-                "🚀 Processar Prova Completa",
-                use_container_width=True
+        if st.button(
+            "🚀 Processar Prova Completa",
+            use_container_width=True
+        ):
+
+            with st.spinner(
+                "Analisando prova médica..."
             ):
 
-                with st.spinner(
-                    "Analisando prova médica..."
-                ):
+                resultado = processar_pdf_prova(uploaded_pdf)
 
-                    resultado = processar_pdf_prova(uploaded_pdf)
+                if resultado:
 
-                    if resultado:
+                    st.success(
+                        f"✅ {len(resultado['questoes'])} questões encontradas"
+                    )
 
-                        st.success(
-                            f"✅ {len(resultado['questoes'])} questões encontradas"
-                        )
+                    st.info(
+                        f"🖼️ {len(resultado['imagens'])} imagens detectadas"
+                    )
 
-                        st.info(
-                            f"🖼️ {len(resultado['imagens'])} imagens detectadas"
-                        )
+                    for q in resultado['questoes']:
 
-                        for q in resultado['questoes']:
+                        with st.expander(
+                            f"Questão {q['numero']}"
+                        ):
 
-                            with st.expander(
-                                f"Questão {q['numero']}"
+                            st.write(q['texto'])
+
+                            if q['imagens']:
+
+                                st.markdown("### Imagens Detectadas")
+
+                                cols = st.columns(2)
+
+                                for idx, img in enumerate(q['imagens']):
+
+                                    with cols[idx % 2]:
+                                        st.image(img)
+
+                            if st.button(
+                                f"💾 Salvar Questão {q['numero']}",
+                                key=f"save_q_{q['numero']}"
                             ):
 
-                                st.write(q['texto'])
+                                db.collection(
+                                    'questoes_importadas'
+                                ).add({
+                                    'usuario_id': u_id,
+                                    'numero': q['numero'],
+                                    'texto': q['texto'],
+                                    'imagens': q['imagens'],
+                                    'data_importacao': str(hoje)
+                                })
 
-                                if q['imagens']:
-
-                                    st.markdown("### Imagens Detectadas")
-
-                                    cols = st.columns(2)
-
-                                    for idx, img in enumerate(q['imagens']):
-
-                                        with cols[idx % 2]:
-                                            st.image(img)
-
-                                if st.button(
-                                    f"💾 Salvar Questão {q['numero']}",
-                                    key=f"save_q_{q['numero']}"
-                                ):
-
-                                    db.collection(
-                                        'questoes_importadas'
-                                    ).add({
-                                        'usuario_id': u_id,
-                                        'numero': q['numero'],
-                                        'texto': q['texto'],
-                                        'imagens': q['imagens'],
-                                        'data_importacao': str(hoje)
-                                    })
-
-                                    st.toast(
-                                        'Questão salva!',
-                                        icon='✅'
-                                    )
+                                st.toast(
+                                    'Questão salva!',
+                                    icon='✅'
+                                )
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
         alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
