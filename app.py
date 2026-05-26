@@ -494,92 +494,143 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
 # IMPORTADOR INTELIGENTE DE PROVAS
 # ==========================================
 
-@st.cache_resource
-def carregar_easyocr():
-    return easyocr.Reader(['pt', 'en'], gpu=False)
-
+import fitz
+import cv2
+import re
+import os
+import tempfile
+import numpy as np
 
 def processar_pdf_prova(uploaded_pdf):
 
-    reader = carregar_easyocr()
-
-    pdf_bytes = uploaded_pdf.read()
-
-    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+    pasta_temp = tempfile.mkdtemp()
 
     resultado = {
         "questoes": [],
         "imagens": []
     }
 
-    texto_total = ""
+    try:
 
-    for pagina_idx in range(len(doc)):
+        pdf_bytes = uploaded_pdf.read()
 
-        page = doc[pagina_idx]
-
-        pix = page.get_pixmap(
-            matrix=fitz.Matrix(4, 4)
+        doc = fitz.open(
+            stream=pdf_bytes,
+            filetype="pdf"
         )
 
-        nome_img = f"pagina_{pagina_idx}.png"
+        texto_total = ""
 
-        pix.save(nome_img)
+        for pagina_idx in range(len(doc)):
 
-        resultado_ocr = reader.readtext(
-            nome_img,
-            detail=0
-        )
+            page = doc[pagina_idx]
 
-        texto_pagina = "\n".join(resultado_ocr)
+            # =========================
+            # TEXTO NATIVO PDF
+            # =========================
 
-        texto_total += "\n" + texto_pagina
+            texto_pagina = page.get_text()
 
-        try:
-            imagens = page.get_images(full=True)
+            texto_total += "\n" + texto_pagina
 
-            for img_index, img in enumerate(imagens):
+            # =========================
+            # IMAGEM HD
+            # =========================
 
-                xref = img[0]
+            pix = page.get_pixmap(
+                matrix=fitz.Matrix(4, 4)
+            )
 
-                base_image = doc.extract_image(xref)
+            nome_pagina = os.path.join(
+                pasta_temp,
+                f"pagina_{pagina_idx}.png"
+            )
 
-                image_bytes = base_image["image"]
+            pix.save(nome_pagina)
 
-                nome_extraida = (
-                    f"pagina_{pagina_idx}_img_{img_index}.png"
-                )
+            # =========================
+            # EXTRAÇÃO DE IMAGENS
+            # =========================
 
-                with open(nome_extraida, "wb") as f:
-                    f.write(image_bytes)
+            try:
 
-                resultado["imagens"].append(
-                    nome_extraida
-                )
+                imagens = page.get_images(full=True)
 
-        except:
-            pass
+                for img_index, img in enumerate(imagens):
 
-    partes = re.split(
-        r'(QUESTÃO\s*\d+|Questão\s*\d+)',
-        texto_total
-    )
+                    xref = img[0]
 
-    contador = 1
+                    base_image = doc.extract_image(xref)
 
-    for p in partes:
+                    image_bytes = base_image["image"]
 
-        if len(p.strip()) > 100:
+                    nome_img = os.path.join(
+                        pasta_temp,
+                        f"pagina_{pagina_idx}_img_{img_index}.png"
+                    )
 
-            resultado["questoes"].append({
-                "numero": contador,
-                "texto": p,
-                "imagens": []
-            })
+                    with open(nome_img, "wb") as f:
+                        f.write(image_bytes)
 
-            contador += 1
+                    resultado["imagens"].append(nome_img)
 
-    return resultado
+            except:
+                pass
+
+        # =========================
+        # SEPARAÇÃO DAS QUESTÕES
+        # =========================
+
+        padrao = r"(QUESTÃO\s*\d+|Questão\s*\d+|\n\d+\s*[\)\.\-])"
+
+        partes = re.split(padrao, texto_total)
+
+        contador = 1
+
+        for parte in partes:
+
+            texto_limpo = str(parte).strip()
+
+            if len(texto_limpo) > 80:
+
+                resultado["questoes"].append({
+                    "numero": contador,
+                    "texto": texto_limpo,
+                    "imagens": []
+                })
+
+                contador += 1
+
+        # =========================
+        # ASSOCIAÇÃO DE IMAGENS
+        # =========================
+
+        for img_path in resultado["imagens"]:
+
+            nome = os.path.basename(img_path)
+
+            match = re.search(
+                r"pagina_(\d+)",
+                nome
+            )
+
+            if match:
+
+                pagina_rel = int(match.group(1))
+
+                if pagina_rel < len(resultado["questoes"]):
+
+                    resultado["questoes"][pagina_rel]["imagens"].append(
+                        img_path
+                    )
+
+        return resultado
+
+    except Exception as e:
+
+        st.error(f"Erro ao processar PDF: {e}")
+
+        return None
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
 # ==========================================
