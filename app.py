@@ -21,10 +21,6 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import html
 import streamlit.components.v1 as components
-import fitz
-import cv2
-import easyocr
-from pdf2image import convert_from_bytes
 
 # ==========================================
 # IMPORTAÇÃO DE BIBLIOTECAS EXTERNAS E IA
@@ -108,10 +104,8 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
-        th_bg = "#1e293b"
+        bg_tabela = "#1e293b"
         cor_texto_tabela = "#f8fafc"
-        shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
     else:
         bg_color = "#f8f9fa"
         text_color = "#0f172a"
@@ -122,86 +116,56 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9" # Cinza claro para tabela
-        th_bg = "#e2e8f0"
+        bg_tabela = "#f1f5f9"
         cor_texto_tabela = "#0f172a"
-        shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
 
     css_str = f"""
     <style>
-    /* ANIMAÇÃO DE ENTRADA SUAVE */
-    @keyframes fadein {{
-        from {{ opacity: 0; transform: translateY(10px); }}
-        to   {{ opacity: 1; transform: translateY(0); }}
-    }}
-    .main {{ animation: fadein 0.4s ease-out; }}
-    
     .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; font-family: 'Inter', sans-serif; }}
+    h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; }}
     
-    /* INPUTS MODERNOS */
+    /* INPUTS GERAIS */
     [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
-        background-color: {input_bg} !important; 
-        border: 1px solid {metric_border} !important;
-        border-radius: 8px !important;
-        transition: border-color 0.3s ease;
-    }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within {{
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 1px #2563eb !important;
+        background-color: {input_bg} !important; border: 1px solid {metric_border} !important;
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
-    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
-    ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
+    /* CORREÇÃO DAS CAIXAS DE SELEÇÃO E OPÇÕES INVISÍVEIS */
+    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
+    ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
-    ul[data-baseweb="menu"] span {{ color: {input_text} !important; }}
     
     /* CHAT IA */
-    [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
-    [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
+    [data-testid="stChatInput"] {{ background-color: {bg_color} !important; }}
+    [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; }}
     
-    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
+    /* TODOS OS BOTÕES AZUIS */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
-        background-color: #2563eb !important; 
-        border: none !important; 
-        border-radius: 8px !important;
-        transition: transform 0.1s ease, box-shadow 0.2s ease !important;
+        background-color: #2563eb !important; border: none !important; border-radius: 6px !important;
     }}
-    button[kind="primary"]:hover, button[kind="secondary"]:hover, .stButton > button:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4) !important;
-    }}
-    button p, button span, button div {{ color: white !important; font-weight: 600 !important; letter-spacing: 0.3px; }}
+    button p, button span, button div {{ color: white !important; font-weight: bold !important; }}
     
-    /* ABAS (TABS) INTERATIVAS */
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
-    button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
+    /* ABAS (TABS) COM TEXTO LEGÍVEL */
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; }}
     
-    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
-    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
-    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
+    /* TABELAS */
+    [data-testid="stDataFrame"] > div, [data-testid="stTable"] {{ background-color: {bg_tabela} !important; }}
+    th, td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; border: 1px solid {metric_border} !important; }}
     
-    /* CONTAINERS INTERATIVOS */
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: box-shadow 0.3s ease; }}
-    div[data-testid='stExpander']:hover {{ box-shadow: {shadow}; }}
-    
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px; border-radius: 12px; box-shadow: {shadow}; transition: transform 0.2s ease; }}
-    div[data-testid="metric-container"]:hover {{ transform: scale(1.02); }}
+    /* CAIXAS E MÉTRICAS */
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 8px; }}
+    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 15px; border-radius: 10px; }}
     
     /* MENU LATERAL */
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; padding-left: 20px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 15px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 4px; background-color: transparent; transition: all 0.2s ease; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 16px; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
     
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid #2563eb; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.3s ease; }}
-    .profile-img:hover {{ transform: scale(1.05); cursor: pointer; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; width: 120px; height: 120px; display: block; margin: 0 auto; }}
     </style>
     """
     st.markdown(css_str, unsafe_allow_html=True)
@@ -250,14 +214,19 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
+    
     crases = chr(96) + chr(96) + chr(96)
-    texto = texto.replace(crases + "json", "").replace(crases, "").strip()
+    texto = texto.replace(crases + "json", "")
+    texto = texto.replace(crases, "")
+    texto = texto.strip()
+    
     try:
         return json.loads(texto)
     except:
         try:
             match = re.search(r'(\{.*\})', texto, re.DOTALL)
-            if match: return json.loads(match.group(1))
+            if match:
+                return json.loads(match.group(1))
         except Exception as e:
             st.error("A IA enviou um formato corrompido que não pôde ser limpo.")
             return {}
@@ -270,6 +239,7 @@ AREAS_MED = ["Clínica Médica", "Cirurgia Geral", "Pediatria", "Ginecologia e O
 INSTITUICOES = ["USP-SP", "SUS-SP", "UNICAMP", "UNIFESP", "SCMSP", "IAMSPE", "UFRJ", "Hospital Albert Einstein", "Sírio-Libanês", "Outra"]
 MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#a855f7", "Medicina Preventiva": "#22c55e", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
+
 PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Vermelho", 5: "🟪 Roxo"}
 
 BANCO_IMAGENS_OSCE = {
@@ -295,9 +265,9 @@ def renderizar_mensagem_osce(texto):
             if chave in BANCO_IMAGENS_OSCE:
                 img_url = BANCO_IMAGENS_OSCE[chave]
                 st.markdown(f"""
-                <div style="border: 1px solid {bd_osce}; border-radius: 12px; padding: 15px; margin: 15px 0; background-color: {bg_osce}; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                    <p style="color: #2563eb; font-weight: bold; margin-bottom: 10px; font-size: 16px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
-                    <img src="{img_url}" style="width: 100%; border-radius: 8px;">
+                <div style="border: 1px solid {bd_osce}; border-radius: 8px; padding: 10px; margin: 10px 0; background-color: {bg_osce};">
+                    <p style="color: #2563eb; font-weight: bold; margin-bottom: 5px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
+                    <img src="{img_url}" style="width: 100%; border-radius: 5px;">
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -353,284 +323,61 @@ def get_user_docs(collection_name, user_id):
         return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
-    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    if modo == "Escuro":
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
-    else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
-        
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
     for a in aulas_lista:
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = "<div style='background-color:#e0f2fe; padding:15px; border-radius:10px; margin-bottom:20px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
     html_code += "<tr>"
     for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+        html_code += f"<th style='text-align:center; padding:5px; color:#0f172a; background-color: transparent !important; border: none !important;'>{dia_sem}</th>"
     html_code += "</tr>"
     
     for week in cal:
         html_code += "<tr>"
         for day in week:
             if day == 0: 
-                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
+                html_code += "<td style='border:1px solid #bae6fd; padding:10px; background-color:#f0f9ff !important;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
+                    html_code += f"<td style='border:1px solid #bae6fd; padding:5px; background-color:#ffffff !important; vertical-align:top; height:80px;'><strong style='color:#0f172a !important;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
                 else: 
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
+                    html_code += f"<td style='border:1px solid #bae6fd; padding:5px; background-color:#ffffff !important; vertical-align:top; height:80px;'><strong style='color:#64748b !important;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
-    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    if modo == "Escuro":
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
-    else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
-
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
     for r in revisoes_lista:
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = "<div style='background-color:#e0f2fe; padding:15px; border-radius:10px; margin-bottom:25px;'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
     html_code += "<tr>"
     for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+        html_code += f"<th style='text-align:center; padding:5px; color:#0f172a; background-color: transparent !important; border: none !important;'>{dia_sem}</th>"
     html_code += "</tr>"
     
     for week in cal:
         html_code += "<tr>"
         for day in week:
             if day == 0: 
-                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
+                html_code += "<td style='border:1px solid #bae6fd; padding:10px; background-color:#f0f9ff !important;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:2px 4px; border-radius:4px; font-size:10px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
+                    html_code += f"<td style='border:1px solid #bae6fd; padding:5px; background-color:#ffffff !important; vertical-align:top; height:80px;'><strong style='color:#0f172a !important;'>{day}</strong><div style='margin-top:5px;'>{temas}</div></td>"
                 else: 
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
+                    html_code += f"<td style='border:1px solid #bae6fd; padding:5px; background-color:#ffffff !important; vertical-align:top; height:80px;'><strong style='color:#64748b !important;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
-# ==========================================
 
-    try:
-        reader = carregar_easyocr()
-
-        pdf_bytes = uploaded_pdf.read()
-
-        doc = fitz.open(stream=pdf_bytes, filetype='pdf')
-
-        texto_completo = ''
-
-        for pagina_idx in range(len(doc)):
-            page = doc[pagina_idx]
-
-            pix = page.get_pixmap(matrix=fitz.Matrix(4, 4))
-
-            nome_pagina = os.path.join(
-                pasta_temp,
-                f'pagina_{pagina_idx}.png'
-            )
-
-            pix.save(nome_pagina)
-
-            imagens_pdf = extrair_imagens_da_pagina(
-                page,
-                doc,
-                pasta_temp,
-                pagina_idx
-            )
-
-            crops_detectados = detectar_blocos_visuais(
-                nome_pagina,
-                pasta_temp,
-                pagina_idx
-            )
-
-            todas_imgs = imagens_pdf + crops_detectados
-
-            resultado_final['imagens'].extend(todas_imgs)
-
-            resultado_ocr = reader.readtext(nome_pagina, detail=0)
-
-            texto_pagina = '\n'.join(resultado_ocr)
-
-            texto_completo += '\n' + texto_pagina
-
-        questoes_extraidas = separar_questoes_por_regex(texto_completo)
-
-        for idx, q in enumerate(questoes_extraidas):
-            resultado_final['questoes'].append({
-                'numero': idx + 1,
-                'texto': q,
-                'imagens': []
-            })
-
-        for img_path in resultado_final['imagens']:
-            nome = os.path.basename(img_path)
-
-            match = re.search(r'pagina_(\d+)', nome)
-
-            if match:
-                pagina_rel = int(match.group(1))
-
-                if pagina_rel < len(resultado_final['questoes']):
-                    resultado_final['questoes'][pagina_rel]['imagens'].append(img_path)
-
-        return resultado_final
-
-    except Exception as e:
-        st.error(f'Erro ao processar PDF: {e}')
-        return None
-# ==========================================
-# IMPORTADOR INTELIGENTE DE PROVAS
-# ==========================================
-
-import fitz
-import cv2
-import re
-import os
-import tempfile
-import numpy as np
-
-def processar_pdf_prova(uploaded_pdf):
-
-    pasta_temp = tempfile.mkdtemp()
-
-    resultado = {
-        "questoes": [],
-        "imagens": []
-    }
-
-    try:
-
-        pdf_bytes = uploaded_pdf.read()
-
-        doc = fitz.open(
-            stream=pdf_bytes,
-            filetype="pdf"
-        )
-
-        texto_total = ""
-
-        for pagina_idx in range(len(doc)):
-
-            page = doc[pagina_idx]
-
-            # =========================
-            # TEXTO NATIVO PDF
-            # =========================
-
-            texto_pagina = page.get_text()
-
-            texto_total += "\n" + texto_pagina
-
-            # =========================
-            # IMAGEM HD
-            # =========================
-
-            pix = page.get_pixmap(
-                matrix=fitz.Matrix(4, 4)
-            )
-
-            nome_pagina = os.path.join(
-                pasta_temp,
-                f"pagina_{pagina_idx}.png"
-            )
-
-            pix.save(nome_pagina)
-
-            # =========================
-            # EXTRAÇÃO DE IMAGENS
-            # =========================
-
-            try:
-
-                imagens = page.get_images(full=True)
-
-                for img_index, img in enumerate(imagens):
-
-                    xref = img[0]
-
-                    base_image = doc.extract_image(xref)
-
-                    image_bytes = base_image["image"]
-
-                    nome_img = os.path.join(
-                        pasta_temp,
-                        f"pagina_{pagina_idx}_img_{img_index}.png"
-                    )
-
-                    with open(nome_img, "wb") as f:
-                        f.write(image_bytes)
-
-                    resultado["imagens"].append(nome_img)
-
-            except:
-                pass
-
-        # =========================
-        # SEPARAÇÃO DAS QUESTÕES
-        # =========================
-
-        padrao = r"(QUESTÃO\s*\d+|Questão\s*\d+|\n\d+\s*[\)\.\-])"
-
-        partes = re.split(padrao, texto_total)
-
-        contador = 1
-
-        for parte in partes:
-
-            texto_limpo = str(parte).strip()
-
-            if len(texto_limpo) > 80:
-
-                resultado["questoes"].append({
-                    "numero": contador,
-                    "texto": texto_limpo,
-                    "imagens": []
-                })
-
-                contador += 1
-
-        # =========================
-        # ASSOCIAÇÃO DE IMAGENS
-        # =========================
-
-        for img_path in resultado["imagens"]:
-
-            nome = os.path.basename(img_path)
-
-            match = re.search(
-                r"pagina_(\d+)",
-                nome
-            )
-
-            if match:
-
-                pagina_rel = int(match.group(1))
-
-                if pagina_rel < len(resultado["questoes"]):
-
-                    resultado["questoes"][pagina_rel]["imagens"].append(
-                        img_path
-                    )
-
-        return resultado
-
-    except Exception as e:
-
-        st.error(f"Erro ao processar PDF: {e}")
-
-        return None
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
 # ==========================================
@@ -661,15 +408,15 @@ if not st.session_state.logado:
     if "temp_theme" not in st.session_state: st.session_state.temp_theme = "Escuro"
     aplicar_css_tema(st.session_state.temp_theme)
     
-    st.title("🏥 Residência PRO ⚡")
+    st.title("🏥 Residência PRO")
     st.session_state.temp_theme = st.radio("Tema Visual:", ["Escuro", "Claro"], horizontal=True, index=0 if st.session_state.temp_theme == "Escuro" else 1)
     
-    aba_l, aba_c = st.tabs(["🔑 Acesso VIP", "📝 Nova Conta"])
+    aba_l, aba_c = st.tabs(["🔑 Entrar", "📝 Criar Conta"])
     with aba_l:
         if cookie_controller is None: st.warning("⚠️ Biblioteca 'streamlit-cookies-controller' não detectada.")
         with st.form("login_form"):
             u, p, lembrar = st.text_input("Usuário"), st.text_input("Senha", type="password"), st.checkbox("Manter-me conectado")
-            if st.form_submit_button("Entrar no Sistema", use_container_width=True):
+            if st.form_submit_button("Entrar", use_container_width=True):
                 try:
                     logou = False
                     for doc in db.collection("usuarios").get():
@@ -680,7 +427,7 @@ if not st.session_state.logado:
                                 novo_token = str(uuid.uuid4())
                                 db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
                                 cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                                time.sleep(1)
+                                time.sleep(1.5)
                             st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
@@ -691,7 +438,7 @@ if not st.session_state.logado:
                 if db.collection("usuarios").where("nome", "==", nu).get(): st.error("Usuário já existe.")
                 else:
                     db.collection("usuarios").add({"nome": nu, "senha": hash_senha(np), "tema_modo": st.session_state.temp_theme})
-                    st.toast("✅ Conta criada com sucesso!", icon="🎉")
+                    st.success("Conta criada! Faça login.")
 
 # ==========================================
 # APLICATIVO LOGADO
@@ -707,7 +454,7 @@ else:
         }
 
     if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Sincronizando ambiente de alta performance..."):
+        with st.spinner("Sincronizando banco de dados..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
@@ -779,15 +526,15 @@ else:
     # BARRA LATERAL (PROFILE)
     if user_settings.get('foto_perfil_b64'):
         st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
-        st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 15px; margin-bottom: 25px; letter-spacing: 0.5px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 10px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
     else: st.sidebar.title(f"👤 {st.session_state.user_nome}")
 
-    if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Sair da Conta"):
         db.collection("usuarios").document(u_id).update({"token_sessao": None})
         if cookie_controller: cookie_controller.remove('mr_token')
         st.session_state.clear()
         st.rerun()
-    st.sidebar.markdown("---")
 
     # ==========================================
     # MENU REORGANIZADO
@@ -798,7 +545,6 @@ else:
         "🎯 Questões",
         "📚 Registro de Aulas",
         "📅 Agenda de Revisões",
-        "🧠 Importador de Provas",
         "✨ AI Tutor & Flashcards",
         "📁 Materiais e Simulados",
         "🏥 Simulados & OSCE",
@@ -811,7 +557,7 @@ else:
     if is_super_admin(st.session_state.user_nome): 
         opcoes_menu.append("👑 Admin")
         
-    menu = st.sidebar.radio("Navegação Principal", opcoes_menu)
+    menu = st.sidebar.radio("Navegação", opcoes_menu)
 
     # ==========================================
     # TELAS
@@ -819,12 +565,8 @@ else:
     if menu == "📱 Instalar App":
         st.header("Transforme o sistema em um Aplicativo Nativo")
         col1, col2 = st.columns(2)
-        with col1: 
-            with st.container(border=True):
-                st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
-        with col2: 
-            with st.container(border=True):
-                st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
+        with col1: st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
+        with col2: st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -860,7 +602,7 @@ else:
                     st.warning("⚠️ Para habilitar o botão de colar mágico, adicione `streamlit-paste-button` no requirements.txt.")
                 
                 if st.session_state.prints_colados:
-                    st.toast(f"{len(st.session_state.prints_colados)} print(s) na fila para extração.", icon="📸")
+                    st.success(f"{len(st.session_state.prints_colados)} print(s) na fila para extração.")
                     if st.button("Limpar Fila de Prints"):
                         st.session_state.prints_colados = []
                         st.rerun()
@@ -917,9 +659,9 @@ else:
                                 batch.commit()
                                 
                                 st.session_state.prints_colados = []
-                                st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
+                                st.success(f"✅ {len(tarefas)} aulas importadas com sucesso! Vá para a aba 'Minhas Metas'.")
                                 invalidar_cache()
-                                time.sleep(1.5)
+                                time.sleep(2)
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Erro na leitura da imagem. Detalhes: {e}")
@@ -953,13 +695,14 @@ else:
                             "data_conclusao": None
                         })
                         invalidar_cache()
-                        st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
+                        st.success("Meta adicionada com sucesso!")
                         time.sleep(1)
                         st.rerun()
 
         with aba_lista:
             meu_crono = dados_cronogramas
             
+            # Função para ordenar semanas (Mais recentes e maior numeração primeiro)
             def sort_key_week(sem):
                 dates = [parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem]
                 max_d = max(dates) if dates else parse_data(None)
@@ -977,10 +720,12 @@ else:
             for sem in semanas_unicas:
                 tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
                 
+                # Filtro de pesquisa
                 if termo_pesquisa:
                     termo_pesquisa_lower = termo_pesquisa.lower()
                     tarefas_semana = [c for c in tarefas_semana if termo_pesquisa_lower in str(c.get('tema', '')).lower() or termo_pesquisa_lower in str(c.get('materia', '')).lower()]
                 
+                # Se estiver pesquisando e a semana não tiver resultados, oculta a semana
                 if termo_pesquisa and not tarefas_semana:
                     continue
 
@@ -1004,7 +749,7 @@ else:
                             with col1:
                                 if st.button("✔️", key=f"btn_{t['id']}"):
                                     db.collection("cronogramas").document(t['id']).update({"concluido": True, "data_conclusao": str(get_agora().date())})
-                                    invalidar_cache(); st.toast("Mandou bem! Mais uma concluída.", icon="🔥"); time.sleep(0.5); st.rerun()
+                                    invalidar_cache(); st.rerun()
                             with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
                                 p_val = safe_int(t.get('prioridade', 3))
@@ -1021,94 +766,12 @@ else:
                         for t in reversed(concluidos):
                             st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~")
 
-    elif menu == "🧠 Importador de Provas":
-
-        st.header("🧠 Importador Inteligente de Provas Médicas")
-
-    st.markdown(
-        """
-        Faça upload de provas completas em PDF.
-
-        O sistema irá:
-        - separar questões
-        - extrair imagens
-        - detectar RX/ECG/US
-        - gerar estrutura automática
-        """
-    )
-
-    uploaded_pdf = st.file_uploader(
-        "Envie a prova em PDF",
-        type=['pdf']
-    )
-
-    if uploaded_pdf:
-
-        if st.button(
-            "🚀 Processar Prova Completa",
-            use_container_width=True
-        ):
-
-            with st.spinner(
-                "Analisando prova médica..."
-            ):
-
-                resultado = processar_pdf_prova(uploaded_pdf)
-
-                if resultado:
-
-                    st.success(
-                        f"✅ {len(resultado['questoes'])} questões encontradas"
-                    )
-
-                    st.info(
-                        f"🖼️ {len(resultado['imagens'])} imagens detectadas"
-                    )
-
-                    for q in resultado['questoes']:
-
-                        with st.expander(
-                            f"Questão {q['numero']}"
-                        ):
-
-                            st.write(q['texto'])
-
-                            if q['imagens']:
-
-                                st.markdown("### Imagens Detectadas")
-
-                                cols = st.columns(2)
-
-                                for idx, img in enumerate(q['imagens']):
-
-                                    with cols[idx % 2]:
-                                        st.image(img)
-
-                            if st.button(
-                                f"💾 Salvar Questão {q['numero']}",
-                                key=f"save_q_{q['numero']}"
-                            ):
-
-                                db.collection(
-                                    'questoes_importadas'
-                                ).add({
-                                    'usuario_id': u_id,
-                                    'numero': q['numero'],
-                                    'texto': q['texto'],
-                                    'imagens': q['imagens'],
-                                    'data_importacao': str(hoje)
-                                })
-
-                                st.toast(
-                                    'Questão salva!',
-                                    icon='✅'
-                                )
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
         alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
         if dados_simulados:
             notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
-            st.metric("Sua Média Global", f"{sum(notas)/len(notas):.1f}%")
+            st.metric("Sua Média", f"{sum(notas)/len(notas):.1f}%")
 
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
@@ -1132,8 +795,8 @@ else:
             with col_g1:
                 if t_questoes_g > 0: 
                     fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False})
+                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig_pie1, use_container_width=True)
             with col_g2:
                 todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
@@ -1141,8 +804,8 @@ else:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False})
+                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
+                    st.plotly_chart(fig_bar1, use_container_width=True)
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -1221,7 +884,7 @@ else:
                             f = col3.number_input("Flashcards", 0)
                             if st.form_submit_button("✅ Marcar Concluída"):
                                 db.collection("revisoes").document(r['id']).update({"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
-                                invalidar_cache(); st.toast("✅ Revisão Concluída!", icon="🚀"); time.sleep(0.5); st.rerun()
+                                invalidar_cache(); st.rerun()
 
         with aba_historico:
             conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"] and str(d.get('aula_id', '')).strip() in mapa_aulas]
@@ -1244,12 +907,12 @@ else:
                     c1g, c2g = st.columns(2)
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                        st.plotly_chart(fig1, use_container_width=True)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                        st.plotly_chart(fig2, use_container_width=True)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -1265,7 +928,7 @@ else:
                             rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db.collection("revisoes").document(opcoes_desfazer[rev_selecionada]).update({"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                invalidar_cache(); st.toast("Revisão desfeita!", icon="⏪"); time.sleep(1); st.rerun()
+                                invalidar_cache(); st.success("Revisão desfeita com sucesso!"); time.sleep(1); st.rerun()
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
@@ -1278,7 +941,7 @@ else:
                 cc = st.text_input("Conceito Chave (Motivo do erro)")
                 if st.form_submit_button("Registrar", use_container_width=True):
                     db.collection("questoes_sessoes").add({"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
-                    invalidar_cache(); st.toast("Questões registradas!", icon="✅"); time.sleep(0.5); st.rerun()
+                    invalidar_cache(); st.rerun()
             
             if dados_questoes: 
                 lista_q = []
@@ -1324,7 +987,7 @@ else:
                 verso_erro = st.text_area("Verso (Resposta correta)")
                 if st.button("💾 Salvar direto no Deck"):
                     db.collection("flashcards").add({"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                    invalidar_cache(); st.toast("Flashcard adicionado aos estudos!", icon="🧠")
+                    invalidar_cache(); st.success("Flashcard adicionado aos estudos!")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
 
     elif menu == "✨ AI Tutor & Flashcards":
@@ -1382,7 +1045,7 @@ else:
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
                         db.collection("flashcards").add({"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                        invalidar_cache(); st.toast("Flashcard salvo!", icon="📚"); st.rerun()
+                        invalidar_cache(); st.success("Salvo!"); st.rerun()
             
             with aba_f3:
                 st.markdown("### 📥 Importação em Massa")
@@ -1396,7 +1059,7 @@ else:
                                 for _, row in df_anki.iterrows():
                                     batch.set(db.collection("flashcards").document(), {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                                 batch.commit(); invalidar_cache()
-                            st.toast("✅ Flashcards importados com sucesso!"); time.sleep(1.5); st.rerun()
+                            st.success("✅ Flashcards importados!"); time.sleep(2); st.rerun()
                     except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
 
         with aba_feynman:
@@ -1427,7 +1090,7 @@ else:
                     for c, dias in {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}.items():
                         batch.set(db.collection("revisoes").document(), {"usuario_id": u_id, "aula_id": a_ref[1].id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"})
                     batch.commit()
-                    invalidar_cache(); st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
+                    invalidar_cache(); st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a['id'] for a in dados_aulas}
@@ -1438,7 +1101,7 @@ else:
                         batch = db.batch()
                         for rd in db.collection("revisoes").where("aula_id", "==", id_del).get(): batch.delete(rd.reference)
                         batch.delete(db.collection("aulas").document(id_del))
-                        batch.commit(); invalidar_cache(); st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
+                        batch.commit(); invalidar_cache(); st.rerun()
 
         with col_lista:
             if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
@@ -1504,7 +1167,7 @@ else:
             with open(caminho, "wb") as f: f.write(arq.getbuffer())
             db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
             invalidar_cache()
-            st.toast("Salvo com sucesso!", icon="📄")
+            st.success("Salvo com sucesso!")
             
         if dados_materiais: 
             st.write("---")
@@ -1551,8 +1214,8 @@ else:
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
 
         with aba_simulado:
             col_sim1, col_sim2 = st.columns(2)
@@ -1597,7 +1260,7 @@ else:
                             except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
                             barra_progresso.progress((i + 1) / len(todas_imagens_b64))
                             time.sleep(1.5)
-                        st.toast("🎉 Extração concluída!"); time.sleep(1); st.rerun()
+                        st.success("🎉 Extração concluída!"); time.sleep(1); st.rerun()
 
             if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
                 st.divider(); st.subheader("📝 Resolvendo Simulado")
@@ -1656,7 +1319,7 @@ else:
                                     if questoes_pdf:
                                         st.session_state.prova_ativa = questoes_pdf
                                         st.session_state.respostas_usuario = {}
-                                        st.toast("Simulado gerado! Acesse a aba 'Simulado IA'", icon="🎉")
+                                        st.success("Simulado gerado! Acesse a aba 'Simulado IA' ou feche e abra o app para renderizar o cache.")
                                     else:
                                         st.error("A IA não conseguiu formatar o PDF.")
                                 except Exception as e:
