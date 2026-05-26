@@ -43,6 +43,7 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
+# Nova biblioteca para botão de colar
 try:
     from streamlit_paste_button import paste_image_button
 except ImportError:
@@ -51,7 +52,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
 MODELO_VISAO = "meta-llama/llama-4-scout-17b-16e-instruct"
 MODELO_TEXTO = "llama-3.1-8b-instant"
@@ -90,7 +91,7 @@ def ativar_pwa():
 ativar_pwa()
 
 # ==========================================
-# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS (VERSÃO PRO)
+# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS
 # ==========================================
 def aplicar_css_tema(modo):
     if modo == "Escuro":
@@ -103,7 +104,8 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#1e293b"
+        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
+        th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
     else:
@@ -116,7 +118,8 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9"
+        bg_tabela = "#f1f5f9" # Cinza claro para tabela
+        th_bg = "#e2e8f0"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
 
@@ -129,7 +132,7 @@ def aplicar_css_tema(modo):
     }}
     .main {{ animation: fadein 0.4s ease-out; }}
     
-    .stApp, [data-testid="stAppViewContainer"] {{ background-color: {bg_color} !important; }}
+    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
     h1:not(#tmr), h2, h3, h4, h5, h6, p, span, label, div {{ color: {text_color}; font-family: 'Inter', sans-serif; }}
     
     /* INPUTS MODERNOS */
@@ -145,16 +148,17 @@ def aplicar_css_tema(modo):
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* POPOVER E DROPDOWNS */
+    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
+    ul[data-baseweb="menu"] span {{ color: {input_text} !important; }}
     
     /* CHAT IA */
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO (COM HOVER EFFECT) */
+    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
         background-color: #2563eb !important; 
         border: none !important; 
@@ -171,10 +175,10 @@ def aplicar_css_tema(modo):
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
     button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* TABELAS ELEGANTES */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
-    th {{ background-color: #cbd5e1 !important; color: #0f172a !important; padding: 12px !important; border-bottom: 2px solid #94a3b8 !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }}
-    td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
+    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
+    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
+    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
+    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
     
     /* CONTAINERS INTERATIVOS */
     div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: box-shadow 0.3s ease; }}
@@ -345,57 +349,69 @@ def get_user_docs(collection_name, user_id):
         return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
+    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
+    if modo == "Escuro":
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else:
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
+        
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
     for a in aulas_lista:
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    html_code = "<div style='background-color:#e0f2fe; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
     html_code += "<tr>"
     for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:#0f172a; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
     html_code += "</tr>"
     
     for week in cal:
         html_code += "<tr>"
         for day in week:
             if day == 0: 
-                html_code += "<td style='border:1px solid #bae6fd; padding:10px; background-color:#f0f9ff !important; border-radius:4px;'></td>"
+                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
             else:
                 if day in aulas_dict:
                     temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
-                    html_code += f"<td style='border:1px solid #bae6fd; padding:8px; background-color:#ffffff !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:#0f172a !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
-                    html_code += f"<td style='border:1px solid #bae6fd; padding:8px; background-color:#ffffff !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:#64748b !important; font-size:14px;'>{day}</strong></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
+    modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
+    if modo == "Escuro":
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else:
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
+
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
     for r in revisoes_lista:
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    html_code = "<div style='background-color:#e0f2fe; padding:20px; border-radius:12px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
     html_code += "<tr>"
     for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:#0f172a; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
     html_code += "</tr>"
     
     for week in cal:
         html_code += "<tr>"
         for day in week:
             if day == 0: 
-                html_code += "<td style='border:1px solid #bae6fd; padding:10px; background-color:#f0f9ff !important; border-radius:4px;'></td>"
+                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
             else:
                 if day in revs_dict:
                     temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    html_code += f"<td style='border:1px solid #bae6fd; padding:8px; background-color:#ffffff !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:#0f172a !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
-                    html_code += f"<td style='border:1px solid #bae6fd; padding:8px; background-color:#ffffff !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:#64748b !important; font-size:14px;'>{day}</strong></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
