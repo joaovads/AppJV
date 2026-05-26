@@ -882,7 +882,7 @@ else:
 
     elif menu == "🧠 Importador de Provas":
 
-    st.header("🧠 Importador Inteligente de Provas Médicas")
+        st.header("🧠 Importador Inteligente de Provas Médicas")
 
     st.markdown(
         """
