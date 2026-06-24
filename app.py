@@ -997,10 +997,39 @@ else:
                         "Subtema": limpar_texto(b.get('subtema')),
                         "Acertos": acertos,
                         "Erros": erros,
-                        "% Acertos": porcentagem
+                        "% Acertos": porcentagem,
+                        "ID": b.get('id')
                     })
-                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"])
+                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"])
                 st.table(df_q)
+                
+                st.write("---")
+                with st.expander("✏️ Editar ou Excluir Registro de Questões"):
+                    opcoes_edicao = {}
+                    for q_item in dados_questoes:
+                        data_formatada = formatar_data_br(q_item.get('data'))
+                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_item['id'][:4]})"
+                        opcoes_edicao[chave] = q_item
+                        
+                    if opcoes_edicao:
+                        q_selec = st.selectbox("Selecione o registro que deseja alterar:", list(opcoes_edicao.keys()))
+                        q_dados = opcoes_edicao[q_selec]
+                        
+                        col_e1, col_e2 = st.columns(2)
+                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')))
+                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')))
+                        
+                        col_btn1, col_btn2 = st.columns(2)
+                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True):
+                            db.collection("questoes_sessoes").document(q_dados['id']).update({
+                                "acertos": novo_ac,
+                                "erros": novo_er
+                            })
+                            invalidar_cache(); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                            
+                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True):
+                            db.collection("questoes_sessoes").document(q_dados['id']).delete()
+                            invalidar_cache(); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
                 
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
@@ -1273,7 +1302,6 @@ else:
                     with st.spinner("Empacotando arquivos para envio..."):
                         if arq_pdf:
                             try:
-                                from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
