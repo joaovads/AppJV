@@ -104,7 +104,7 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
+        bg_tabela = "#334155"
         th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
@@ -118,7 +118,7 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9" # Cinza claro para tabela
+        bg_tabela = "#f1f5f9"
         th_bg = "#e2e8f0"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
@@ -148,7 +148,7 @@ def aplicar_css_tema(modo):
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
+    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
@@ -158,7 +158,7 @@ def aplicar_css_tema(modo):
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
+    /* BOTÕES PRO */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
         background-color: #2563eb !important; 
         border: none !important; 
@@ -175,7 +175,7 @@ def aplicar_css_tema(modo):
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
     button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
+    /* ISOLAMENTO DA TABELA */
     [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
     [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
     [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
@@ -1000,7 +1000,7 @@ else:
                         "% Acertos": porcentagem,
                         "ID": b.get('id')
                     })
-                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"])
+                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
                 st.table(df_q)
                 
                 st.write("---")
@@ -1008,7 +1008,8 @@ else:
                     opcoes_edicao = {}
                     for q_item in dados_questoes:
                         data_formatada = formatar_data_br(q_item.get('data'))
-                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_item['id'][:4]})"
+                        q_id = str(q_item.get('id', '0000'))
+                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
                         opcoes_edicao[chave] = q_item
                         
                     if opcoes_edicao:
@@ -1021,15 +1022,21 @@ else:
                         
                         col_btn1, col_btn2 = st.columns(2)
                         if col_btn1.button("💾 Salvar Alterações", use_container_width=True):
-                            db.collection("questoes_sessoes").document(q_dados['id']).update({
-                                "acertos": novo_ac,
-                                "erros": novo_er
-                            })
-                            invalidar_cache(); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                            if q_dados.get('id'):
+                                db.collection("questoes_sessoes").document(q_dados['id']).update({
+                                    "acertos": novo_ac,
+                                    "erros": novo_er
+                                })
+                                invalidar_cache(); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
                             
                         if col_btn2.button("🗑️ Excluir Registro", use_container_width=True):
-                            db.collection("questoes_sessoes").document(q_dados['id']).delete()
-                            invalidar_cache(); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
+                            if q_dados.get('id'):
+                                db.collection("questoes_sessoes").document(q_dados['id']).delete()
+                                invalidar_cache(); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
                 
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
@@ -1302,6 +1309,7 @@ else:
                     with st.spinner("Empacotando arquivos para envio..."):
                         if arq_pdf:
                             try:
+                                from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
@@ -1500,3 +1508,14 @@ else:
                     st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
         except Exception as e:
             st.error(f"Erro Admin: {e}")
+
+Tem certeza de que esse código vai continuar rodando na web ? Note que importei as bibliotecas localmente no meu computador para fazer testes local antes de por o código ai. POrém, na web, essas bibliotecas novas irão rodar ?? Lembrando que tenho o arquivo requiriments que está assim: 
+streamlit
+pandas
+plotly
+firebase-admin
+groq
+streamlit-cookies-controller
+streamlit_paste_button
+scikit-learn
+PyPDF2
