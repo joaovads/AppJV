@@ -1508,14 +1508,3 @@ else:
                     st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
         except Exception as e:
             st.error(f"Erro Admin: {e}")
-
-Tem certeza de que esse código vai continuar rodando na web ? Note que importei as bibliotecas localmente no meu computador para fazer testes local antes de por o código ai. POrém, na web, essas bibliotecas novas irão rodar ?? Lembrando que tenho o arquivo requiriments que está assim: 
-streamlit
-pandas
-plotly
-firebase-admin
-groq
-streamlit-cookies-controller
-streamlit_paste_button
-scikit-learn
-PyPDF2
