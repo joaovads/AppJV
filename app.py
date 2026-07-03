@@ -104,7 +104,7 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#334155"
+        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
         th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
@@ -118,7 +118,7 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9"
+        bg_tabela = "#f1f5f9" # Cinza claro para tabela
         th_bg = "#e2e8f0"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
@@ -148,7 +148,7 @@ def aplicar_css_tema(modo):
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
+    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
@@ -158,7 +158,7 @@ def aplicar_css_tema(modo):
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO */
+    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
         background-color: #2563eb !important; 
         border: none !important; 
@@ -175,7 +175,7 @@ def aplicar_css_tema(modo):
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
     button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* ISOLAMENTO DA TABELA */
+    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
     [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
     [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
     [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
@@ -488,7 +488,7 @@ else:
         st.session_state.dados = {
             "aulas": [], "revisoes": [], "flashcards": [], 
             "questoes": [], "simulados": [], "focus": [], 
-            "materiais": [], "cronogramas": []
+            "materiais": [], "cronogramas": [], "anotacoes": []
         }
 
     if st.session_state.get('user_data_loaded') is not True:
@@ -533,7 +533,8 @@ else:
                     "simulados": get_user_docs("simulados", u_id),
                     "focus": get_user_docs("focus_sessoes", u_id),
                     "materiais": get_user_docs("materiais", u_id),
-                    "cronogramas": get_user_docs("cronogramas", u_id)
+                    "cronogramas": get_user_docs("cronogramas", u_id),
+                    "anotacoes": get_user_docs("anotacoes", u_id)
                 }
                 
                 if 'model_ia' not in st.session_state: 
@@ -556,6 +557,7 @@ else:
     dados_focus = _dados_cache.get("focus", [])
     dados_materiais = _dados_cache.get("materiais", [])
     dados_cronogramas = _dados_cache.get("cronogramas", [])
+    dados_anotacoes = _dados_cache.get("anotacoes", [])
 
     # APLICA O TEMA DO USUARIO LOGADO
     modo_atual = user_settings.get("tema_modo", "Escuro")
@@ -582,6 +584,7 @@ else:
         "🗓️ Cronograma IA",
         "🎯 Questões",
         "📚 Registro de Aulas",
+        "📝 Anotações Rápidas",
         "📅 Agenda de Revisões",
         "✨ AI Tutor & Flashcards",
         "📁 Materiais e Simulados",
@@ -804,6 +807,62 @@ else:
                     with st.expander(f"✅ Histórico ({len(concluidos)})"):
                         for t in reversed(concluidos):
                             st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~")
+
+    elif menu == "📝 Anotações Rápidas":
+        st.header("Caderno de Resumos e Anotações")
+        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
+        
+        with aba_nova:
+            with st.form("form_anotacao", clear_on_submit=True):
+                col_a, col_s = st.columns(2)
+                a = col_a.selectbox("Grande Área", AREAS_MED)
+                s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
+                
+                if st.form_submit_button("Salvar Anotação", use_container_width=True):
+                    if s and p:
+                        db.collection("anotacoes").add({
+                            "usuario_id": u_id,
+                            "area": a,
+                            "subtema": s,
+                            "pontos_chave": p,
+                            "data_criacao": str(hoje)
+                        })
+                        invalidar_cache()
+                        st.toast("✅ Anotação salva com sucesso!", icon="📝")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Preencha o subtema e a anotação para salvar.")
+
+        with aba_lista:
+            minhas_anotacoes = dados_anotacoes
+            if not minhas_anotacoes:
+                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
+            else:
+                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
+                
+                notas_exibir = list(minhas_anotacoes)
+                if pesquisa_nota:
+                    termo = pesquisa_nota.lower()
+                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
+                
+                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                
+                for nota in notas_exibir:
+                    with st.container(border=True):
+                        c1, c2 = st.columns([0.85, 0.15])
+                        with c1:
+                            st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
+                            st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
+                        with c2:
+                            if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
+                                db.collection("anotacoes").document(nota['id']).delete()
+                                invalidar_cache()
+                                st.toast("Anotação excluída!", icon="🗑️")
+                                time.sleep(0.5)
+                                st.rerun()
+                        st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1210,6 +1269,62 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
                     st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
+
+    elif menu == "📝 Anotações Rápidas":
+        st.header("Caderno de Resumos e Anotações")
+        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
+        
+        with aba_nova:
+            with st.form("form_anotacao", clear_on_submit=True):
+                col_a, col_s = st.columns(2)
+                a = col_a.selectbox("Grande Área", AREAS_MED)
+                s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
+                
+                if st.form_submit_button("Salvar Anotação", use_container_width=True):
+                    if s and p:
+                        db.collection("anotacoes").add({
+                            "usuario_id": u_id,
+                            "area": a,
+                            "subtema": s,
+                            "pontos_chave": p,
+                            "data_criacao": str(hoje)
+                        })
+                        invalidar_cache()
+                        st.toast("✅ Anotação salva com sucesso!", icon="📝")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Preencha o subtema e a anotação para salvar.")
+
+        with aba_lista:
+            minhas_anotacoes = dados_anotacoes
+            if not minhas_anotacoes:
+                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
+            else:
+                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
+                
+                notas_exibir = list(minhas_anotacoes)
+                if pesquisa_nota:
+                    termo = pesquisa_nota.lower()
+                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
+                
+                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                
+                for nota in notas_exibir:
+                    with st.container(border=True):
+                        c1, c2 = st.columns([0.85, 0.15])
+                        with c1:
+                            st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
+                            st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
+                        with c2:
+                            if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
+                                db.collection("anotacoes").document(nota['id']).delete()
+                                invalidar_cache()
+                                st.toast("Anotação excluída!", icon="🗑️")
+                                time.sleep(0.5)
+                                st.rerun()
+                        st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
 
     elif menu == "⏱️ Modo Foco":
         st.header("Concentração Pomodoro")
