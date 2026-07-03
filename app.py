@@ -104,7 +104,7 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#334155" 
+        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
         th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
@@ -118,7 +118,7 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9" 
+        bg_tabela = "#f1f5f9" # Cinza claro para tabela
         th_bg = "#e2e8f0"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
@@ -148,7 +148,7 @@ def aplicar_css_tema(modo):
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
+    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
@@ -158,7 +158,7 @@ def aplicar_css_tema(modo):
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO */
+    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
         background-color: #2563eb !important; 
         border: none !important; 
@@ -175,7 +175,7 @@ def aplicar_css_tema(modo):
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
     button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* ISOLAMENTO DA TABELA */
+    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
     [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
     [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
     [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
@@ -810,25 +810,38 @@ else:
 
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
+        
+        if 'nota_img_temp' not in st.session_state: 
+            st.session_state.nota_img_temp = None
+            
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
-            if 'nota_img_temp' not in st.session_state: 
-                st.session_state.nota_img_temp = None
-                
-            c_btn, c_img = st.columns([1,2])
-            with c_btn:
+            col_btn, col_img = st.columns([1, 2])
+            with col_btn:
+                st.markdown("### 🖼️ Colar Imagem (Opcional)")
+                st.caption("Pressione o botão e dê Ctrl+V")
                 if paste_image_button is not None:
-                    res_paste = paste_image_button("📋 Colar Imagem (Ctrl+V)", "#2563eb", "#1d4ed8", key="pn_nota")
-                    if res_paste.image_data is not None:
+                    res_paste_nota = paste_image_button(
+                        label="CLIQUE AQUI E APERTE Ctrl+V",
+                        background_color="#2563eb",
+                        hover_background_color="#1d4ed8",
+                        key="paste_nota_nova"
+                    )
+                    if res_paste_nota.image_data is not None:
                         buf = io.BytesIO()
-                        res_paste.image_data.save(buf, format="PNG")
-                        st.session_state.nota_img_temp = base64.b64encode(buf.getvalue()).decode('utf-8')
-                        st.rerun()
-            with c_img:
+                        res_paste_nota.image_data.save(buf, format="PNG")
+                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        if st.session_state.nota_img_temp != img_b64:
+                            st.session_state.nota_img_temp = img_b64
+                            st.rerun()
+                else:
+                    st.warning("Biblioteca de colar imagem não detectada.")
+                    
+            with col_img:
                 if st.session_state.nota_img_temp:
-                    st.image(base64.b64decode(st.session_state.nota_img_temp), width=200)
-                    if st.button("🗑️ Remover Imagem Anexada"):
+                    st.image(base64.b64decode(st.session_state.nota_img_temp), width=250)
+                    if st.button("🗑️ Remover Imagem", key="rmv_img_nota"):
                         st.session_state.nota_img_temp = None
                         st.rerun()
 
@@ -1398,17 +1411,27 @@ else:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with aba_simulado:
-            imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+            col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
-            if paste_image_button is not None:
-                paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
+            with col_sim1:
+                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+                if paste_image_button is not None:
+                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
+            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
             
-            if (imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
+                        if arq_pdf:
+                            try:
+                                from pdf2image import convert_from_bytes
+                                imagens_paginas = convert_from_bytes(arq_pdf.read())
+                                for img in imagens_paginas:
+                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
