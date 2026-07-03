@@ -104,7 +104,7 @@ def aplicar_css_tema(modo):
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#334155"
-        bg_tabela = "#334155" # Cinza chumbo escuro para tabela não ficar preta
+        bg_tabela = "#334155" 
         th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
@@ -118,7 +118,7 @@ def aplicar_css_tema(modo):
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#f1f5f9" # Cinza claro para tabela
+        bg_tabela = "#f1f5f9" 
         th_bg = "#e2e8f0"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
@@ -148,7 +148,7 @@ def aplicar_css_tema(modo):
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS (SEM TEXTO INVISÍVEL) */
+    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
@@ -158,7 +158,7 @@ def aplicar_css_tema(modo):
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO (TODOS EM AZUL COM HOVER EFFECT) */
+    /* BOTÕES PRO */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
         background-color: #2563eb !important; 
         border: none !important; 
@@ -175,7 +175,7 @@ def aplicar_css_tema(modo):
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
     button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* ISOLAMENTO DA TABELA (EVITA BUGAR O CALENDÁRIO) */
+    /* ISOLAMENTO DA TABELA */
     [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
     [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
     [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
@@ -813,11 +813,30 @@ else:
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
+            if 'nota_img_temp' not in st.session_state: 
+                st.session_state.nota_img_temp = None
+                
+            c_btn, c_img = st.columns([1,2])
+            with c_btn:
+                if paste_image_button is not None:
+                    res_paste = paste_image_button("📋 Colar Imagem (Ctrl+V)", "#2563eb", "#1d4ed8", key="pn_nota")
+                    if res_paste.image_data is not None:
+                        buf = io.BytesIO()
+                        res_paste.image_data.save(buf, format="PNG")
+                        st.session_state.nota_img_temp = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        st.rerun()
+            with c_img:
+                if st.session_state.nota_img_temp:
+                    st.image(base64.b64decode(st.session_state.nota_img_temp), width=200)
+                    if st.button("🗑️ Remover Imagem Anexada"):
+                        st.session_state.nota_img_temp = None
+                        st.rerun()
+
             with st.form("form_anotacao", clear_on_submit=True):
                 col_a, col_s = st.columns(2)
                 a = col_a.selectbox("Grande Área", AREAS_MED)
                 s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                p = st.text_area("Pontos Chave / Tópicos mais cobrados nas questões", height=150, help="Anote aqui os tópicos mais relevantes.")
+                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
                 
                 if st.form_submit_button("Salvar Anotação", use_container_width=True):
                     if s and p:
@@ -826,8 +845,10 @@ else:
                             "area": a,
                             "subtema": s,
                             "pontos_chave": p,
+                            "imagem_b64": st.session_state.nota_img_temp,
                             "data_criacao": str(hoje)
                         })
+                        st.session_state.nota_img_temp = None
                         invalidar_cache()
                         st.toast("✅ Anotação salva com sucesso!", icon="📝")
                         time.sleep(1)
@@ -862,8 +883,12 @@ else:
                                 st.toast("Anotação excluída!", icon="🗑️")
                                 time.sleep(0.5)
                                 st.rerun()
+                        
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
+                        if nota.get('imagem_b64'):
+                            st.image(base64.b64decode(nota['imagem_b64']), use_container_width=True)
+                            
                         with st.expander("✏️ Editar Anotação"):
                             with st.form(f"edit_nota_{nota['id']}", clear_on_submit=False):
                                 col_ea, col_es = st.columns(2)
@@ -1097,11 +1122,11 @@ else:
                         q_dados = opcoes_edicao[q_selec]
                         
                         col_e1, col_e2 = st.columns(2)
-                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')))
-                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')))
+                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')), key=f"ac_{q_dados['id']}")
+                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')), key=f"er_{q_dados['id']}")
                         
                         col_btn1, col_btn2 = st.columns(2)
-                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True):
+                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{q_dados['id']}"):
                             if q_dados.get('id'):
                                 db.collection("questoes_sessoes").document(q_dados['id']).update({
                                     "acertos": novo_ac,
@@ -1111,7 +1136,7 @@ else:
                             else:
                                 st.error("Erro: Registro sem ID.")
                             
-                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True):
+                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_dados['id']}"):
                             if q_dados.get('id'):
                                 db.collection("questoes_sessoes").document(q_dados['id']).delete()
                                 invalidar_cache(); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
@@ -1373,26 +1398,17 @@ else:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with aba_simulado:
-            col_sim1, col_sim2 = st.columns(2)
+            imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             colagem_img_sim = None
-            with col_sim1:
-                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-                if paste_image_button is not None:
-                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
-            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
+            if paste_image_button is not None:
+                paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
             
-            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
