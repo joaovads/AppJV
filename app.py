@@ -817,7 +817,7 @@ else:
                 col_a, col_s = st.columns(2)
                 a = col_a.selectbox("Grande Área", AREAS_MED)
                 s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
+                p = st.text_area("Pontos Chave / Tópicos mais cobrados nas questões", height=150, help="Anote aqui os tópicos mais relevantes.")
                 
                 if st.form_submit_button("Salvar Anotação", use_container_width=True):
                     if s and p:
