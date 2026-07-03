@@ -863,6 +863,27 @@ else:
                                 time.sleep(0.5)
                                 st.rerun()
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                        
+                        with st.expander("✏️ Editar Anotação"):
+                            with st.form(f"edit_nota_{nota['id']}", clear_on_submit=False):
+                                col_ea, col_es = st.columns(2)
+                                edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
+                                edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota['id']}")
+                                edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=150, key=f"ep_{nota['id']}")
+                                
+                                if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                                    if edit_s and edit_p:
+                                        db.collection("anotacoes").document(nota['id']).update({
+                                            "area": edit_a,
+                                            "subtema": edit_s,
+                                            "pontos_chave": edit_p
+                                        })
+                                        invalidar_cache()
+                                        st.toast("✅ Anotação atualizada!", icon="📝")
+                                        time.sleep(0.5)
+                                        st.rerun()
+                                    else:
+                                        st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1270,62 +1291,6 @@ else:
                     st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
                     st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
 
-    elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        
-        with aba_nova:
-            with st.form("form_anotacao", clear_on_submit=True):
-                col_a, col_s = st.columns(2)
-                a = col_a.selectbox("Grande Área", AREAS_MED)
-                s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
-                
-                if st.form_submit_button("Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        db.collection("anotacoes").add({
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s,
-                            "pontos_chave": p,
-                            "data_criacao": str(hoje)
-                        })
-                        invalidar_cache()
-                        st.toast("✅ Anotação salva com sucesso!", icon="📝")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes:
-                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                
-                for nota in notas_exibir:
-                    with st.container(border=True):
-                        c1, c2 = st.columns([0.85, 0.15])
-                        with c1:
-                            st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
-                            st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
-                        with c2:
-                            if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
-                                db.collection("anotacoes").document(nota['id']).delete()
-                                invalidar_cache()
-                                st.toast("Anotação excluída!", icon="🗑️")
-                                time.sleep(0.5)
-                                st.rerun()
-                        st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
-
     elif menu == "⏱️ Modo Foco":
         st.header("Concentração Pomodoro")
         sessoes_hoje = [s for s in dados_focus if parse_data(s.get('data_sessao')) == hoje]
@@ -1424,7 +1389,6 @@ else:
                     with st.spinner("Empacotando arquivos para envio..."):
                         if arq_pdf:
                             try:
-                                from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
