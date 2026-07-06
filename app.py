@@ -458,7 +458,7 @@ if not st.session_state.logado:
                 try:
                     logou = False
                     for doc in db.collection("usuarios").get():
-                        if doc.to_dict().get("nome") == u and doc.to_dict().get("senha") == hash_senha(p):
+                        if doc.to_dict().get("nome") == u Image and doc.to_dict().get("senha") == hash_senha(p):
                             st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
                             logou = True
                             if lembrar and cookie_controller:
@@ -817,6 +817,7 @@ else:
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
+            st.info("💡 **Dica de Formatação:** Você pode usar **__texto__** ou **<b>texto</b>** para Negrito, **<u>texto</u>** para Sublinhar, e **<mark>texto</mark>** para Grifar. Use um hífen para criar listas em tópicos.")
             col_btn, col_img = st.columns([1, 2])
             with col_btn:
                 st.markdown("### 🖼️ Colar Imagem (Opcional)")
@@ -901,7 +902,8 @@ else:
                                 time.sleep(0.5)
                                 st.rerun()
                         
-                        st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{html.escape(nota.get('pontos_chave', '')).replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                        # Renderização direta com suporte HTML para negrito, sublinhado e grifo
+                        st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
                             st.image(base64.b64decode(nota['imagem_b64']), use_container_width=True)
@@ -911,6 +913,43 @@ else:
                                 st.image(base64.b64decode(img_b64), use_container_width=True)
                             
                         with st.expander("✏️ Editar Anotação"):
+                            # Carrega imagens atuais ou cria lista vazia
+                            imgs_da_nota = list(nota.get('imagens_b64', []))
+                            if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_da_nota:
+                                imgs_da_nota.insert(0, nota['imagem_b64'])
+                                
+                            col_ebtn, col_eimg = st.columns([1, 2])
+                            with col_ebtn:
+                                st.markdown("➕ **Adicionar Novas Imagens:**")
+                                if paste_image_button is not None:
+                                    res_paste_edit = paste_image_button(
+                                        label="Colar Mais Imagem (Ctrl+V)",
+                                        background_color="#2563eb",
+                                        hover_background_color="#1d4ed8",
+                                        key=f"paste_edit_{nota['id']}"
+                                    )
+                                    if res_paste_edit.image_data is not None:
+                                        buf_e = io.BytesIO()
+                                        res_paste_edit.image_data.save(buf_e, format="PNG")
+                                        img_eb64 = base64.b64encode(buf_e.getvalue()).decode('utf-8')
+                                        if img_eb64 not in imgs_da_nota:
+                                            imgs_da_nota.append(img_eb64)
+                                            db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
+                                            invalidar_cache()
+                                            st.rerun()
+                            with col_eimg:
+                                if imgs_da_nota:
+                                    st.write("Imagens salvas neste resumo:")
+                                    cols_e = st.columns(4)
+                                    for idx_e, img_b64_e in enumerate(imgs_da_nota):
+                                        with cols_e[idx_e % 4]:
+                                            st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                            if st.button("🗑️ Remover", key=f"rmv_medit_{nota['id']}_{idx_e}"):
+                                                imgs_da_nota.pop(idx_e)
+                                                db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
+                                                invalidar_cache()
+                                                st.rerun()
+
                             with st.form(f"edit_nota_{nota['id']}", clear_on_submit=False):
                                 col_ea, col_es = st.columns(2)
                                 edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
@@ -1018,7 +1057,7 @@ else:
                     if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
                     else: st.session_state.cal_mes_revs -= 1
                     st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
+            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.car}</h3>", unsafe_allow_html=True)
             with nav_r3:
                 if st.button("Próximo Mês ➡️", key="next_rev"):
                     if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
@@ -1060,7 +1099,7 @@ else:
                     tema = limpar_texto(mapa_aulas.get(aula_id, {}).get('tema', 'Sem título'))
                     acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
                     if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
+                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": t, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
                 
                 df_h = pd.DataFrame(dados_h)
                 df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
@@ -1153,7 +1192,7 @@ else:
                                     "acertos": novo_ac,
                                     "erros": novo_er
                                 })
-                                invalidar_cache(); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                                invalidar_cache(); st.toast("Registro updated!", icon="✅"); time.sleep(0.5); st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
                             
@@ -1183,7 +1222,7 @@ else:
                             except Exception as e: st.error(str(e))
                 
                 st.write("---")
-                st.write("**Transformar Conceito Errado em Flashcard**")
+                st.write("**Transformar Concept Errado em Flashcard**")
                 frente_erro = st.text_input("Frente da Carta", value=f"O que devo lembrar sobre: {conceito_alvo}")
                 verso_erro = st.text_area("Verso (Resposta correta)")
                 if st.button("💾 Salvar direto no Deck"):
@@ -1419,27 +1458,17 @@ else:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with aba_simulado:
-            col_sim1, col_sim2 = st.columns(2)
+            imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             colagem_img_sim = None
-            with col_sim1:
-                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-                if paste_image_button is not None:
-                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
-            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
+            if paste_image_button is not None:
+                paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
             
-            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                from pdf2image import convert_from_bytes
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
