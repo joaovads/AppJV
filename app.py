@@ -333,9 +333,18 @@ def safe_int(valor):
     try: return int(float(valor)) if valor else 0
     except: return 0
 
-def invalidar_cache():
-    st.session_state.pop('dados', None)
-    st.session_state.user_data_loaded = False
+# 🔥 SISTEMA DE CACHE DE ALTA PERFORMANCE 🔥
+def invalidar_cache(colecoes=None):
+    if colecoes and 'dados' in st.session_state:
+        if isinstance(colecoes, str): colecoes = [colecoes]
+        for colecao in colecoes:
+            col_db = colecao
+            if colecao == "questoes": col_db = "questoes_sessoes"
+            elif colecao == "focus": col_db = "focus_sessoes"
+            st.session_state.dados[colecao] = get_user_docs(col_db, st.session_state.user_id)
+    else:
+        st.session_state.pop('dados', None)
+        st.session_state.user_data_loaded = False
 
 def limpar_texto(texto):
     if not texto: return "Sem título"
@@ -705,7 +714,7 @@ else:
                                 
                                 st.session_state.prints_colados = []
                                 st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
-                                invalidar_cache()
+                                invalidar_cache("cronogramas")
                                 time.sleep(1.5)
                                 st.rerun()
                         except Exception as e:
@@ -739,7 +748,7 @@ else:
                             "data_importacao": str(hoje),
                             "data_conclusao": None
                         })
-                        invalidar_cache()
+                        invalidar_cache("cronogramas")
                         st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
                         time.sleep(1)
                         st.rerun()
@@ -778,7 +787,7 @@ else:
                     if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
                         batch = db.batch()
                         for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: batch.delete(db.collection("cronogramas").document(t_del['id']))
-                        batch.commit(); invalidar_cache(); st.rerun()
+                        batch.commit(); invalidar_cache("cronogramas"); st.rerun()
 
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
@@ -791,14 +800,14 @@ else:
                             with col1:
                                 if st.button("✔️", key=f"btn_{t['id']}"):
                                     db.collection("cronogramas").document(t['id']).update({"concluido": True, "data_conclusao": str(get_agora().date())})
-                                    invalidar_cache(); st.toast("Mandou bem! Mais uma concluída.", icon="🔥"); time.sleep(0.5); st.rerun()
+                                    invalidar_cache("cronogramas"); st.toast("Mandou bem! Mais uma concluída.", icon="🔥"); time.sleep(0.5); st.rerun()
                             with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
                                 p_val = safe_int(t.get('prioridade', 3))
                                 novo_p = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"pri_{t['id']}", label_visibility="collapsed")
-                                if novo_p != p_val: db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p}); invalidar_cache(); st.rerun()
+                                if novo_p != p_val: db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p}); invalidar_cache("cronogramas"); st.rerun()
                             with col4:
-                                if st.button("🗑️", key=f"del_p_{t['id']}"): db.collection("cronogramas").document(t['id']).delete(); invalidar_cache(); st.rerun()
+                                if st.button("🗑️", key=f"del_p_{t['id']}"): db.collection("cronogramas").document(t['id']).delete(); invalidar_cache("cronogramas"); st.rerun()
                 elif not termo_pesquisa:
                     st.success("🎉 Nenhuma aula pendente nesta semana!")
 
@@ -813,11 +822,12 @@ else:
         
         if 'nota_imgs_temp' not in st.session_state: 
             st.session_state.nota_imgs_temp = []
+        if 'nota_texto_novo' not in st.session_state:
+            st.session_state.nota_texto_novo = ""
             
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
-            st.info("💡 **Dica de Formatação:** Você pode usar **__texto__** ou **<b>texto</b>** para Negrito, **<u>texto</u>** para Sublinhar, e **<mark>texto</mark>** para Grifar. Use um hífen para criar listas em tópicos.")
             col_btn, col_img = st.columns([1, 2])
             with col_btn:
                 st.markdown("### 🖼️ Colar Imagem (Opcional)")
@@ -850,29 +860,39 @@ else:
                                 st.session_state.nota_imgs_temp.pop(idx)
                                 st.rerun()
 
-            with st.form("form_anotacao", clear_on_submit=True):
-                col_a, col_s = st.columns(2)
-                a = col_a.selectbox("Grande Área", AREAS_MED)
-                s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.")
-                
-                if st.form_submit_button("Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        db.collection("anotacoes").add({
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.nota_imgs_temp = []
-                        invalidar_cache()
-                        st.toast("✅ Anotação salva com sucesso!", icon="📝")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
+            st.divider()
+            st.markdown("### ✍️ Escrever Resumo")
+            
+            col_a, col_s = st.columns(2)
+            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
+            
+            cf1, cf2, cf3, cf4 = st.columns(4)
+            if cf1.button("𝗕 Negrito"): st.session_state.nota_texto_novo += "****"; st.rerun()
+            if cf2.button("U̲ Sublinhado"): st.session_state.nota_texto_novo += "<u></u>"; st.rerun()
+            if cf3.button("🖍️ Grifar"): st.session_state.nota_texto_novo += "<mark></mark>"; st.rerun()
+            if cf4.button("📋 Tópico"): st.session_state.nota_texto_novo += "\n- "; st.rerun()
+            
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Digite entre as marcações de texto geradas pelos botões acima.", key="nota_texto_novo")
+            
+            if st.button("Salvar Anotação", use_container_width=True, type="primary"):
+                if s and p:
+                    db.collection("anotacoes").add({
+                        "usuario_id": u_id,
+                        "area": a,
+                        "subtema": s,
+                        "pontos_chave": p,
+                        "imagens_b64": st.session_state.nota_imgs_temp,
+                        "data_criacao": str(hoje)
+                    })
+                    st.session_state.nota_imgs_temp = []
+                    st.session_state.nota_texto_novo = ""
+                    invalidar_cache("anotacoes")
+                    st.toast("✅ Anotação salva com sucesso!", icon="📝")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Preencha o subtema e a anotação para salvar.")
 
         with aba_lista:
             minhas_anotacoes = dados_anotacoes
@@ -897,12 +917,11 @@ else:
                         with c2:
                             if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
                                 db.collection("anotacoes").document(nota['id']).delete()
-                                invalidar_cache()
+                                invalidar_cache("anotacoes")
                                 st.toast("Anotação excluída!", icon="🗑️")
                                 time.sleep(0.5)
                                 st.rerun()
                         
-                        # Renderização direta com suporte HTML para negrito, sublinhado e grifo
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
@@ -913,7 +932,6 @@ else:
                                 st.image(base64.b64decode(img_b64), use_container_width=True)
                             
                         with st.expander("✏️ Editar Anotação"):
-                            # Carrega imagens atuais ou cria lista vazia
                             imgs_da_nota = list(nota.get('imagens_b64', []))
                             if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_da_nota:
                                 imgs_da_nota.insert(0, nota['imagem_b64'])
@@ -935,7 +953,7 @@ else:
                                         if img_eb64 not in imgs_da_nota:
                                             imgs_da_nota.append(img_eb64)
                                             db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                            invalidar_cache()
+                                            invalidar_cache("anotacoes")
                                             st.rerun()
                             with col_eimg:
                                 if imgs_da_nota:
@@ -947,28 +965,38 @@ else:
                                             if st.button("🗑️ Remover", key=f"rmv_medit_{nota['id']}_{idx_e}"):
                                                 imgs_da_nota.pop(idx_e)
                                                 db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                                invalidar_cache()
+                                                invalidar_cache("anotacoes")
                                                 st.rerun()
 
-                            with st.form(f"edit_nota_{nota['id']}", clear_on_submit=False):
-                                col_ea, col_es = st.columns(2)
-                                edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
-                                edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota['id']}")
-                                edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=150, key=f"ep_{nota['id']}")
-                                
-                                if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                    if edit_s and edit_p:
-                                        db.collection("anotacoes").document(nota['id']).update({
-                                            "area": edit_a,
-                                            "subtema": edit_s,
-                                            "pontos_chave": edit_p
-                                        })
-                                        invalidar_cache()
-                                        st.toast("✅ Anotação atualizada!", icon="📝")
-                                        time.sleep(0.5)
-                                        st.rerun()
-                                    else:
-                                        st.error("Preencha o subtema e a anotação para salvar.")
+                            # Configurar texto inicial no State
+                            if f"ep_{nota['id']}" not in st.session_state:
+                                st.session_state[f"ep_{nota['id']}"] = nota.get('pontos_chave', '')
+
+                            col_ea, col_es = st.columns(2)
+                            edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
+                            edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota['id']}")
+                            
+                            cb1, cb2, cb3, cb4 = st.columns(4)
+                            if cb1.button("𝗕 Negrito", key=f"b1_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "****"; st.rerun()
+                            if cb2.button("U̲ Sublinhado", key=f"b2_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "<u></u>"; st.rerun()
+                            if cb3.button("🖍️ Grifar", key=f"b3_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "<mark></mark>"; st.rerun()
+                            if cb4.button("📋 Tópico", key=f"b4_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "\n- "; st.rerun()
+
+                            edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=f"ep_{nota['id']}")
+                            
+                            if st.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_nota_{nota['id']}"):
+                                if edit_s and edit_p:
+                                    db.collection("anotacoes").document(nota['id']).update({
+                                        "area": edit_a,
+                                        "subtema": edit_s,
+                                        "pontos_chave": edit_p
+                                    })
+                                    invalidar_cache("anotacoes")
+                                    st.toast("✅ Anotação atualizada!", icon="📝")
+                                    time.sleep(0.5)
+                                    st.rerun()
+                                else:
+                                    st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1088,7 +1116,7 @@ else:
                             f = col3.number_input("Flashcards", 0)
                             if st.form_submit_button("✅ Marcar Concluída"):
                                 db.collection("revisoes").document(r['id']).update({"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
-                                invalidar_cache(); st.toast("✅ Revisão Concluída!", icon="🚀"); time.sleep(0.5); st.rerun()
+                                invalidar_cache("revisoes"); st.toast("✅ Revisão Concluída!", icon="🚀"); time.sleep(0.5); st.rerun()
 
         with aba_historico:
             conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"] and str(d.get('aula_id', '')).strip() in mapa_aulas]
@@ -1132,7 +1160,7 @@ else:
                             rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db.collection("revisoes").document(opcoes_desfazer[rev_selecionada]).update({"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                invalidar_cache(); st.toast("Revisão desfeita!", icon="⏪"); time.sleep(1); st.rerun()
+                                invalidar_cache("revisoes"); st.toast("Revisão desfeita!", icon="⏪"); time.sleep(1); st.rerun()
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
@@ -1145,7 +1173,7 @@ else:
                 cc = st.text_input("Conceito Chave (Motivo do erro)")
                 if st.form_submit_button("Registrar", use_container_width=True):
                     db.collection("questoes_sessoes").add({"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
-                    invalidar_cache(); st.toast("Questões registradas!", icon="✅"); time.sleep(0.5); st.rerun()
+                    invalidar_cache("questoes"); st.toast("Questões registradas!", icon="✅"); time.sleep(0.5); st.rerun()
             
             if dados_questoes: 
                 lista_q = []
@@ -1192,14 +1220,14 @@ else:
                                     "acertos": novo_ac,
                                     "erros": novo_er
                                 })
-                                invalidar_cache(); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                                invalidar_cache("questoes"); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
                             
                         if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_dados['id']}"):
                             if q_dados.get('id'):
                                 db.collection("questoes_sessoes").document(q_dados['id']).delete()
-                                invalidar_cache(); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
+                                invalidar_cache("questoes"); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
                 
@@ -1227,7 +1255,7 @@ else:
                 verso_erro = st.text_area("Verso (Resposta correta)")
                 if st.button("💾 Salvar direto no Deck"):
                     db.collection("flashcards").add({"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                    invalidar_cache(); st.toast("Flashcard adicionado aos estudos!", icon="🧠")
+                    invalidar_cache("flashcards"); st.toast("Flashcard adicionado aos estudos!", icon="🧠")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
 
     elif menu == "✨ AI Tutor & Flashcards":
@@ -1273,7 +1301,7 @@ else:
                                 elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
                                 else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
                                 db.collection("flashcards").document(c_data["id"]).update({"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
-                                invalidar_cache(); st.session_state.ans = False; st.rerun()
+                                invalidar_cache("flashcards"); st.session_state.ans = False; st.rerun()
                             if b1.button("🔴 Errei (1d)", use_container_width=True): avaliar('err')
                             if b2.button("🟡 Bom", use_container_width=True): avaliar('bom')
                             if b3.button("🟢 Fácil", use_container_width=True): avaliar('facil')
@@ -1285,7 +1313,7 @@ else:
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
                         db.collection("flashcards").add({"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                        invalidar_cache(); st.toast("Flashcard salvo!", icon="📚"); st.rerun()
+                        invalidar_cache("flashcards"); st.toast("Flashcard salvo!", icon="📚"); st.rerun()
             
             with aba_f3:
                 st.markdown("### 📥 Importação em Massa")
@@ -1298,7 +1326,7 @@ else:
                                 batch = db.batch()
                                 for _, row in df_anki.iterrows():
                                     batch.set(db.collection("flashcards").document(), {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                                batch.commit(); invalidar_cache()
+                                batch.commit(); invalidar_cache("flashcards")
                             st.toast("✅ Flashcards importados com sucesso!"); time.sleep(1.5); st.rerun()
                     except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
 
@@ -1330,7 +1358,7 @@ else:
                     for c, dias in {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}.items():
                         batch.set(db.collection("revisoes").document(), {"usuario_id": u_id, "aula_id": a_ref[1].id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"})
                     batch.commit()
-                    invalidar_cache(); st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
+                    invalidar_cache(["aulas", "revisoes"]); st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a['id'] for a in dados_aulas}
@@ -1341,7 +1369,7 @@ else:
                         batch = db.batch()
                         for rd in db.collection("revisoes").where("aula_id", "==", id_del).get(): batch.delete(rd.reference)
                         batch.delete(db.collection("aulas").document(id_del))
-                        batch.commit(); invalidar_cache(); st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
+                        batch.commit(); invalidar_cache(["aulas", "revisoes"]); st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
 
         with col_lista:
             if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
@@ -1397,7 +1425,7 @@ else:
                 st.success("✅ Concluído!")
                 if st.button("Gravar Sessão"): 
                     db.collection("focus_sessoes").add({"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min})
-                    invalidar_cache(); st.session_state.foco_iniciado = False; st.rerun()
+                    invalidar_cache("focus"); st.session_state.foco_iniciado = False; st.rerun()
 
     elif menu == "📁 Materiais e Simulados":
         st.header("Gerenciador de PDFs")
@@ -1406,7 +1434,7 @@ else:
             caminho = os.path.join("materiais_estudo", arq.name)
             with open(caminho, "wb") as f: f.write(arq.getbuffer())
             db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
-            invalidar_cache()
+            invalidar_cache("materiais")
             st.toast("Salvo com sucesso!", icon="📄")
             
         if dados_materiais: 
@@ -1428,7 +1456,7 @@ else:
                     if col_del.button("🗑️ Excluir", key=f"del_{mat['id']}"):
                         db.collection("materiais").document(mat['id']).delete()
                         if os.path.exists(mat.get('path', '')): os.remove(mat['path'])
-                        invalidar_cache()
+                        invalidar_cache("materiais")
                         st.rerun()
 
     elif menu == "🏥 Simulados & OSCE":
@@ -1443,7 +1471,7 @@ else:
                 cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
                 if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
                     db.collection("simulados").add({"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
-                    invalidar_cache(); st.rerun()
+                    invalidar_cache("simulados"); st.rerun()
             if len(dados_simulados) >= 3:
                 dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
                 dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
@@ -1526,7 +1554,7 @@ else:
                     nota_final = (acertos / len(st.session_state.prova_ativa)) * 100 if len(st.session_state.prova_ativa) > 0 else 0
                     st.balloons(); st.metric("Nota Líquida", f"{nota_final:.1f}%")
                     db.collection("simulados").add({"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
-                    invalidar_cache()
+                    invalidar_cache("simulados")
                     
                 if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
 
