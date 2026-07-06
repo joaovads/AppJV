@@ -333,7 +333,7 @@ def safe_int(valor):
     try: return int(float(valor)) if valor else 0
     except: return 0
 
-# 🔥 SISTEMA DE CACHE DE ALTA PERFORMANCE 🔥
+# Função de Cache Otimizada para maior Fluidez
 def invalidar_cache(colecoes=None):
     if colecoes and 'dados' in st.session_state:
         if isinstance(colecoes, str): colecoes = [colecoes]
@@ -424,6 +424,12 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
+
+# Função Callback para Botões de Formatação Instantânea
+def inserir_formatacao(chave_estado, formatacao):
+    if chave_estado not in st.session_state:
+        st.session_state[chave_estado] = ""
+    st.session_state[chave_estado] += formatacao
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -824,6 +830,8 @@ else:
             st.session_state.nota_imgs_temp = []
         if 'nota_texto_novo' not in st.session_state:
             st.session_state.nota_texto_novo = ""
+        if 'n_sub_novo' not in st.session_state:
+            st.session_state.n_sub_novo = ""
             
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
@@ -867,29 +875,35 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
             
+            st.write("**Ferramentas de Formatação:**")
             cf1, cf2, cf3, cf4 = st.columns(4)
-            if cf1.button("𝗕 Negrito"): st.session_state.nota_texto_novo += "****"; st.rerun()
-            if cf2.button("U̲ Sublinhado"): st.session_state.nota_texto_novo += "<u></u>"; st.rerun()
-            if cf3.button("🖍️ Grifar"): st.session_state.nota_texto_novo += "<mark></mark>"; st.rerun()
-            if cf4.button("📋 Tópico"): st.session_state.nota_texto_novo += "\n- "; st.rerun()
+            cf1.button("𝗕 Negrito", on_click=inserir_formatacao, args=("nota_texto_novo", "****"))
+            cf2.button("U̲ Sublinhado", on_click=inserir_formatacao, args=("nota_texto_novo", "<u></u>"))
+            cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "<mark></mark>"))
+            cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "\n- "))
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Digite entre as marcações de texto geradas pelos botões acima.", key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Clique nos botões acima para formatar rapidamente.", key="nota_texto_novo")
             
             if st.button("Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
-                    db.collection("anotacoes").add({
+                    nova_nota = {
                         "usuario_id": u_id,
                         "area": a,
                         "subtema": s,
                         "pontos_chave": p,
                         "imagens_b64": st.session_state.nota_imgs_temp,
                         "data_criacao": str(hoje)
-                    })
+                    }
+                    _, doc_ref = db.collection("anotacoes").add(nova_nota)
+                    
+                    # ATUALIZAÇÃO OTIMISTA - Zera o lag de salvamento
+                    nova_nota["id"] = doc_ref.id
+                    st.session_state.dados["anotacoes"].append(nova_nota)
+                    
                     st.session_state.nota_imgs_temp = []
                     st.session_state.nota_texto_novo = ""
-                    invalidar_cache("anotacoes")
+                    st.session_state.n_sub_novo = ""
                     st.toast("✅ Anotação salva com sucesso!", icon="📝")
-                    time.sleep(1)
                     st.rerun()
                 else:
                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -917,9 +931,9 @@ else:
                         with c2:
                             if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
                                 db.collection("anotacoes").document(nota['id']).delete()
-                                invalidar_cache("anotacoes")
+                                # Atualização Otimista
+                                st.session_state.dados["anotacoes"] = [n for n in st.session_state.dados["anotacoes"] if n["id"] != nota['id']]
                                 st.toast("Anotação excluída!", icon="🗑️")
-                                time.sleep(0.5)
                                 st.rerun()
                         
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
@@ -953,7 +967,12 @@ else:
                                         if img_eb64 not in imgs_da_nota:
                                             imgs_da_nota.append(img_eb64)
                                             db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                            invalidar_cache("anotacoes")
+                                            # Atualização Otimista
+                                            for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
+                                                if n_opt["id"] == nota['id']:
+                                                    st.session_state.dados["anotacoes"][idx_opt]["imagens_b64"] = imgs_da_nota
+                                                    st.session_state.dados["anotacoes"][idx_opt]["imagem_b64"] = None
+                                                    break
                                             st.rerun()
                             with col_eimg:
                                 if imgs_da_nota:
@@ -965,35 +984,46 @@ else:
                                             if st.button("🗑️ Remover", key=f"rmv_medit_{nota['id']}_{idx_e}"):
                                                 imgs_da_nota.pop(idx_e)
                                                 db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                                invalidar_cache("anotacoes")
+                                                # Atualização Otimista
+                                                for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
+                                                    if n_opt["id"] == nota['id']:
+                                                        st.session_state.dados["anotacoes"][idx_opt]["imagens_b64"] = imgs_da_nota
+                                                        st.session_state.dados["anotacoes"][idx_opt]["imagem_b64"] = None
+                                                        break
                                                 st.rerun()
 
-                            # Configurar texto inicial no State
-                            if f"ep_{nota['id']}" not in st.session_state:
-                                st.session_state[f"ep_{nota['id']}"] = nota.get('pontos_chave', '')
+                            key_p_edit = f"ep_{nota['id']}"
+                            if key_p_edit not in st.session_state:
+                                st.session_state[key_p_edit] = nota.get('pontos_chave', '')
 
                             col_ea, col_es = st.columns(2)
                             edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
                             edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota['id']}")
                             
-                            cb1, cb2, cb3, cb4 = st.columns(4)
-                            if cb1.button("𝗕 Negrito", key=f"b1_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "****"; st.rerun()
-                            if cb2.button("U̲ Sublinhado", key=f"b2_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "<u></u>"; st.rerun()
-                            if cb3.button("🖍️ Grifar", key=f"b3_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "<mark></mark>"; st.rerun()
-                            if cb4.button("📋 Tópico", key=f"b4_{nota['id']}"): st.session_state[f"ep_{nota['id']}"] += "\n- "; st.rerun()
+                            ce1, ce2, ce3, ce4 = st.columns(4)
+                            ce1.button("𝗕 Negrito", key=f"b1_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "****"))
+                            ce2.button("U̲ Sublinhado", key=f"b2_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "<u></u>"))
+                            ce3.button("🖍️ Grifar", key=f"b3_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "<mark></mark>"))
+                            ce4.button("📋 Tópico", key=f"b4_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "\n- "))
 
-                            edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=f"ep_{nota['id']}")
+                            edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=key_p_edit)
                             
-                            if st.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_nota_{nota['id']}"):
+                            if st.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_nota_{nota['id']}", type="primary"):
                                 if edit_s and edit_p:
                                     db.collection("anotacoes").document(nota['id']).update({
                                         "area": edit_a,
                                         "subtema": edit_s,
                                         "pontos_chave": edit_p
                                     })
-                                    invalidar_cache("anotacoes")
+                                    # Atualização Otimista
+                                    for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
+                                        if n_opt["id"] == nota['id']:
+                                            st.session_state.dados["anotacoes"][idx_opt]["area"] = edit_a
+                                            st.session_state.dados["anotacoes"][idx_opt]["subtema"] = edit_s
+                                            st.session_state.dados["anotacoes"][idx_opt]["pontos_chave"] = edit_p
+                                            break
+                                    
                                     st.toast("✅ Anotação atualizada!", icon="📝")
-                                    time.sleep(0.5)
                                     st.rerun()
                                 else:
                                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -1486,27 +1516,17 @@ else:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with aba_simulado:
-            col_sim1, col_sim2 = st.columns(2)
+            imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
             colagem_img_sim = None
-            with col_sim1:
-                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-                if paste_image_button is not None:
-                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
-            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
+            if paste_image_button is not None:
+                paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
             
-            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                from pdf2image import convert_from_bytes
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
