@@ -43,7 +43,6 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
-# Nova biblioteca para botão de colar
 try:
     from streamlit_paste_button import paste_image_button
 except ImportError:
@@ -230,6 +229,30 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
+# FUNÇÕES DE BANCO OTIMIZADAS (ZERO LATÊNCIA)
+# ==========================================
+def db_add(col_name, state_key, data):
+    doc_ref = db.collection(col_name).document()
+    doc_ref.set(data)
+    data["id"] = doc_ref.id
+    if state_key in st.session_state.dados:
+        st.session_state.dados[state_key].append(data)
+    return doc_ref
+
+def db_update(col_name, state_key, doc_id, updates):
+    db.collection(col_name).document(doc_id).update(updates)
+    if state_key in st.session_state.dados:
+        for item in st.session_state.dados[state_key]:
+            if item.get("id") == doc_id:
+                item.update(updates)
+                break
+
+def db_delete(col_name, state_key, doc_id):
+    db.collection(col_name).document(doc_id).delete()
+    if state_key in st.session_state.dados:
+        st.session_state.dados[state_key] = [i for i in st.session_state.dados[state_key] if i.get("id") != doc_id]
+
+# ==========================================
 # INICIALIZADOR E EXTRATOR SEGURO DE JSON
 # ==========================================
 def get_ia_client():
@@ -333,19 +356,6 @@ def safe_int(valor):
     try: return int(float(valor)) if valor else 0
     except: return 0
 
-# Função de Cache Otimizada para maior Fluidez
-def invalidar_cache(colecoes=None):
-    if colecoes and 'dados' in st.session_state:
-        if isinstance(colecoes, str): colecoes = [colecoes]
-        for colecao in colecoes:
-            col_db = colecao
-            if colecao == "questoes": col_db = "questoes_sessoes"
-            elif colecao == "focus": col_db = "focus_sessoes"
-            st.session_state.dados[colecao] = get_user_docs(col_db, st.session_state.user_id)
-    else:
-        st.session_state.pop('dados', None)
-        st.session_state.user_data_loaded = False
-
 def limpar_texto(texto):
     if not texto: return "Sem título"
     return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto)).strip()
@@ -426,10 +436,17 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     return html_code
 
 # Função Callback para Botões de Formatação Instantânea
-def inserir_formatacao(chave_estado, formatacao):
+def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
-    st.session_state[chave_estado] += formatacao
+    if formato == "bold":
+        st.session_state[chave_estado] += " **Texto aqui** "
+    elif formato == "underline":
+        st.session_state[chave_estado] += " <u>Texto aqui</u> "
+    elif formato == "mark":
+        st.session_state[chave_estado] += " <mark>Texto aqui</mark> "
+    elif formato == "topic":
+        st.session_state[chave_estado] += "\n- "
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -507,7 +524,7 @@ else:
         }
 
     if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Sincronizando ambiente de alta performance..."):
+        with st.spinner("Carregando seus dados da nuvem..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
@@ -705,7 +722,7 @@ else:
                                 batch = db.batch()
                                 for t in tarefas:
                                     doc_ref = db.collection("cronogramas").document()
-                                    batch.set(doc_ref, {
+                                    nova_tarefa = {
                                         "usuario_id": u_id,
                                         "semana": nome_semana,
                                         "dia": t.get("dia", "Geral"),
@@ -715,13 +732,15 @@ else:
                                         "concluido": False,
                                         "data_importacao": str(hoje),
                                         "data_conclusao": None
-                                    })
+                                    }
+                                    batch.set(doc_ref, nova_tarefa)
+                                    nova_tarefa["id"] = doc_ref.id
+                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
                                 batch.commit()
                                 
                                 st.session_state.prints_colados = []
                                 st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
-                                invalidar_cache("cronogramas")
-                                time.sleep(1.5)
+                                time.sleep(1)
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Erro na leitura da imagem. Detalhes: {e}")
@@ -743,7 +762,7 @@ else:
                     if not m_semana or not m_tema:
                         st.error("Preencha a Semana e o Tema para adicionar.")
                     else:
-                        db.collection("cronogramas").add({
+                        db_add("cronogramas", "cronogramas", {
                             "usuario_id": u_id,
                             "semana": m_semana,
                             "dia": m_dia,
@@ -754,9 +773,8 @@ else:
                             "data_importacao": str(hoje),
                             "data_conclusao": None
                         })
-                        invalidar_cache("cronogramas")
                         st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
-                        time.sleep(1)
+                        time.sleep(0.5)
                         st.rerun()
 
         with aba_lista:
@@ -792,8 +810,13 @@ else:
                 with col_del_sem:
                     if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
                         batch = db.batch()
-                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: batch.delete(db.collection("cronogramas").document(t_del['id']))
-                        batch.commit(); invalidar_cache("cronogramas"); st.rerun()
+                        ids_del = []
+                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: 
+                            batch.delete(db.collection("cronogramas").document(t_del['id']))
+                            ids_del.append(t_del['id'])
+                        batch.commit()
+                        st.session_state.dados["cronogramas"] = [c for c in st.session_state.dados["cronogramas"] if c['id'] not in ids_del]
+                        st.rerun()
 
                 pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
                 concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
@@ -805,15 +828,20 @@ else:
                             col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
                             with col1:
                                 if st.button("✔️", key=f"btn_{t['id']}"):
-                                    db.collection("cronogramas").document(t['id']).update({"concluido": True, "data_conclusao": str(get_agora().date())})
-                                    invalidar_cache("cronogramas"); st.toast("Mandou bem! Mais uma concluída.", icon="🔥"); time.sleep(0.5); st.rerun()
+                                    db_update("cronogramas", "cronogramas", t['id'], {"concluido": True, "data_conclusao": str(get_agora().date())})
+                                    st.toast("Mandou bem! Mais uma concluída.", icon="🔥")
+                                    st.rerun()
                             with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
                             with col3:
                                 p_val = safe_int(t.get('prioridade', 3))
                                 novo_p = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"pri_{t['id']}", label_visibility="collapsed")
-                                if novo_p != p_val: db.collection("cronogramas").document(t['id']).update({"prioridade": novo_p}); invalidar_cache("cronogramas"); st.rerun()
+                                if novo_p != p_val: 
+                                    db_update("cronogramas", "cronogramas", t['id'], {"prioridade": novo_p})
+                                    st.rerun()
                             with col4:
-                                if st.button("🗑️", key=f"del_p_{t['id']}"): db.collection("cronogramas").document(t['id']).delete(); invalidar_cache("cronogramas"); st.rerun()
+                                if st.button("🗑️", key=f"del_p_{t['id']}"): 
+                                    db_delete("cronogramas", "cronogramas", t['id'])
+                                    st.rerun()
                 elif not termo_pesquisa:
                     st.success("🎉 Nenhuma aula pendente nesta semana!")
 
@@ -826,20 +854,16 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
-        if 'nota_imgs_temp' not in st.session_state: 
-            st.session_state.nota_imgs_temp = []
-        if 'nota_texto_novo' not in st.session_state:
-            st.session_state.nota_texto_novo = ""
-        if 'n_sub_novo' not in st.session_state:
-            st.session_state.n_sub_novo = ""
+        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
+        if 'nota_texto_novo' not in st.session_state: st.session_state.nota_texto_novo = ""
             
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
+            st.info("💡 **Dica de Formatação:** Use os botões abaixo para colocar as marcações no seu texto. Você pode colar múltiplas imagens.")
             col_btn, col_img = st.columns([1, 2])
             with col_btn:
                 st.markdown("### 🖼️ Colar Imagem (Opcional)")
-                st.caption("Pressione o botão e dê Ctrl+V várias vezes para colar múltiplas imagens.")
                 if paste_image_button is not None:
                     res_paste_nota = paste_image_button(
                         label="CLIQUE AQUI E APERTE Ctrl+V",
@@ -871,39 +895,34 @@ else:
             st.divider()
             st.markdown("### ✍️ Escrever Resumo")
             
+            # Fora do st.form para os botões funcionarem de imediato
             col_a, col_s = st.columns(2)
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
             
             st.write("**Ferramentas de Formatação:**")
             cf1, cf2, cf3, cf4 = st.columns(4)
-            cf1.button("𝗕 Negrito", on_click=inserir_formatacao, args=("nota_texto_novo", "****"))
-            cf2.button("U̲ Sublinhado", on_click=inserir_formatacao, args=("nota_texto_novo", "<u></u>"))
-            cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "<mark></mark>"))
-            cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "\n- "))
+            cf1.button("𝗕 Negrito", on_click=inserir_formatacao, args=("nota_texto_novo", "bold"))
+            cf2.button("U̲ Sublinhado", on_click=inserir_formatacao, args=("nota_texto_novo", "underline"))
+            cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
+            cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Clique nos botões acima para formatar rapidamente.", key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Substitua a palavra gerada pelos botões.", key="nota_texto_novo")
             
-            if st.button("Salvar Anotação", use_container_width=True, type="primary"):
+            if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
-                    nova_nota = {
+                    db_add("anotacoes", "anotacoes", {
                         "usuario_id": u_id,
                         "area": a,
                         "subtema": s,
                         "pontos_chave": p,
                         "imagens_b64": st.session_state.nota_imgs_temp,
                         "data_criacao": str(hoje)
-                    }
-                    _, doc_ref = db.collection("anotacoes").add(nova_nota)
-                    
-                    # ATUALIZAÇÃO OTIMISTA - Zera o lag de salvamento
-                    nova_nota["id"] = doc_ref.id
-                    st.session_state.dados["anotacoes"].append(nova_nota)
-                    
+                    })
                     st.session_state.nota_imgs_temp = []
                     st.session_state.nota_texto_novo = ""
-                    st.session_state.n_sub_novo = ""
                     st.toast("✅ Anotação salva com sucesso!", icon="📝")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -930,17 +949,15 @@ else:
                             st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
                         with c2:
                             if st.button("🗑️ Excluir", key=f"del_nota_{nota['id']}", use_container_width=True):
-                                db.collection("anotacoes").document(nota['id']).delete()
-                                # Atualização Otimista
-                                st.session_state.dados["anotacoes"] = [n for n in st.session_state.dados["anotacoes"] if n["id"] != nota['id']]
+                                db_delete("anotacoes", "anotacoes", nota['id'])
                                 st.toast("Anotação excluída!", icon="🗑️")
                                 st.rerun()
                         
+                        # Renderização permitindo HTML
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
                             st.image(base64.b64decode(nota['imagem_b64']), use_container_width=True)
-                            
                         if nota.get('imagens_b64'):
                             for img_b64 in nota['imagens_b64']:
                                 st.image(base64.b64decode(img_b64), use_container_width=True)
@@ -966,30 +983,18 @@ else:
                                         img_eb64 = base64.b64encode(buf_e.getvalue()).decode('utf-8')
                                         if img_eb64 not in imgs_da_nota:
                                             imgs_da_nota.append(img_eb64)
-                                            db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                            # Atualização Otimista
-                                            for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
-                                                if n_opt["id"] == nota['id']:
-                                                    st.session_state.dados["anotacoes"][idx_opt]["imagens_b64"] = imgs_da_nota
-                                                    st.session_state.dados["anotacoes"][idx_opt]["imagem_b64"] = None
-                                                    break
+                                            db_update("anotacoes", "anotacoes", nota['id'], {"imagens_b64": imgs_da_nota, "imagem_b64": None})
                                             st.rerun()
                             with col_eimg:
                                 if imgs_da_nota:
-                                    st.write("Imagens salvas neste resumo:")
+                                    st.write("Imagens salvas:")
                                     cols_e = st.columns(4)
                                     for idx_e, img_b64_e in enumerate(imgs_da_nota):
                                         with cols_e[idx_e % 4]:
                                             st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                             if st.button("🗑️ Remover", key=f"rmv_medit_{nota['id']}_{idx_e}"):
                                                 imgs_da_nota.pop(idx_e)
-                                                db.collection("anotacoes").document(nota['id']).update({"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                                # Atualização Otimista
-                                                for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
-                                                    if n_opt["id"] == nota['id']:
-                                                        st.session_state.dados["anotacoes"][idx_opt]["imagens_b64"] = imgs_da_nota
-                                                        st.session_state.dados["anotacoes"][idx_opt]["imagem_b64"] = None
-                                                        break
+                                                db_update("anotacoes", "anotacoes", nota['id'], {"imagens_b64": imgs_da_nota, "imagem_b64": None})
                                                 st.rerun()
 
                             key_p_edit = f"ep_{nota['id']}"
@@ -1000,30 +1005,19 @@ else:
                             edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota['id']}")
                             edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota['id']}")
                             
-                            ce1, ce2, ce3, ce4 = st.columns(4)
-                            ce1.button("𝗕 Negrito", key=f"b1_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "****"))
-                            ce2.button("U̲ Sublinhado", key=f"b2_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "<u></u>"))
-                            ce3.button("🖍️ Grifar", key=f"b3_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "<mark></mark>"))
-                            ce4.button("📋 Tópico", key=f"b4_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "\n- "))
+                            c_fb1, c_fb2, c_fb3, c_fb4 = st.columns(4)
+                            c_fb1.button("𝗕 Negrito", key=f"fb1_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "bold"))
+                            c_fb2.button("U̲ Sublinhado", key=f"fb2_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "underline"))
+                            c_fb3.button("🖍️ Grifar", key=f"fb3_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "mark"))
+                            c_fb4.button("📋 Tópico", key=f"fb4_{nota['id']}", on_click=inserir_formatacao, args=(key_p_edit, "topic"))
 
                             edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=key_p_edit)
                             
                             if st.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_nota_{nota['id']}", type="primary"):
                                 if edit_s and edit_p:
-                                    db.collection("anotacoes").document(nota['id']).update({
-                                        "area": edit_a,
-                                        "subtema": edit_s,
-                                        "pontos_chave": edit_p
-                                    })
-                                    # Atualização Otimista
-                                    for idx_opt, n_opt in enumerate(st.session_state.dados["anotacoes"]):
-                                        if n_opt["id"] == nota['id']:
-                                            st.session_state.dados["anotacoes"][idx_opt]["area"] = edit_a
-                                            st.session_state.dados["anotacoes"][idx_opt]["subtema"] = edit_s
-                                            st.session_state.dados["anotacoes"][idx_opt]["pontos_chave"] = edit_p
-                                            break
-                                    
+                                    db_update("anotacoes", "anotacoes", nota['id'], {"area": edit_a, "subtema": edit_s, "pontos_chave": edit_p})
                                     st.toast("✅ Anotação atualizada!", icon="📝")
+                                    time.sleep(0.5)
                                     st.rerun()
                                 else:
                                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -1145,8 +1139,10 @@ else:
                             e = col2.number_input("Erros", 0, max_value=max(q,0))
                             f = col3.number_input("Flashcards", 0)
                             if st.form_submit_button("✅ Marcar Concluída"):
-                                db.collection("revisoes").document(r['id']).update({"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
-                                invalidar_cache("revisoes"); st.toast("✅ Revisão Concluída!", icon="🚀"); time.sleep(0.5); st.rerun()
+                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
+                                st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
+                                st.rerun()
 
         with aba_historico:
             conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"] and str(d.get('aula_id', '')).strip() in mapa_aulas]
@@ -1189,8 +1185,9 @@ else:
                         if opcoes_desfazer:
                             rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
-                                db.collection("revisoes").document(opcoes_desfazer[rev_selecionada]).update({"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                invalidar_cache("revisoes"); st.toast("Revisão desfeita!", icon="⏪"); time.sleep(1); st.rerun()
+                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
+                                st.toast("Revisão desfeita!", icon="⏪")
+                                st.rerun()
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
@@ -1202,8 +1199,10 @@ else:
                 acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
                 cc = st.text_input("Conceito Chave (Motivo do erro)")
                 if st.form_submit_button("Registrar", use_container_width=True):
-                    db.collection("questoes_sessoes").add({"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
-                    invalidar_cache("questoes"); st.toast("Questões registradas!", icon="✅"); time.sleep(0.5); st.rerun()
+                    db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
+                    st.toast("Questões registradas!", icon="✅")
+                    time.sleep(0.5)
+                    st.rerun()
             
             if dados_questoes: 
                 lista_q = []
@@ -1246,18 +1245,19 @@ else:
                         col_btn1, col_btn2 = st.columns(2)
                         if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{q_dados['id']}"):
                             if q_dados.get('id'):
-                                db.collection("questoes_sessoes").document(q_dados['id']).update({
-                                    "acertos": novo_ac,
-                                    "erros": novo_er
-                                })
-                                invalidar_cache("questoes"); st.toast("Registro atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
+                                db_update("questoes_sessoes", "questoes", q_dados['id'], {"acertos": novo_ac, "erros": novo_er})
+                                st.toast("Registro atualizado com sucesso!", icon="✅")
+                                time.sleep(0.5)
+                                st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
                             
                         if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_dados['id']}"):
                             if q_dados.get('id'):
-                                db.collection("questoes_sessoes").document(q_dados['id']).delete()
-                                invalidar_cache("questoes"); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
+                                db_delete("questoes_sessoes", "questoes", q_dados['id'])
+                                st.toast("Registro excluído!", icon="🗑️")
+                                time.sleep(0.5)
+                                st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
                 
@@ -1284,8 +1284,8 @@ else:
                 frente_erro = st.text_input("Frente da Carta", value=f"O que devo lembrar sobre: {conceito_alvo}")
                 verso_erro = st.text_area("Verso (Resposta correta)")
                 if st.button("💾 Salvar direto no Deck"):
-                    db.collection("flashcards").add({"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                    invalidar_cache("flashcards"); st.toast("Flashcard adicionado aos estudos!", icon="🧠")
+                    db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                    st.toast("Flashcard adicionado aos estudos!", icon="🧠")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
 
     elif menu == "✨ AI Tutor & Flashcards":
@@ -1330,8 +1330,8 @@ else:
                                 if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
                                 elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
                                 else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
-                                db.collection("flashcards").document(c_data["id"]).update({"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
-                                invalidar_cache("flashcards"); st.session_state.ans = False; st.rerun()
+                                db_update("flashcards", "flashcards", c_data["id"], {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
+                                st.session_state.ans = False; st.rerun()
                             if b1.button("🔴 Errei (1d)", use_container_width=True): avaliar('err')
                             if b2.button("🟡 Bom", use_container_width=True): avaliar('bom')
                             if b3.button("🟢 Fácil", use_container_width=True): avaliar('facil')
@@ -1342,8 +1342,8 @@ else:
                     a, t = st.selectbox("Área", AREAS_MED), st.text_input("Tema")
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
-                        db.collection("flashcards").add({"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                        invalidar_cache("flashcards"); st.toast("Flashcard salvo!", icon="📚"); st.rerun()
+                        db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                        st.toast("Flashcard salvo!", icon="📚"); st.rerun()
             
             with aba_f3:
                 st.markdown("### 📥 Importação em Massa")
@@ -1355,8 +1355,12 @@ else:
                             with st.spinner("Injetando flashcards..."):
                                 batch = db.batch()
                                 for _, row in df_anki.iterrows():
-                                    batch.set(db.collection("flashcards").document(), {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                                batch.commit(); invalidar_cache("flashcards")
+                                    doc_ref = db.collection("flashcards").document()
+                                    n_fc = {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
+                                    batch.set(doc_ref, n_fc)
+                                    n_fc["id"] = doc_ref.id
+                                    st.session_state.dados["flashcards"].append(n_fc)
+                                batch.commit()
                             st.toast("✅ Flashcards importados com sucesso!"); time.sleep(1.5); st.rerun()
                     except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
 
@@ -1383,12 +1387,21 @@ else:
                 t = st.text_input("Assunto da Aula (Tema)")
                 d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
                 if st.form_submit_button("Registrar e Gerar Ciclo R", use_container_width=True):
-                    a_ref = db.collection("aulas").add({"usuario_id": u_id, "area": a, "tema": t or "Aula", "data_aula": str(d)})
+                    doc_a = db.collection("aulas").document()
+                    n_aula = {"usuario_id": u_id, "area": a, "tema": t or "Aula", "data_aula": str(d)}
+                    doc_a.set(n_aula)
+                    n_aula["id"] = doc_a.id
+                    st.session_state.dados["aulas"].append(n_aula)
+                    
                     batch = db.batch()
                     for c, dias in {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}.items():
-                        batch.set(db.collection("revisoes").document(), {"usuario_id": u_id, "aula_id": a_ref[1].id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"})
+                        doc_r = db.collection("revisoes").document()
+                        n_rev = {"usuario_id": u_id, "aula_id": doc_a.id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"}
+                        batch.set(doc_r, n_rev)
+                        n_rev["id"] = doc_r.id
+                        st.session_state.dados["revisoes"].append(n_rev)
                     batch.commit()
-                    invalidar_cache(["aulas", "revisoes"]); st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
+                    st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a['id'] for a in dados_aulas}
@@ -1397,9 +1410,14 @@ else:
                     if st.button("Deletar Aula e Suas Revisões", use_container_width=True) and op_del_chave:
                         id_del = opcoes_del_dict[op_del_chave]
                         batch = db.batch()
-                        for rd in db.collection("revisoes").where("aula_id", "==", id_del).get(): batch.delete(rd.reference)
+                        for rd in st.session_state.dados["revisoes"]:
+                            if rd.get("aula_id") == id_del:
+                                batch.delete(db.collection("revisoes").document(rd["id"]))
                         batch.delete(db.collection("aulas").document(id_del))
-                        batch.commit(); invalidar_cache(["aulas", "revisoes"]); st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
+                        batch.commit()
+                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r.get("aula_id") != id_del]
+                        st.session_state.dados["aulas"] = [a for a in st.session_state.dados["aulas"] if a.get("id") != id_del]
+                        st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
 
         with col_lista:
             if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
@@ -1454,8 +1472,8 @@ else:
             else:
                 st.success("✅ Concluído!")
                 if st.button("Gravar Sessão"): 
-                    db.collection("focus_sessoes").add({"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min})
-                    invalidar_cache("focus"); st.session_state.foco_iniciado = False; st.rerun()
+                    db_add("focus_sessoes", "focus", {"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min})
+                    st.session_state.foco_iniciado = False; st.rerun()
 
     elif menu == "📁 Materiais e Simulados":
         st.header("Gerenciador de PDFs")
@@ -1463,8 +1481,7 @@ else:
         if arq and st.button("Salvar na Nuvem", use_container_width=True):
             caminho = os.path.join("materiais_estudo", arq.name)
             with open(caminho, "wb") as f: f.write(arq.getbuffer())
-            db.collection("materiais").add({"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
-            invalidar_cache("materiais")
+            db_add("materiais", "materiais", {"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
             st.toast("Salvo com sucesso!", icon="📄")
             
         if dados_materiais: 
@@ -1484,9 +1501,8 @@ else:
                         col_v.warning("Arquivo perdido.")
                         
                     if col_del.button("🗑️ Excluir", key=f"del_{mat['id']}"):
-                        db.collection("materiais").document(mat['id']).delete()
+                        db_delete("materiais", "materiais", mat['id'])
                         if os.path.exists(mat.get('path', '')): os.remove(mat['path'])
-                        invalidar_cache("materiais")
                         st.rerun()
 
     elif menu == "🏥 Simulados & OSCE":
@@ -1500,8 +1516,8 @@ else:
                 co, no = st.columns(2)
                 cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
                 if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
-                    db.collection("simulados").add({"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
-                    invalidar_cache("simulados"); st.rerun()
+                    db_add("simulados", "simulados", {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
+                    st.rerun()
             if len(dados_simulados) >= 3:
                 dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
                 dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
@@ -1516,17 +1532,27 @@ else:
                     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
         with aba_simulado:
-            imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+            col_sim1, col_sim2 = st.columns(2)
             colagem_img_sim = None
-            if paste_image_button is not None:
-                paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
+            with col_sim1:
+                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+                if paste_image_button is not None:
+                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
+            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
             
-            if (imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
                 client_ia = get_ia_client()
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
+                        if arq_pdf:
+                            try:
+                                from pdf2image import convert_from_bytes
+                                imagens_paginas = convert_from_bytes(arq_pdf.read())
+                                for img in imagens_paginas:
+                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
@@ -1573,8 +1599,7 @@ else:
                     
                     nota_final = (acertos / len(st.session_state.prova_ativa)) * 100 if len(st.session_state.prova_ativa) > 0 else 0
                     st.balloons(); st.metric("Nota Líquida", f"{nota_final:.1f}%")
-                    db.collection("simulados").add({"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
-                    invalidar_cache("simulados")
+                    db_add("simulados", "simulados", {"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
                     
                 if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
 
@@ -1698,26 +1723,26 @@ else:
             with c1:
                 edit_u = st.selectbox("Alterar Nome:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
                 nn = st.text_input("Novo Nome")
-                if st.button("✏️ Mudar Nome", use_container_width=True): db.collection("usuarios").document(edit_u.split(" | ")[0]).update({"nome": nn}); invalidar_cache(); st.rerun()
+                if st.button("✏️ Mudar Nome", use_container_width=True): db.collection("usuarios").document(edit_u.split(" | ")[0]).update({"nome": nn}); st.session_state.pop('dados', None); st.rerun()
             with c2:
                 res_u = st.selectbox("Reset de Senha:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
                 ns = st.text_input("Nova Senha")
-                if st.button("🔄 Forçar Nova Senha", use_container_width=True): db.collection("usuarios").document(res_u.split(" | ")[0]).update({"senha": hash_senha(ns)}); invalidar_cache(); st.rerun()
+                if st.button("🔄 Forçar Nova Senha", use_container_width=True): db.collection("usuarios").document(res_u.split(" | ")[0]).update({"senha": hash_senha(ns)}); st.session_state.pop('dados', None); st.rerun()
             with c3:
                 del_u = st.selectbox("Banir:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
                 if st.button("🚫 Apagar Conta", use_container_width=True):
                     uid = del_u.split(" | ")[0]
                     if uid != u_id:
-                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas"]:
+                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes"]:
                             for doc in db.collection(col).where("usuario_id", "==", uid).get(): db.collection(col).document(doc.id).delete()
-                        db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
+                        db.collection("usuarios").document(uid).delete(); st.session_state.pop('dados', None); st.rerun()
                     else: st.warning("Você não pode banir a si mesmo.")
             
             st.divider()
             st.subheader("📦 Exportação de Backup em Nuvem")
             if st.button("Baixar Dados (JSON)"):
                 with st.spinner("Coletando tudo..."):
-                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas"]}
+                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes"]}
                     st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
         except Exception as e:
             st.error(f"Erro Admin: {e}")
