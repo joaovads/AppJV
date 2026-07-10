@@ -9,5 +9,3 @@ groq
 streamlit-cookies-controller
 Pillow
 streamlit-paste-button
-pdf2image
-pymupdf
