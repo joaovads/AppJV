@@ -15,7 +15,6 @@ import calendar
 import re
 import math
 import io
-from sklearn.linear_model import LinearRegression
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -340,7 +339,9 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 # FUNÇÕES GERAIS E DATA
 # ==========================================
-def get_agora(): return datetime.now(timezone.utc) - timedelta(hours=3)
+def get_agora(): 
+    return datetime.now(timezone.utc) - timedelta(hours=3)
+
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
@@ -450,7 +451,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea (Sem recarregar e sem bugar o state)
+# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -734,10 +735,8 @@ else:
                             if not tarefas:
                                 st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
                             else:
-                                batch = db.batch()
                                 for t in tarefas:
-                                    doc_ref = db.collection("cronogramas").document()
-                                    nova_tarefa = {
+                                    db_add("cronogramas", "cronogramas", {
                                         "usuario_id": u_id,
                                         "semana": nome_semana,
                                         "dia": t.get("dia", "Geral"),
@@ -747,11 +746,7 @@ else:
                                         "concluido": False,
                                         "data_importacao": str(hoje),
                                         "data_conclusao": None
-                                    }
-                                    batch.set(doc_ref, nova_tarefa)
-                                    nova_tarefa["id"] = doc_ref.id
-                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
-                                batch.commit()
+                                    })
                                 
                                 st.session_state.prints_colados = []
                                 st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
@@ -915,9 +910,9 @@ else:
             st.divider()
             st.markdown("### ✍️ Escrever Resumo")
             
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
+            # Sem formulário para a formatação ser instantânea
+            a = st.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
             
             st.write("**Ferramentas de Formatação:**")
             cf1, cf2, cf3, cf4 = st.columns(4)
@@ -926,8 +921,9 @@ else:
             cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
             cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Substitua a palavra gerada pelos botões.", key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.", key="nota_texto_novo")
             
+            # Gatilho de Salvamento Limpo
             if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
                     db_add("anotacoes", "anotacoes", {
@@ -938,11 +934,11 @@ else:
                         "imagens_b64": st.session_state.nota_imgs_temp,
                         "data_criacao": str(hoje)
                     })
-                    # Limpa a memória só DEPOIS de salvar, para não crashar
+                    st.toast("✅ Anotação salva com sucesso!", icon="📝")
                     st.session_state.nota_imgs_temp = []
                     st.session_state.nota_texto_novo = ""
                     st.session_state.n_sub_novo = ""
-                    st.toast("✅ Anotação salva com sucesso!", icon="📝")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -964,10 +960,12 @@ else:
                 for nota in notas_exibir:
                     nota_id = str(nota.get('id', '0000'))
                     with st.container(border=True):
-                        st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
-                        st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
+                        c1, c2 = st.columns([0.85, 0.15])
+                        with c1:
+                            st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
+                            st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
                         
-                        # Renderização permitindo HTML e Markdown Nativo
+                        # Renderização HTML fluida
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
@@ -976,8 +974,9 @@ else:
                             for img_b64 in nota['imagens_b64']:
                                 st.image(base64.b64decode(img_b64), use_container_width=True)
                                 
+            # A Edição Centralizada (Longe da listagem para não travar a memória)
             st.write("---")
-            with st.expander("✏️ Editar ou Excluir Anotação"):
+            with st.expander("✏️ Editar ou Excluir Anotação Salva"):
                 opcoes_edicao_nota = {}
                 for n_item in minhas_anotacoes:
                     dt_f = formatar_data_br(n_item.get('data_criacao'))
@@ -991,7 +990,7 @@ else:
                     n_id_alvo = str(n_dados.get('id', '0000'))
                     
                     col_del1, col_del2 = st.columns([0.8, 0.2])
-                    if col_del2.button("🗑️ Excluir Resumo", key=f"excluir_nota_unica"):
+                    if col_del2.button("🗑️ Excluir Resumo", key="excluir_nota_unica"):
                         db_delete("anotacoes", "anotacoes", n_id_alvo)
                         st.toast("Anotação excluída!", icon="🗑️")
                         time.sleep(0.5)
@@ -1026,7 +1025,7 @@ else:
                             for idx_e, img_b64_e in enumerate(imgs_da_nota):
                                 with cols_e[idx_e % 3]:
                                     st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                    if st.button("🗑️", key=f"rmv_medit_{idx_e}"):
+                                    if st.button("🗑️", key=f"rmv_medit_unica_{idx_e}"):
                                         imgs_da_nota.pop(idx_e)
                                         db_update("anotacoes", "anotacoes", n_id_alvo, {"imagens_b64": imgs_da_nota, "imagem_b64": None})
                                         st.rerun()
@@ -1563,9 +1562,16 @@ else:
                 dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
                 dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
                 if len(dfs['DU'].unique()) > 1:
-                    m = LinearRegression().fit(dfs[['DU']], dfs['N'])
+                    # Substituição do Scikit-Learn pelo Numpy (Polinômio de grau 1 = Regressão Linear)
+                    x_vals = dfs['DU'].values
+                    y_vals = dfs['N'].values
+                    coefs = np.polyfit(x_vals, y_vals, 1)
+                    poly_func = np.poly1d(coefs)
+                    
                     fut = [dfs['D'].max() + timedelta(days=30*i) for i in range(1, 4)]
-                    p = m.predict(pd.to_numeric(pd.to_datetime(fut)).values.reshape(-1, 1))
+                    fut_x = pd.to_numeric(pd.to_datetime(fut)).values
+                    p = poly_func(fut_x)
+                    
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
@@ -1587,13 +1593,6 @@ else:
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                from pdf2image import convert_from_bytes
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
