@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 import tempfile
 import zipfile
 import os
@@ -19,6 +19,7 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 import html
 import streamlit.components.v1 as components
 
@@ -339,7 +340,7 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 # FUNÇÕES GERAIS E DATA
 # ==========================================
-def get_agora(): return datetime.now(datetime.UTC) - timedelta(hours=3)
+def get_agora(): return datetime.now(timezone.utc) - timedelta(hours=3)
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
@@ -376,7 +377,7 @@ def limpar_texto(texto):
 
 def get_user_docs(collection_name, user_id):
     try:
-        todos_docs = db.collection(collection_name).where("usuario_id", "==", str(user_id)).get()
+        todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
         return [{"id": d.id, **d.to_dict()} for d in todos_docs]
     except Exception as e:
         return []
@@ -503,8 +504,8 @@ if not st.session_state.logado:
             if st.form_submit_button("Entrar no Sistema", use_container_width=True):
                 try:
                     logou = False
-                    for doc in db.collection("usuarios").get():
-                        if doc.to_dict().get("nome") == u and doc.to_dict().get("senha") == hash_senha(p):
+                    for doc in db.collection("usuarios").where(filter=FieldFilter("nome", "==", u)).get():
+                        if doc.to_dict().get("senha") == hash_senha(p):
                             st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
                             logou = True
                             if lembrar and cookie_controller:
@@ -519,7 +520,7 @@ if not st.session_state.logado:
         with st.form("cadastro_form"):
             nu, np = st.text_input("Novo Usuário"), st.text_input("Senha", type="password")
             if st.form_submit_button("Cadastrar", use_container_width=True):
-                if db.collection("usuarios").where("nome", "==", nu).get(): st.error("Usuário já existe.")
+                if db.collection("usuarios").where(filter=FieldFilter("nome", "==", nu)).get(): st.error("Usuário já existe.")
                 else:
                     db.collection("usuarios").add({"nome": nu, "senha": hash_senha(np), "tema_modo": st.session_state.temp_theme})
                     st.toast("✅ Conta criada com sucesso!", icon="🎉")
@@ -871,13 +872,15 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
-        if 'nota_imgs_temp' not in st.session_state: 
-            st.session_state.nota_imgs_temp = []
+        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
+        if 'n_area_nova' not in st.session_state: st.session_state.n_area_nova = AREAS_MED[0]
+        if 'n_sub_novo' not in st.session_state: st.session_state.n_sub_novo = ""
+        if 'nota_texto_novo' not in st.session_state: st.session_state.nota_texto_novo = ""
             
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
-            st.info("💡 **Dicas de Formatação Visual:** Use os botões abaixo para inserir tags no seu texto.")
+            st.info("💡 **Dicas de Formatação Visual:** Use os botões azuis abaixo para inserir as tags de formatação e digite seu texto dentro delas.")
             col_btn, col_img = st.columns([1, 2])
             with col_btn:
                 st.markdown("### 🖼️ Colar Imagem (Opcional)")
@@ -905,7 +908,7 @@ else:
                     for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
                         with cols[idx % 3]:
                             st.image(base64.b64decode(img_b64), use_container_width=True)
-                            if st.button("🗑️ Remover", key=f"rmv_img_nota_nova_{idx}"):
+                            if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
                                 st.session_state.nota_imgs_temp.pop(idx)
                                 st.rerun()
 
@@ -918,12 +921,12 @@ else:
             
             st.write("**Ferramentas de Formatação:**")
             cf1, cf2, cf3, cf4 = st.columns(4)
-            cf1.button("𝗕 Negrito", key="btn_negrito_novo", on_click=inserir_formatacao, args=("nota_texto_novo", "bold"))
-            cf2.button("U̲ Sublinhado", key="btn_subl_novo", on_click=inserir_formatacao, args=("nota_texto_novo", "underline"))
-            cf3.button("🖍️ Grifar", key="btn_grif_novo", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
-            cf4.button("📋 Tópico", key="btn_topi_novo", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
+            cf1.button("𝗕 Negrito", on_click=inserir_formatacao, args=("nota_texto_novo", "bold"))
+            cf2.button("U̲ Sublinhado", on_click=inserir_formatacao, args=("nota_texto_novo", "underline"))
+            cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
+            cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Substitua a palavra gerada pelos botões.", key="nota_texto_novo")
             
             if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
@@ -935,10 +938,11 @@ else:
                         "imagens_b64": st.session_state.nota_imgs_temp,
                         "data_criacao": str(hoje)
                     })
+                    # Limpa a memória só DEPOIS de salvar, para não crashar
                     st.session_state.nota_imgs_temp = []
                     st.session_state.nota_texto_novo = ""
+                    st.session_state.n_sub_novo = ""
                     st.toast("✅ Anotação salva com sucesso!", icon="📝")
-                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -958,11 +962,12 @@ else:
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
                 for nota in notas_exibir:
-                    n_id_view = str(nota.get('id', uuid.uuid4()))
+                    nota_id = str(nota.get('id', '0000'))
                     with st.container(border=True):
                         st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
                         st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
                         
+                        # Renderização permitindo HTML e Markdown Nativo
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
@@ -1165,14 +1170,13 @@ else:
                 with st.container(border=True):
                     st.markdown(f"<span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> **{r['tema']}** ({r.get('ciclo','')}) - Alvo: {formatar_data_br(r['data_agendada_obj'])}", unsafe_allow_html=True)
                     with st.expander("Concluir"):
-                        r_id = str(r.get('id', uuid.uuid4()))
-                        with st.form(f"f_{r_id}", clear_on_submit=True):
+                        with st.form(f"f_{r['id']}", clear_on_submit=True):
                             col1, col2, col3 = st.columns(3)
                             q = col1.number_input("Questões", 0)
                             e = col2.number_input("Erros", 0, max_value=max(q,0))
                             f = col3.number_input("Flashcards", 0)
                             if st.form_submit_button("✅ Marcar Concluída"):
-                                db_update("revisoes", "revisoes", r_id, {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
+                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
                                 time.sleep(0.5)
                                 st.rerun()
@@ -1186,7 +1190,7 @@ else:
                     tema = limpar_texto(mapa_aulas.get(aula_id, {}).get('tema', 'Sem título'))
                     acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
                     if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d.get('id', '000'), "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
+                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
                 
                 df_h = pd.DataFrame(dados_h)
                 df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
@@ -1254,7 +1258,7 @@ else:
                         "Acertos": acertos,
                         "Erros": erros,
                         "% Acertos": porcentagem,
-                        "ID": b.get('id', '000')
+                        "ID": b.get('id')
                     })
                 df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
                 st.table(df_q)
@@ -1771,7 +1775,7 @@ else:
                     uid = del_u.split(" | ")[0]
                     if uid != u_id:
                         for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes"]:
-                            for doc in db.collection(col).where("usuario_id", "==", uid).get(): db.collection(col).document(doc.id).delete()
+                            for doc in db.collection(col).where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection(col).document(doc.id).delete()
                         db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
                     else: st.warning("Você não pode banir a si mesmo.")
             
