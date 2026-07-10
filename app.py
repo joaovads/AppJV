@@ -339,7 +339,7 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 # FUNÇÕES GERAIS E DATA
 # ==========================================
-def get_agora(): return datetime.utcnow() - timedelta(hours=3)
+def get_agora(): return datetime.now(datetime.UTC) - timedelta(hours=3)
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
