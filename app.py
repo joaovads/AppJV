@@ -206,7 +206,10 @@ def aplicar_css_tema(modo):
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
 # ==========================================
-CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
+try:
+    CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
+except Exception:
+    CHAVE_GROQ_FIXA = ""
 
 @st.cache_resource
 def init_firebase():
@@ -980,93 +983,75 @@ else:
                         # Renderização permitindo HTML e Markdown Nativo
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
-                        if nota.get('imagem_b64'):
-                            st.image(base64.b64decode(nota['imagem_b64']), use_container_width=True)
-                        if nota.get('imagens_b64'):
-                            for img_b64 in nota['imagens_b64']:
-                                st.image(base64.b64decode(img_b64), use_container_width=True)
+                        # Exibindo as imagens de forma organizada e bonita
+                        imgs_exibir = list(nota.get('imagens_b64', []))
+                        if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
+                            imgs_exibir.insert(0, nota['imagem_b64'])
+                            
+                        if imgs_exibir:
+                            st.write("") # Espaçamento
+                            cols_view = st.columns(min(len(imgs_exibir), 4))
+                            for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                with cols_view[idx_v % 4]:
+                                    st.image(base64.b64decode(img_b64_v), use_container_width=True)
                                 
-            # A Edição Centralizada
-            st.write("---")
-            with st.expander("✏️ Editar ou Excluir Anotação Salva"):
-                opcoes_edicao_nota = {}
-                for n_item in minhas_anotacoes:
-                    dt_f = formatar_data_br(n_item.get('data_criacao'))
-                    n_id = str(n_item.get('id', '0000'))
-                    chv = f"{dt_f} | {n_item.get('area')} - {limpar_texto(n_item.get('subtema'))} (ID: {n_id[:4]})"
-                    opcoes_edicao_nota[chv] = n_item
-                    
-                if opcoes_edicao_nota:
-                    n_selec = st.selectbox("Selecione o resumo para alterar/excluir:", list(opcoes_edicao_nota.keys()))
-                    n_dados = opcoes_edicao_nota[n_selec]
-                    n_id_alvo = str(n_dados.get('id', '0000'))
-                    
-                    col_del1, col_del2 = st.columns([0.8, 0.2])
-                    if col_del2.button("🗑️ Excluir Resumo", key="excluir_nota_unica"):
-                        db_delete("anotacoes", "anotacoes", n_id_alvo)
-                        st.toast("Anotação excluída!", icon="🗑️")
-                        st.rerun()
+                        # EDITAR ANOTAÇÃO INCORPORADO NO PRÓPRIO CARD
+                        with st.expander("✏️ Editar Anotação"):
+                            col_ebtn, col_eimg = st.columns([1, 2])
+                            with col_ebtn:
+                                st.markdown("➕ **Adicionar Mais Imagens:**")
+                                if paste_image_button is not None:
+                                    res_paste_edit = paste_image_button(
+                                        label="Colar Imagem (Ctrl+V)",
+                                        background_color="#2563eb",
+                                        hover_background_color="#1d4ed8",
+                                        key=f"paste_edit_{nota_id}" 
+                                    )
+                                    if res_paste_edit.image_data is not None:
+                                        buf_e = io.BytesIO()
+                                        res_paste_edit.image_data.save(buf_e, format="PNG")
+                                        img_eb64 = base64.b64encode(buf_e.getvalue()).decode('utf-8')
+                                        if img_eb64 not in imgs_exibir:
+                                            imgs_exibir.append(img_eb64)
+                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": None})
+                                            st.rerun()
+                            with col_eimg:
+                                if imgs_exibir:
+                                    st.write("Imagens salvas neste resumo:")
+                                    cols_e = st.columns(3)
+                                    for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                        with cols_e[idx_e % 3]:
+                                            st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                            if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
+                                                imgs_exibir.pop(idx_e)
+                                                db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": None})
+                                                st.rerun()
 
-                    st.markdown("#### 🖼️ Imagens da Anotação")
-                    imgs_da_nota = list(n_dados.get('imagens_b64', []))
-                    if n_dados.get('imagem_b64') and n_dados.get('imagem_b64') not in imgs_da_nota:
-                        imgs_da_nota.insert(0, n_dados['imagem_b64'])
-                        
-                    col_ebtn, col_eimg = st.columns([1, 2])
-                    with col_ebtn:
-                        st.markdown("➕ **Adicionar Mais Imagens:**")
-                        if paste_image_button is not None:
-                            res_paste_edit = paste_image_button(
-                                label="Colar Imagem (Ctrl+V)",
-                                background_color="#2563eb",
-                                hover_background_color="#1d4ed8",
-                                key="paste_edit_nota_unica" 
-                            )
-                            if res_paste_edit.image_data is not None:
-                                buf_e = io.BytesIO()
-                                res_paste_edit.image_data.save(buf_e, format="PNG")
-                                img_eb64 = base64.b64encode(buf_e.getvalue()).decode('utf-8')
-                                if img_eb64 not in imgs_da_nota:
-                                    imgs_da_nota.append(img_eb64)
-                                    db_update("anotacoes", "anotacoes", n_id_alvo, {"imagens_b64": imgs_da_nota, "imagem_b64": None})
+                            st.markdown("#### ✍️ Editar Texto")
+                            key_p_edit = f"texto_edicao_{nota_id}"
+                            
+                            if key_p_edit not in st.session_state:
+                                st.session_state[key_p_edit] = nota.get('pontos_chave', '')
+
+                            col_ea, col_es = st.columns(2)
+                            edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
+                            edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota_id}")
+                            
+                            c_fb1, c_fb2, c_fb3, c_fb4 = st.columns(4)
+                            c_fb1.button("𝗕 Negrito", key=f"fb1_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "bold"))
+                            c_fb2.button("U̲ Sublinhado", key=f"fb2_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "underline"))
+                            c_fb3.button("🖍️ Grifar", key=f"fb3_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "mark"))
+                            c_fb4.button("📋 Tópico", key=f"fb4_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "topic"))
+
+                            edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=key_p_edit)
+                            
+                            if st.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{nota_id}", type="primary"):
+                                if edit_s and edit_p:
+                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s, "pontos_chave": edit_p})
+                                    st.toast("✅ Anotação atualizada!", icon="📝")
                                     st.rerun()
-                    with col_eimg:
-                        if imgs_da_nota:
-                            cols_e = st.columns(3)
-                            for idx_e, img_b64_e in enumerate(imgs_da_nota):
-                                with cols_e[idx_e % 3]:
-                                    st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                    if st.button("🗑️", key=f"rmv_medit_unica_{idx_e}"):
-                                        imgs_da_nota.pop(idx_e)
-                                        db_update("anotacoes", "anotacoes", n_id_alvo, {"imagens_b64": imgs_da_nota, "imagem_b64": None})
-                                        st.rerun()
-
-                    st.markdown("#### ✍️ Editar Texto")
-                    key_p_edit = "texto_edicao_nota_unica"
-                    
-                    if key_p_edit not in st.session_state or st.session_state.get('last_nota_id') != n_id_alvo:
-                        st.session_state[key_p_edit] = n_dados.get('pontos_chave', '')
-                        st.session_state['last_nota_id'] = n_id_alvo
-
-                    col_ea, col_es = st.columns(2)
-                    edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(n_dados.get('area')) if n_dados.get('area') in AREAS_MED else 0, key="ea_nota_unica")
-                    edit_s = col_es.text_input("Subtema", value=n_dados.get('subtema', ''), key="es_nota_unica")
-                    
-                    c_fb1, c_fb2, c_fb3, c_fb4 = st.columns(4)
-                    c_fb1.button("𝗕 Negrito", key="fb1_nota_unica", on_click=inserir_formatacao, args=(key_p_edit, "bold"))
-                    c_fb2.button("U̲ Sublinhado", key="fb2_nota_unica", on_click=inserir_formatacao, args=(key_p_edit, "underline"))
-                    c_fb3.button("🖍️ Grifar", key="fb3_nota_unica", on_click=inserir_formatacao, args=(key_p_edit, "mark"))
-                    c_fb4.button("📋 Tópico", key="fb4_nota_unica", on_click=inserir_formatacao, args=(key_p_edit, "topic"))
-
-                    edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=key_p_edit)
-                    
-                    if st.button("💾 Salvar Alterações", use_container_width=True, type="primary"):
-                        if edit_s and edit_p:
-                            db_update("anotacoes", "anotacoes", n_id_alvo, {"area": edit_a, "subtema": edit_s, "pontos_chave": edit_p})
-                            st.toast("✅ Anotação atualizada!", icon="📝")
-                            st.rerun()
-                        else:
-                            st.error("Preencha o subtema e a anotação para salvar.")
+                                else:
+                                    st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1672,7 +1657,7 @@ else:
                     if client_ia and PyPDF2:
                         caminho_pdf = next(m['path'] for m in dados_materiais if m['titulo'] == mat_escolhido)
                         if os.path.exists(caminho_pdf):
-                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questões..."):
+                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questions..."):
                                 try:
                                     reader = PyPDF2.PdfReader(caminho_pdf)
                                     texto_pdf = ""
