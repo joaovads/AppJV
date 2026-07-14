@@ -451,7 +451,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea
+# Função Callback para Botões de Formatação Instantânea (Sem recarregar e sem bugar o state)
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -513,7 +513,6 @@ if not st.session_state.logado:
                                 novo_token = str(uuid.uuid4())
                                 db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
                                 cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                                time.sleep(1)
                             st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
@@ -735,8 +734,10 @@ else:
                             if not tarefas:
                                 st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
                             else:
+                                batch = db.batch()
                                 for t in tarefas:
-                                    db_add("cronogramas", "cronogramas", {
+                                    doc_ref = db.collection("cronogramas").document()
+                                    nova_tarefa = {
                                         "usuario_id": u_id,
                                         "semana": nome_semana,
                                         "dia": t.get("dia", "Geral"),
@@ -746,11 +747,14 @@ else:
                                         "concluido": False,
                                         "data_importacao": str(hoje),
                                         "data_conclusao": None
-                                    })
+                                    }
+                                    batch.set(doc_ref, nova_tarefa)
+                                    nova_tarefa["id"] = doc_ref.id
+                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
+                                batch.commit()
                                 
                                 st.session_state.prints_colados = []
                                 st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
-                                time.sleep(1)
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Erro na leitura da imagem. Detalhes: {e}")
@@ -784,7 +788,6 @@ else:
                             "data_conclusao": None
                         })
                         st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
-                        time.sleep(0.5)
                         st.rerun()
 
         with aba_lista:
@@ -867,10 +870,19 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
+        # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
         if 'n_area_nova' not in st.session_state: st.session_state.n_area_nova = AREAS_MED[0]
         if 'n_sub_novo' not in st.session_state: st.session_state.n_sub_novo = ""
         if 'nota_texto_novo' not in st.session_state: st.session_state.nota_texto_novo = ""
+            
+        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
+        if st.session_state.get('limpar_nova_nota', False):
+            st.session_state.nota_imgs_temp = []
+            st.session_state.nota_texto_novo = ""
+            st.session_state.n_sub_novo = ""
+            st.session_state.limpar_nova_nota = False
+            st.toast("✅ Anotação salva com sucesso!", icon="📝")
             
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
@@ -910,9 +922,9 @@ else:
             st.divider()
             st.markdown("### ✍️ Escrever Resumo")
             
-            # Sem formulário para a formatação ser instantânea
-            a = st.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
+            col_a, col_s = st.columns(2)
+            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
             
             st.write("**Ferramentas de Formatação:**")
             cf1, cf2, cf3, cf4 = st.columns(4)
@@ -921,9 +933,8 @@ else:
             cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
             cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes.", key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Substitua a palavra gerada pelos botões.", key="nota_texto_novo")
             
-            # Gatilho de Salvamento Limpo
             if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
                     db_add("anotacoes", "anotacoes", {
@@ -934,11 +945,7 @@ else:
                         "imagens_b64": st.session_state.nota_imgs_temp,
                         "data_criacao": str(hoje)
                     })
-                    st.toast("✅ Anotação salva com sucesso!", icon="📝")
-                    st.session_state.nota_imgs_temp = []
-                    st.session_state.nota_texto_novo = ""
-                    st.session_state.n_sub_novo = ""
-                    time.sleep(0.5)
+                    st.session_state.limpar_nova_nota = True
                     st.rerun()
                 else:
                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -964,8 +971,13 @@ else:
                         with c1:
                             st.markdown(f"### <span style='color:{CORES_AREAS.get(nota.get('area'), '#64748b')};'>⬤</span> {limpar_texto(nota.get('subtema'))}", unsafe_allow_html=True)
                             st.caption(f"**Área:** {nota.get('area', '')} | **Data:** {formatar_data_br(nota.get('data_criacao'))}")
+                        with c2:
+                            if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
+                                db_delete("anotacoes", "anotacoes", nota_id)
+                                st.toast("Anotação excluída!", icon="🗑️")
+                                st.rerun()
                         
-                        # Renderização HTML fluida
+                        # Renderização permitindo HTML e Markdown Nativo
                         st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
                         
                         if nota.get('imagem_b64'):
@@ -974,7 +986,7 @@ else:
                             for img_b64 in nota['imagens_b64']:
                                 st.image(base64.b64decode(img_b64), use_container_width=True)
                                 
-            # A Edição Centralizada (Longe da listagem para não travar a memória)
+            # A Edição Centralizada
             st.write("---")
             with st.expander("✏️ Editar ou Excluir Anotação Salva"):
                 opcoes_edicao_nota = {}
@@ -993,7 +1005,6 @@ else:
                     if col_del2.button("🗑️ Excluir Resumo", key="excluir_nota_unica"):
                         db_delete("anotacoes", "anotacoes", n_id_alvo)
                         st.toast("Anotação excluída!", icon="🗑️")
-                        time.sleep(0.5)
                         st.rerun()
 
                     st.markdown("#### 🖼️ Imagens da Anotação")
@@ -1053,7 +1064,6 @@ else:
                         if edit_s and edit_p:
                             db_update("anotacoes", "anotacoes", n_id_alvo, {"area": edit_a, "subtema": edit_s, "pontos_chave": edit_p})
                             st.toast("✅ Anotação atualizada!", icon="📝")
-                            time.sleep(0.5)
                             st.rerun()
                         else:
                             st.error("Preencha o subtema e a anotação para salvar.")
@@ -1177,7 +1187,6 @@ else:
                             if st.form_submit_button("✅ Marcar Concluída"):
                                 db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
-                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
@@ -1223,7 +1232,6 @@ else:
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
                                 st.toast("Revisão desfeita!", icon="⏪")
-                                time.sleep(0.5)
                                 st.rerun()
 
     elif menu == "🎯 Questões":
@@ -1238,7 +1246,6 @@ else:
                 if st.form_submit_button("Registrar", use_container_width=True):
                     db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
                     st.toast("Questões registradas!", icon="✅")
-                    time.sleep(0.5)
                     st.rerun()
             
             if dados_questoes: 
@@ -1285,7 +1292,6 @@ else:
                             if q_dados.get('id'):
                                 db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er})
                                 st.toast("Registro atualizado com sucesso!", icon="✅")
-                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
@@ -1294,7 +1300,6 @@ else:
                             if q_dados.get('id'):
                                 db_delete("questoes_sessoes", "questoes", q_id_alvo)
                                 st.toast("Registro excluído!", icon="🗑️")
-                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
@@ -1382,7 +1387,8 @@ else:
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
                         db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                        st.toast("Flashcard salvo!", icon="📚"); st.rerun()
+                        st.toast("Flashcard salvo!", icon="📚")
+                        st.rerun()
             
             with aba_f3:
                 st.markdown("### 📥 Importação em Massa")
@@ -1400,7 +1406,8 @@ else:
                                     n_fc["id"] = doc_ref.id
                                     st.session_state.dados["flashcards"].append(n_fc)
                                 batch.commit()
-                            st.toast("✅ Flashcards importados com sucesso!"); time.sleep(1.5); st.rerun()
+                            st.toast("✅ Flashcards importados com sucesso!")
+                            st.rerun()
                     except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
 
         with aba_feynman:
@@ -1440,7 +1447,8 @@ else:
                         n_rev["id"] = doc_r.id
                         st.session_state.dados["revisoes"].append(n_rev)
                     batch.commit()
-                    st.toast("Aula registrada no ciclo!", icon="📚"); time.sleep(0.5); st.rerun()
+                    st.toast("Aula registrada no ciclo!", icon="📚")
+                    st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
@@ -1456,7 +1464,8 @@ else:
                         batch.commit()
                         st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if str(r.get("aula_id")) != id_del]
                         st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
-                        st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
+                        st.toast("Aula apagada.", icon="🗑️")
+                        st.rerun()
 
         with col_lista:
             if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
@@ -1562,7 +1571,6 @@ else:
                 dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
                 dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
                 if len(dfs['DU'].unique()) > 1:
-                    # Substituição do Scikit-Learn pelo Numpy (Polinômio de grau 1 = Regressão Linear)
                     x_vals = dfs['DU'].values
                     y_vals = dfs['N'].values
                     coefs = np.polyfit(x_vals, y_vals, 1)
@@ -1593,6 +1601,13 @@ else:
                 if client_ia:
                     todas_imagens_b64 = []
                     with st.spinner("Empacotando arquivos para envio..."):
+                        if arq_pdf:
+                            try:
+                                from pdf2image import convert_from_bytes
+                                imagens_paginas = convert_from_bytes(arq_pdf.read())
+                                for img in imagens_paginas:
+                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
                         if colagem_img_sim:
@@ -1613,8 +1628,8 @@ else:
                                 st.session_state.prova_ativa.extend(questoes_lote)
                             except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
                             barra_progresso.progress((i + 1) / len(todas_imagens_b64))
-                            time.sleep(1.5)
-                        st.toast("🎉 Extração concluída!"); time.sleep(1); st.rerun()
+                        st.toast("🎉 Extração concluída!")
+                        st.rerun()
 
             if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
                 st.divider(); st.subheader("📝 Resolvendo Simulado")
