@@ -454,18 +454,6 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea (Sem recarregar e sem bugar o state)
-def inserir_formatacao(chave_estado, formato):
-    if chave_estado not in st.session_state:
-        st.session_state[chave_estado] = ""
-    if formato == "bold":
-        st.session_state[chave_estado] += " **Texto_aqui** "
-    elif formato == "underline":
-        st.session_state[chave_estado] += " <u>Texto_aqui</u> "
-    elif formato == "mark":
-        st.session_state[chave_estado] += " <mark>Texto_aqui</mark> "
-    elif formato == "topic":
-        st.session_state[chave_estado] += "\n- "
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -758,6 +746,7 @@ else:
                                 
                                 st.session_state.prints_colados = []
                                 st.toast(f"✅ {len(tarefas)} aulas importadas com sucesso!", icon="🎉")
+                                time.sleep(1)
                                 st.rerun()
                         except Exception as e:
                             st.error(f"Erro na leitura da imagem. Detalhes: {e}")
@@ -791,6 +780,7 @@ else:
                             "data_conclusao": None
                         })
                         st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
+                        time.sleep(0.5)
                         st.rerun()
 
         with aba_lista:
@@ -890,7 +880,6 @@ else:
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
-            st.info("💡 **Dicas de Formatação Visual:** Use os botões azuis abaixo para inserir as tags de formatação e digite seu texto dentro delas.")
             col_btn, col_img = st.columns([1, 2])
             with col_btn:
                 st.markdown("### 🖼️ Colar Imagem (Opcional)")
@@ -929,14 +918,18 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
             
-            st.write("**Ferramentas de Formatação:**")
-            cf1, cf2, cf3, cf4 = st.columns(4)
-            cf1.button("𝗕 Negrito", on_click=inserir_formatacao, args=("nota_texto_novo", "bold"))
-            cf2.button("U̲ Sublinhado", on_click=inserir_formatacao, args=("nota_texto_novo", "underline"))
-            cf3.button("🖍️ Grifar", on_click=inserir_formatacao, args=("nota_texto_novo", "mark"))
-            cf4.button("📋 Tópico", on_click=inserir_formatacao, args=("nota_texto_novo", "topic"))
+            with st.container(border=True):
+                st.markdown("""
+                **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
+                * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
+                * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
+                * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
+                * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
+                * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
+                """, unsafe_allow_html=True)
             
-            p = st.text_area("Pontos Chave / Resumo", height=150, help="Anote aqui os tópicos mais relevantes. Substitua a palavra gerada pelos botões.", key="nota_texto_novo")
+            p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.", key="nota_texto_novo")
             
             if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                 if s and p:
@@ -992,8 +985,9 @@ else:
                                             st.toast("Anotação excluída!", icon="🗑️")
                                             st.rerun()
                                     
-                                    # Renderização permitindo HTML e Markdown Nativo
-                                    st.markdown(f"<div style='background-color: transparent; padding: 10px; border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; margin-top: 10px;'>{nota.get('pontos_chave', '').replace(chr(10), '<br>')}</div>", unsafe_allow_html=True)
+                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
+                                    conteudo_nota = nota.get('pontos_chave', '')
+                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
                                     # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
@@ -1059,19 +1053,22 @@ else:
                                         edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
                                         edit_s = col_es.text_input("Subtema", value=nota.get('subtema', ''), key=f"es_{nota_id}")
                                         
-                                        c_fb1, c_fb2, c_fb3, c_fb4 = st.columns(4)
-                                        c_fb1.button("𝗕 Negrito", key=f"fb1_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "bold"))
-                                        c_fb2.button("U̲ Sublinhado", key=f"fb2_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "underline"))
-                                        c_fb3.button("🖍️ Grifar", key=f"fb3_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "mark"))
-                                        c_fb4.button("📋 Tópico", key=f"fb4_{nota_id}", on_click=inserir_formatacao, args=(key_p_edit, "topic"))
+                                        with st.container(border=True):
+                                            st.markdown("""
+                                            **⌨️ Comandos de Formatação Rápida:**
+                                            * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                                            * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
+                                            * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
+                                            """, unsafe_allow_html=True)
 
-                                        edit_p = st.text_area("Pontos Chave / Resumo", height=150, key=key_p_edit)
+                                        edit_p = st.text_area("Pontos Chave / Resumo", height=200, key=key_p_edit)
                                         
                                         if st.button("💾 Salvar Alterações", use_container_width=True, type="primary", key=f"sv_{nota_id}"):
                                             if edit_s and edit_p:
                                                 db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s, "pontos_chave": edit_p})
                                                 st.session_state.nota_em_edicao = None
                                                 st.toast("✅ Anotação atualizada!", icon="📝")
+                                                time.sleep(0.5)
                                                 st.rerun()
                                             else:
                                                 st.error("Preencha o subtema e a anotação para salvar.")
@@ -1195,6 +1192,7 @@ else:
                             if st.form_submit_button("✅ Marcar Concluída"):
                                 db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
@@ -1240,6 +1238,7 @@ else:
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
                                 st.toast("Revisão desfeita!", icon="⏪")
+                                time.sleep(0.5)
                                 st.rerun()
 
     elif menu == "🎯 Questões":
@@ -1254,6 +1253,7 @@ else:
                 if st.form_submit_button("Registrar", use_container_width=True):
                     db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s, "acertos": acc, "erros": err, "conceito_chave": cc})
                     st.toast("Questões registradas!", icon="✅")
+                    time.sleep(0.5)
                     st.rerun()
             
             if dados_questoes: 
@@ -1300,6 +1300,7 @@ else:
                             if q_dados.get('id'):
                                 db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er})
                                 st.toast("Registro atualizado com sucesso!", icon="✅")
+                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
@@ -1308,6 +1309,7 @@ else:
                             if q_dados.get('id'):
                                 db_delete("questoes_sessoes", "questoes", q_id_alvo)
                                 st.toast("Registro excluído!", icon="🗑️")
+                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
