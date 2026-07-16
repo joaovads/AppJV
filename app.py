@@ -43,7 +43,6 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
-# Nova biblioteca para botão de colar
 try:
     from streamlit_paste_button import paste_image_button
 except ImportError:
@@ -432,7 +431,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea (Sem recarregar e sem bugar o state)
+# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -749,20 +748,20 @@ else:
 
         with aba_manual:
             st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
+            c3, c4 = st.columns(2)
+            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="crono_mat")
+            sub_m = ""
+            if m_materia == "Clínica Médica":
+                sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="crono_sub_cm")
+            elif m_materia == "Cirurgia Geral":
+                sub_m = c4.selectbox("Subespecialidade", SUB_CG, key="crono_sub_cg")
+                
             with st.form("form_crono_manual", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 m_semana = c1.text_input("Nome da Semana (Ex: Semana 1)")
                 m_dia = c2.selectbox("Dia da Semana", ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"])
                 
-                c3, c4 = st.columns(2)
-                m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"])
-                sub_m = ""
-                if m_materia == "Clínica Médica":
-                    sub_m = c3.selectbox("Subespecialidade", SUB_CM)
-                elif m_materia == "Cirurgia Geral":
-                    sub_m = c3.selectbox("Subespecialidade", SUB_CG)
-                
-                m_tema = c4.text_input("Tema da Aula")
+                m_tema = st.text_input("Tema da Aula")
                 m_prio = st.selectbox("Prioridade (Cor)", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
                 
                 if st.form_submit_button("Adicionar Meta ao Cronograma", use_container_width=True):
@@ -919,44 +918,44 @@ else:
             st.divider()
             st.markdown("### ✍️ Escrever Resumo")
             
-            with st.form("form_nova_nota", clear_on_submit=True):
-                col_a, col_s = st.columns(2)
-                a = col_a.selectbox("Grande Área", AREAS_MED)
-                sub_a = ""
-                if a == "Clínica Médica":
-                    sub_a = col_a.selectbox("Subespecialidade", SUB_CM)
-                elif a == "Cirurgia Geral":
-                    sub_a = col_a.selectbox("Subespecialidade", SUB_CG)
-                s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+            col_a, col_s = st.columns(2)
+            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            sub_a = ""
+            if a == "Clínica Médica":
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
-                with st.container(border=True):
-                    st.markdown("""
-                    **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
-                    * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                    * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
-                    * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
-                    * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
-                    * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
-                    * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
-                    """, unsafe_allow_html=True)
-                
-                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s_final,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota = True
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
+            s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
+            
+            with st.container(border=True):
+                st.markdown("""
+                **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
+                * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
+                * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
+                * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
+                * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
+                * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
+                """, unsafe_allow_html=True)
+            
+            p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.", key="nota_texto_novo")
+            
+            if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
+                if s and p:
+                    s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
+                    db_add("anotacoes", "anotacoes", {
+                        "usuario_id": u_id,
+                        "area": a,
+                        "subtema": s_final,
+                        "pontos_chave": p,
+                        "imagens_b64": st.session_state.nota_imgs_temp,
+                        "data_criacao": str(hoje)
+                    })
+                    st.session_state.limpar_nova_nota = True
+                    st.rerun()
+                else:
+                    st.error("Preencha o subtema e a anotação para salvar.")
 
         with aba_lista:
             minhas_anotacoes = dados_anotacoes
@@ -1056,45 +1055,48 @@ else:
                                                             st.rerun()
 
                                         st.markdown("#### ✍️ Editar Texto")
+                                        key_p_edit = f"texto_edicao_{nota_id}"
                                         
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            col_ea, col_es = st.columns(2)
-                                            edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0)
-                                            sub_ea = ""
-                                            if edit_a == "Clínica Médica":
-                                                sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM)
-                                            elif edit_a == "Cirurgia Geral":
-                                                sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG)
-                                            
-                                            # Limpar a subespecialidade se já vier no texto
-                                            s_puro = nota.get('subtema', '')
-                                            if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
-                                                s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
-                                                s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                                
-                                            edit_s = col_es.text_input("Subtema", value=s_puro)
-                                            
-                                            with st.container(border=True):
-                                                st.markdown("""
-                                                **⌨️ Comandos de Formatação Rápida:**
-                                                * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                                                * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
-                                                * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
-                                                """, unsafe_allow_html=True)
+                                        if key_p_edit not in st.session_state:
+                                            st.session_state[key_p_edit] = nota.get('pontos_chave', '')
 
-                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
+                                        col_ea, col_es = st.columns(2)
+                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
+                                        sub_ea = ""
+                                        if edit_a == "Clínica Médica":
+                                            sub_ea = col_es.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
+                                        elif edit_a == "Cirurgia Geral":
+                                            sub_ea = col_es.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
+                                        
+                                        # Limpar a subespecialidade se já vier no texto
+                                        s_puro = nota.get('subtema', '')
+                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
                                             
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Preencha o subtema e a anotação para salvar.")
+                                        edit_s = st.text_input("Subtema", value=s_puro, key=f"es_{nota_id}")
+                                        
+                                        with st.container(border=True):
+                                            st.markdown("""
+                                            **⌨️ Comandos de Formatação Rápida:**
+                                            * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                                            * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
+                                            * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
+                                            """, unsafe_allow_html=True)
+
+                                        edit_p = st.text_area("Pontos Chave / Resumo", height=200, key=key_p_edit)
+                                        
+                                        if st.button("💾 Salvar Alterações", use_container_width=True, type="primary", key=f"sv_{nota_id}"):
+                                            if edit_s and edit_p:
+                                                edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
+                                                db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
+                                                st.session_state.nota_em_edicao = None
+                                                st.toast("✅ Anotação atualizada!", icon="📝")
+                                                time.sleep(0.5)
+                                                st.rerun()
+                                            else:
+                                                st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1273,16 +1275,18 @@ else:
     elif menu == "🎯 Questões":
         aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
         with aba_reg:
+            col_a, col_sub = st.columns(2)
+            a = col_a.selectbox("Área", AREAS_MED, key="q_area")
+            sub_q = ""
+            if a == "Clínica Médica":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CM, key="q_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="q_sub_cg")
+                
             with st.form("q_form", clear_on_submit=True):
-                c1, c2, c3 = st.columns(3)
-                a = c1.selectbox("Área", AREAS_MED)
-                sub_q = ""
-                if a == "Clínica Médica":
-                    sub_q = c1.selectbox("Subespecialidade", SUB_CM)
-                elif a == "Cirurgia Geral":
-                    sub_q = c1.selectbox("Subespecialidade", SUB_CG)
-                s = c2.text_input("Subtema")
-                d = c3.date_input("Data", hoje, format="DD/MM/YYYY")
+                c1, c2 = st.columns(2)
+                s = c1.text_input("Subtema")
+                d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
                 ac, er = st.columns(2)
                 acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
                 cc = st.text_input("Conceito Chave (Motivo do erro)")
@@ -1429,19 +1433,23 @@ else:
                 else: st.success("🎉 Você zerou o deck de hoje. Parabéns!")
             
             with aba_f2:
+                col_a, col_t = st.columns(2)
+                a = col_a.selectbox("Área", AREAS_MED, key="fc_area")
+                sub_f = ""
+                if a == "Clínica Médica":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CM, key="fc_sub_cm")
+                elif a == "Cirurgia Geral":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CG, key="fc_sub_cg")
+                    
                 with st.form("add_fc", clear_on_submit=True):
-                    a = st.selectbox("Área", AREAS_MED)
-                    sub_f = ""
-                    if a == "Clínica Médica":
-                        sub_f = st.selectbox("Subespecialidade", SUB_CM)
-                    elif a == "Cirurgia Geral":
-                        sub_f = st.selectbox("Subespecialidade", SUB_CG)
                     t = st.text_input("Tema")
-                    f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
+                    f = st.text_input("Frente da Carta")
+                    v = st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
                         t_final = f"{sub_f} - {t}" if sub_f and sub_f != "Geral" else t
                         db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t_final or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                         st.toast("Flashcard salvo!", icon="📚")
+                        time.sleep(0.5)
                         st.rerun()
             
             with aba_f3:
@@ -1481,14 +1489,16 @@ else:
         st.header("Biblioteca Pessoal de Conteúdo")
         col_form, col_lista = st.columns([1, 2.5])
         with col_form:
+            st.subheader("➕ Adicionar Aula")
+            c_area, c_sub = st.columns(2)
+            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
+            sub_al = ""
+            if a == "Clínica Médica":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
+                
             with st.form("n_aula", clear_on_submit=True):
-                st.subheader("➕ Adicionar Aula")
-                a = st.selectbox("Especialidade", AREAS_MED)
-                sub_al = ""
-                if a == "Clínica Médica":
-                    sub_al = st.selectbox("Subespecialidade", SUB_CM)
-                elif a == "Cirurgia Geral":
-                    sub_al = st.selectbox("Subespecialidade", SUB_CG)
                 t = st.text_input("Assunto da Aula (Tema)")
                 d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
                 if st.form_submit_button("Registrar e Gerar Ciclo R", use_container_width=True):
@@ -1508,6 +1518,7 @@ else:
                         st.session_state.dados["revisoes"].append(n_rev)
                     batch.commit()
                     st.toast("Aula registrada no ciclo!", icon="📚")
+                    time.sleep(0.5)
                     st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
@@ -1525,6 +1536,7 @@ else:
                         st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if str(r.get("aula_id")) != id_del]
                         st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
                         st.toast("Aula apagada.", icon="🗑️")
+                        time.sleep(0.5)
                         st.rerun()
 
         with col_lista:
@@ -1764,18 +1776,18 @@ else:
                 if modo_osce == "🎯 Doença Específica": doenca_alvo = st.text_input("Doença (Ex: Infarto com supra)")
                 else:
                     col_m, col_t = st.columns(2)
-                    mat_alvo = col_m.selectbox("Área", AREAS_MED)
+                    mat_alvo = col_m.selectbox("Área", AREAS_MED, key="osce_mat")
                     sub_o = ""
                     if mat_alvo == "Clínica Médica":
-                        sub_o = col_m.selectbox("Subespecialidade", SUB_CM)
+                        sub_o = col_t.selectbox("Subespecialidade", SUB_CM, key="osce_sub_cm")
                     elif mat_alvo == "Cirurgia Geral":
-                        sub_o = col_m.selectbox("Subespecialidade", SUB_CG)
-                    tema_alvo = col_t.text_input("Tema")
+                        sub_o = col_t.selectbox("Subespecialidade", SUB_CG, key="osce_sub_cg")
+                    tema_alvo = st.text_input("Tema", key="osce_tema")
 
                 if st.button("▶️ Abrir Consultório"):
                     st.session_state.osce_hist, st.session_state.osce_active, st.session_state.osce_finished = [], True, False
                     base_p = f"""Você é paciente num OSCE de Medicina. Não diga o diagnóstico de cara. Fale os sintomas. Se o médico pedir um exame dessa lista [{", ".join(BANCO_IMAGENS_OSCE.keys())}], responda com a tag [EXAME: nome_do_exame]."""
-                    tema_final = f"{sub_o} - {tema_alvo}" if modo_osce == "🎲 Surpresa" and sub_o and sub_o != "Geral" else tema_alvo
+                    tema_final = f"{sub_o} - {tema_alvo}" if modo_osce == "🎲 Surpresa" and sub_o and sub_o != "Geral" else (tema_alvo if modo_osce == "🎲 Surpresa" else "")
                     st.session_state.osce_sys_prompt = f"{base_p}\nDoença: {doenca_alvo}." if modo_osce == "🎯 Doença Específica" else f"{base_p}\nSorteie para: {mat_alvo} - {tema_final}."
                     st.rerun()
 
