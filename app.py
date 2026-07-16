@@ -43,6 +43,7 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
+# Nova biblioteca para botão de colar
 try:
     from streamlit_paste_button import paste_image_button
 except ImportError:
@@ -90,39 +91,25 @@ def ativar_pwa():
 ativar_pwa()
 
 # ==========================================
-# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS
+# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS 100% CORRIGIDA
 # ==========================================
 def aplicar_css_tema(modo):
     if modo == "Escuro":
-        bg_color = "#0e1117"
-        text_color = "#f8fafc"
-        metric_bg = "#1e293b"
-        metric_border = "#334155"
-        sidebar_bg = "#11151c"
-        input_bg = "#1e293b"
-        input_text = "#f8fafc"
-        menu_text = "#94a3b8"
-        menu_hover = "#334155"
-        bg_tabela = "#334155"
-        th_bg = "#1e293b"
-        cor_texto_tabela = "#f8fafc"
-        shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
+        bg = "#0e1117"
+        fg = "#f8fafc"
+        bg_input = "#1e293b"
+        border = "#334155"
+        hover = "#334155"
+        blue_accent = "#3b82f6"
     else:
-        bg_color = "#f8f9fa"
-        text_color = "#0f172a"
-        metric_bg = "#ffffff"
-        metric_border = "#cbd5e1"
-        sidebar_bg = "#ffffff"
-        input_bg = "#ffffff"
-        input_text = "#0f172a"
-        menu_text = "#64748b"
-        menu_hover = "#f1f5f9"
-        bg_tabela = "#ffffff"
-        th_bg = "#f1f5f9"
-        cor_texto_tabela = "#0f172a"
-        shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
+        bg = "#f8f9fa"
+        fg = "#0f172a"
+        bg_input = "#ffffff"
+        border = "#cbd5e1"
+        hover = "#f1f5f9"
+        blue_accent = "#2563eb"
 
-    css_str = f"""
+    css = f"""
     <style>
     /* ANIMAÇÃO DE ENTRADA SUAVE */
     @keyframes fadein {{
@@ -131,80 +118,128 @@ def aplicar_css_tema(modo):
     }}
     .main {{ animation: fadein 0.4s ease-out; }}
     
-    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, label {{ color: {text_color}; font-family: 'Inter', sans-serif; }}
+    /* Fundo App */
+    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg} !important; }}
     
-    /* INPUTS MODERNOS */
-    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
-        background-color: {input_bg} !important; 
-        border: 1px solid {metric_border} !important;
+    /* Textos comuns (Cuidado com gráficos) */
+    .stMarkdown p, h1, h2, h3, h4, h5, h6, .stSelectbox label, .stTextInput label, .stDateInput label, .stNumberInput label, .stRadio label {{
+        color: {fg} !important;
+        font-family: 'Inter', sans-serif;
+    }}
+    
+    /* Inputs, Textareas, Selects */
+    [data-baseweb="input"] > div, 
+    [data-baseweb="textarea"] > div, 
+    [data-baseweb="select"] > div {{
+        background-color: {bg_input} !important;
+        border-color: {border} !important;
         border-radius: 8px !important;
-        transition: border-color 0.3s ease;
     }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within {{
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 1px #2563eb !important;
+    input, textarea, div[data-baseweb="select"] span {{
+        color: {fg} !important;
+        -webkit-text-fill-color: {fg} !important;
     }}
-    input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
-    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
-    ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
-    ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
-    ul[data-baseweb="menu"] span {{ color: {input_text} !important; }}
+    /* Menus (Selectbox) */
+    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{
+        background-color: {bg_input} !important;
+        border: 1px solid {border} !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }}
+    ul[data-baseweb="menu"] li {{
+        color: {fg} !important;
+        background-color: transparent !important;
+    }}
+    ul[data-baseweb="menu"] li:hover {{
+        background-color: {hover} !important;
+    }}
     
-    /* CHAT IA */
-    [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
-    [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
+    /* Tabelas Definitivas */
+    [data-testid="stTable"] th, [data-testid="stDataFrame"] th {{
+        background-color: {hover} !important;
+        color: {fg} !important;
+        border-bottom: 2px solid {border} !important;
+        text-transform: uppercase;
+        font-size: 13px;
+    }}
+    [data-testid="stTable"] td, [data-testid="stDataFrame"] td {{
+        background-color: {bg_input} !important;
+        color: {fg} !important;
+        border-bottom: 1px solid {border} !important;
+    }}
+    [data-testid="stTable"] > div, [data-testid="stDataFrame"] > div {{
+        border: 1px solid {border};
+        border-radius: 10px;
+    }}
     
-    /* BOTÕES PRO */
+    /* Containers Customizados (Bordas) */
+    [data-testid="stVerticalBlockBorderWrapper"] > div {{
+        background-color: {bg_input} !important;
+        border-color: {border} !important;
+        border-radius: 12px;
+    }}
+    
+    /* Expanders (Sanfonas) */
+    [data-testid="stExpander"] {{
+        background-color: {bg_input} !important;
+        border: 1px solid {border} !important;
+        border-radius: 12px;
+        transition: box-shadow 0.3s ease;
+    }}
+    [data-testid="stExpander"]:hover {{ box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); }}
+    [data-testid="stExpander"] summary p {{
+        color: {fg} !important;
+        font-weight: 500;
+    }}
+
+    /* Métricas Dashboard */
+    [data-testid="stMetricValue"] div {{ color: {fg} !important; }}
+    [data-testid="stMetricLabel"] div p {{ color: {fg} !important; }}
+
+    /* Checkbox & Radio */
+    [data-baseweb="checkbox"] div, [data-baseweb="radio"] div {{ color: {fg} !important; }}
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background-color: {bg_input} !important;
+        border-right: 1px solid {border} !important;
+    }}
+    
+    /* Tab Links */
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ 
+        color: {fg} !important; 
+        font-weight: 500 !important; 
+    }}
+    
+    /* Botões Formatação Customizados e Submit */
     button[kind="primary"], div[data-testid="stFormSubmitButton"] > button {{
-        background-color: #2563eb !important; 
-        border: none !important; 
+        background-color: {blue_accent} !important;
+        border: none !important;
         border-radius: 8px !important;
-        color: white !important;
         transition: transform 0.1s ease, box-shadow 0.2s ease !important;
     }}
     button[kind="primary"] *, div[data-testid="stFormSubmitButton"] > button * {{
         color: white !important;
-        font-weight: 600 !important; letter-spacing: 0.3px;
+        font-weight: bold !important;
     }}
     button[kind="primary"]:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
         transform: translateY(-2px);
         box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4) !important;
     }}
     
-    .stButton > button {{ border-radius: 8px !important; transition: transform 0.1s ease, box-shadow 0.2s ease !important; }}
+    button[kind="secondary"] {{
+        border-radius: 8px !important;
+        border: 1px solid {border} !important;
+        background-color: {bg_input} !important;
+    }}
+    button[kind="secondary"] p {{ color: {fg} !important; font-weight: 500; }}
+    button[kind="secondary"]:hover {{ background-color: {hover} !important; }}
     
-    /* ABAS (TABS) INTERATIVAS */
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
-    button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
-    
-    /* ISOLAMENTO DA TABELA */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
-    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
-    
-    /* CONTAINERS INTERATIVOS */
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: box-shadow 0.3s ease; }}
-    div[data-testid='stExpander']:hover {{ box-shadow: {shadow}; }}
-    
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px; border-radius: 12px; box-shadow: {shadow}; transition: transform 0.2s ease; }}
-    div[data-testid="metric-container"]:hover {{ transform: scale(1.02); }}
-    
-    /* MENU LATERAL */
-    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; padding-left: 20px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 15px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
-    
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid #2563eb; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.3s ease; }}
-    .profile-img:hover {{ transform: scale(1.05); cursor: pointer; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }}
     </style>
     """
-    st.markdown(css_str, unsafe_allow_html=True)
+    st.markdown(css, unsafe_allow_html=True)
 
 
 # ==========================================
@@ -260,7 +295,6 @@ def db_delete(col_name, state_key, doc_id):
     if state_key in st.session_state.dados:
         st.session_state.dados[state_key] = [i for i in st.session_state.dados[state_key] if str(i.get("id")) != str(doc_id)]
 
-# Mantido apenas para atualizações globais administrativas
 def invalidar_cache(colecoes=None):
     if colecoes and 'dados' in st.session_state:
         if isinstance(colecoes, str): colecoes = [colecoes]
@@ -458,7 +492,6 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
-
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -1220,8 +1253,9 @@ else:
                             e = col2.number_input("Erros", 0, max_value=max(q,0))
                             f = col3.number_input("Flashcards", 0)
                             if st.form_submit_button("✅ Marcar Concluída"):
-                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
+                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": str(get_agora().date())})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
@@ -1267,6 +1301,7 @@ else:
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
                                 st.toast("Revisão desfeita!", icon="⏪")
+                                time.sleep(0.5)
                                 st.rerun()
 
     elif menu == "🎯 Questões":
