@@ -43,6 +43,7 @@ except ImportError:
     PyPDF2 = None
     Groq = None
 
+# Nova biblioteca para botão de colar
 try:
     from streamlit_paste_button import paste_image_button
 except ImportError:
@@ -107,6 +108,7 @@ def aplicar_css_tema(modo):
         th_bg = "#1e293b"
         cor_texto_tabela = "#f8fafc"
         shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
+        blue_accent = "#3b82f6"
     else:
         bg_color = "#f8f9fa"
         text_color = "#0f172a"
@@ -121,87 +123,58 @@ def aplicar_css_tema(modo):
         th_bg = "#f1f5f9"
         cor_texto_tabela = "#0f172a"
         shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
+        blue_accent = "#2563eb"
 
     css_str = f"""
     <style>
-    /* ANIMAÇÃO DE ENTRADA SUAVE */
-    @keyframes fadein {{
-        from {{ opacity: 0; transform: translateY(10px); }}
-        to   {{ opacity: 1; transform: translateY(0); }}
-    }}
+    @keyframes fadein {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
     .main {{ animation: fadein 0.4s ease-out; }}
     
     .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, p, label {{ color: {text_color}; font-family: 'Inter', sans-serif; }}
+    h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; font-family: 'Inter', sans-serif; }}
     
-    /* INPUTS MODERNOS */
     [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
         background-color: {input_bg} !important; 
         border: 1px solid {metric_border} !important;
         border-radius: 8px !important;
-        transition: border-color 0.3s ease;
-    }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within {{
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 1px #2563eb !important;
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    /* CORREÇÃO DEFINITIVA DOS DROPDOWNS E POPOVERS */
     [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
     ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
     ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
     ul[data-baseweb="menu"] span {{ color: {input_text} !important; }}
     
-    /* CHAT IA */
     [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
     [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
     
-    /* BOTÕES PRO */
-    button[kind="primary"], div[data-testid="stFormSubmitButton"] > button {{
-        background-color: #2563eb !important; 
+    button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], div[data-testid="stFormSubmitButton"] > button {{
+        background-color: {blue_accent} !important; 
         border: none !important; 
         border-radius: 8px !important;
-        color: white !important;
         transition: transform 0.1s ease, box-shadow 0.2s ease !important;
     }}
-    button[kind="primary"] *, div[data-testid="stFormSubmitButton"] > button * {{
-        color: white !important;
-        font-weight: 600 !important; letter-spacing: 0.3px;
-    }}
-    button[kind="primary"]:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4) !important;
-    }}
+    .stButton > button {{ border-radius: 8px !important; background-color: {blue_accent} !important; color: white !important; border: none !important; }}
+    button p, button span, button div {{ color: white !important; font-weight: 600 !important; letter-spacing: 0.3px; }}
     
-    .stButton > button {{ border-radius: 8px !important; transition: transform 0.1s ease, box-shadow 0.2s ease !important; }}
-    
-    /* ABAS (TABS) INTERATIVAS */
     button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
-    button[data-baseweb="tab"]:hover p {{ color: #2563eb !important; }}
     
-    /* ISOLAMENTO DA TABELA */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
+    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
     [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
+    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
     
-    /* CONTAINERS INTERATIVOS */
     div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: box-shadow 0.3s ease; }}
-    div[data-testid='stExpander']:hover {{ box-shadow: {shadow}; }}
-    
     div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px; border-radius: 12px; box-shadow: {shadow}; transition: transform 0.2s ease; }}
-    div[data-testid="metric-container"]:hover {{ transform: scale(1.02); }}
     
-    /* MENU LATERAL */
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; padding-left: 20px; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 15px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: #2563eb !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: {blue_accent} !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
     
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid #2563eb; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.3s ease; }}
-    .profile-img:hover {{ transform: scale(1.05); cursor: pointer; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.3s ease; }}
     </style>
     """
     st.markdown(css_str, unsafe_allow_html=True)
@@ -260,7 +233,6 @@ def db_delete(col_name, state_key, doc_id):
     if state_key in st.session_state.dados:
         st.session_state.dados[state_key] = [i for i in st.session_state.dados[state_key] if str(i.get("id")) != str(doc_id)]
 
-# Mantido apenas para atualizações globais administrativas
 def invalidar_cache(colecoes=None):
     if colecoes and 'dados' in st.session_state:
         if isinstance(colecoes, str): colecoes = [colecoes]
@@ -308,6 +280,7 @@ def extrair_json_seguro(texto):
 # ==========================================
 AREAS_MED = ["Clínica Médica", "Cirurgia Geral", "Pediatria", "Ginecologia e Obstetrícia", "Medicina Preventiva", "Geral"]
 SUB_CM = ["Geral", "Cardiologia", "Nefrologia", "Endocrinologia", "Pneumologia", "Gastroenterologia", "Reumatologia", "Hematologia", "Infectologia", "Neurologia"]
+SUB_CG = ["Geral", "Cirurgia do Trauma", "Cirurgia Vascular", "Cirurgia Plástica", "Cirurgia Torácica", "Cirurgia Pediátrica", "Urologia", "Neurocirurgia", "Ortopedia", "Cirurgia Oncológica", "Cirurgia Cabeça e Pescoço"]
 INSTITUICOES = ["USP-SP", "SUS-SP", "UNICAMP", "UNIFESP", "SCMSP", "IAMSPE", "UFRJ", "Hospital Albert Einstein", "Sírio-Libanês", "Outra"]
 MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#a855f7", "Medicina Preventiva": "#22c55e", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
@@ -396,7 +369,7 @@ def gerar_calendario_html(aulas_lista, ano, mes):
     if modo == "Escuro":
         bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
     else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
         
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
@@ -430,7 +403,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     if modo == "Escuro":
         bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
     else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#e0f2fe", "#bae6fd", "#f0f9ff", "#ffffff", "#0369a1", "#0f172a", "#64748b"
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
 
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
@@ -459,6 +432,18 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
+# Função Callback para Botões de Formatação Instantânea (Sem recarregar e sem bugar o state)
+def inserir_formatacao(chave_estado, formato):
+    if chave_estado not in st.session_state:
+        st.session_state[chave_estado] = ""
+    if formato == "bold":
+        st.session_state[chave_estado] += " **Texto_aqui** "
+    elif formato == "underline":
+        st.session_state[chave_estado] += " <u>Texto_aqui</u> "
+    elif formato == "mark":
+        st.session_state[chave_estado] += " <mark>Texto_aqui</mark> "
+    elif formato == "topic":
+        st.session_state[chave_estado] += "\n- "
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -774,6 +759,8 @@ else:
                 sub_m = ""
                 if m_materia == "Clínica Médica":
                     sub_m = c3.selectbox("Subespecialidade", SUB_CM)
+                elif m_materia == "Cirurgia Geral":
+                    sub_m = c3.selectbox("Subespecialidade", SUB_CG)
                 
                 m_tema = c4.text_input("Tema da Aula")
                 m_prio = st.selectbox("Prioridade (Cor)", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
@@ -938,6 +925,8 @@ else:
                 sub_a = ""
                 if a == "Clínica Médica":
                     sub_a = col_a.selectbox("Subespecialidade", SUB_CM)
+                elif a == "Cirurgia Geral":
+                    sub_a = col_a.selectbox("Subespecialidade", SUB_CG)
                 s = col_s.text_input("Subtema (Ex: Insuficiência Cardíaca)")
                 
                 with st.container(border=True):
@@ -1074,10 +1063,14 @@ else:
                                             sub_ea = ""
                                             if edit_a == "Clínica Médica":
                                                 sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM)
+                                            elif edit_a == "Cirurgia Geral":
+                                                sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG)
                                             
                                             # Limpar a subespecialidade se já vier no texto
                                             s_puro = nota.get('subtema', '')
                                             if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
+                                                s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                            elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
                                                 s_puro = " - ".join(s_puro.split(" - ")[1:])
                                                 
                                             edit_s = col_es.text_input("Subtema", value=s_puro)
@@ -1129,11 +1122,14 @@ else:
             
             st.divider()
             col_g1, col_g2 = st.columns([1, 1.5])
+            
+            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+            
             with col_g1:
                 if t_questoes_g > 0: 
                     fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False})
+                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
             with col_g2:
                 todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
@@ -1141,8 +1137,8 @@ else:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
                     fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False})
+                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -1222,6 +1218,7 @@ else:
                             if st.form_submit_button("✅ Marcar Concluída"):
                                 db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
@@ -1243,14 +1240,17 @@ else:
                     df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
                     df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     c1g, c2g = st.columns(2)
+                    
+                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -1267,6 +1267,7 @@ else:
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
                                 st.toast("Revisão desfeita!", icon="⏪")
+                                time.sleep(0.5)
                                 st.rerun()
 
     elif menu == "🎯 Questões":
@@ -1278,6 +1279,8 @@ else:
                 sub_q = ""
                 if a == "Clínica Médica":
                     sub_q = c1.selectbox("Subespecialidade", SUB_CM)
+                elif a == "Cirurgia Geral":
+                    sub_q = c1.selectbox("Subespecialidade", SUB_CG)
                 s = c2.text_input("Subtema")
                 d = c3.date_input("Data", hoje, format="DD/MM/YYYY")
                 ac, er = st.columns(2)
@@ -1431,6 +1434,8 @@ else:
                     sub_f = ""
                     if a == "Clínica Médica":
                         sub_f = st.selectbox("Subespecialidade", SUB_CM)
+                    elif a == "Cirurgia Geral":
+                        sub_f = st.selectbox("Subespecialidade", SUB_CG)
                     t = st.text_input("Tema")
                     f, v = st.text_input("Frente da Carta"), st.text_area("Verso da Carta")
                     if st.form_submit_button("Salvar no Banco", use_container_width=True):
@@ -1482,6 +1487,8 @@ else:
                 sub_al = ""
                 if a == "Clínica Médica":
                     sub_al = st.selectbox("Subespecialidade", SUB_CM)
+                elif a == "Cirurgia Geral":
+                    sub_al = st.selectbox("Subespecialidade", SUB_CG)
                 t = st.text_input("Assunto da Aula (Tema)")
                 d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
                 if st.form_submit_button("Registrar e Gerar Ciclo R", use_container_width=True):
@@ -1636,8 +1643,10 @@ else:
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
                     fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' and '#f8fafc' or '#0f172a', margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                    
+                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, theme=None)
 
         with aba_simulado:
             col_sim1, col_sim2 = st.columns(2)
@@ -1759,6 +1768,8 @@ else:
                     sub_o = ""
                     if mat_alvo == "Clínica Médica":
                         sub_o = col_m.selectbox("Subespecialidade", SUB_CM)
+                    elif mat_alvo == "Cirurgia Geral":
+                        sub_o = col_m.selectbox("Subespecialidade", SUB_CG)
                     tema_alvo = col_t.text_input("Tema")
 
                 if st.button("▶️ Abrir Consultório"):
