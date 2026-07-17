@@ -922,40 +922,41 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             sub_a = ""
             if a == "Clínica Médica":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
             elif a == "Cirurgia Geral":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
-            s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)", key="n_sub_novo")
-            
-            with st.container(border=True):
-                st.markdown("""
-                **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
-                * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
-                * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
-                * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
-                * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
-                * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
-                """, unsafe_allow_html=True)
-            
-            p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.", key="nota_texto_novo")
-            
-            if st.button("💾 Salvar Anotação", use_container_width=True, type="primary"):
-                if s and p:
-                    s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                    db_add("anotacoes", "anotacoes", {
-                        "usuario_id": u_id,
-                        "area": a,
-                        "subtema": s_final,
-                        "pontos_chave": p,
-                        "imagens_b64": st.session_state.nota_imgs_temp,
-                        "data_criacao": str(hoje)
-                    })
-                    st.session_state.limpar_nova_nota = True
-                    st.rerun()
-                else:
-                    st.error("Preencha o subtema e a anotação para salvar.")
+            with st.form("form_nova_nota", clear_on_submit=True):
+                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                
+                with st.container(border=True):
+                    st.markdown("""
+                    **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
+                    * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                    * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
+                    * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
+                    * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
+                    * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
+                    * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
+                    """, unsafe_allow_html=True)
+                
+                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
+                
+                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
+                    if s and p:
+                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
+                        db_add("anotacoes", "anotacoes", {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "subtema": s_final,
+                            "pontos_chave": p,
+                            "imagens_b64": st.session_state.nota_imgs_temp,
+                            "data_criacao": str(hoje)
+                        })
+                        st.session_state.limpar_nova_nota = True
+                        st.rerun()
+                    else:
+                        st.error("Preencha o subtema e a anotação para salvar.")
 
         with aba_lista:
             minhas_anotacoes = dados_anotacoes
@@ -1055,18 +1056,14 @@ else:
                                                             st.rerun()
 
                                         st.markdown("#### ✍️ Editar Texto")
-                                        key_p_edit = f"texto_edicao_{nota_id}"
                                         
-                                        if key_p_edit not in st.session_state:
-                                            st.session_state[key_p_edit] = nota.get('pontos_chave', '')
-
                                         col_ea, col_es = st.columns(2)
                                         edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
                                         sub_ea = ""
                                         if edit_a == "Clínica Médica":
-                                            sub_ea = col_es.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
                                         elif edit_a == "Cirurgia Geral":
-                                            sub_ea = col_es.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
                                         
                                         # Limpar a subespecialidade se já vier no texto
                                         s_puro = nota.get('subtema', '')
@@ -1075,28 +1072,29 @@ else:
                                         elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
                                             s_puro = " - ".join(s_puro.split(" - ")[1:])
                                             
-                                        edit_s = st.text_input("Subtema", value=s_puro, key=f"es_{nota_id}")
-                                        
-                                        with st.container(border=True):
-                                            st.markdown("""
-                                            **⌨️ Comandos de Formatação Rápida:**
-                                            * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                                            * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
-                                            * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
-                                            """, unsafe_allow_html=True)
+                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
+                                            edit_s = st.text_input("Subtema", value=s_puro)
+                                            
+                                            with st.container(border=True):
+                                                st.markdown("""
+                                                **⌨️ Comandos de Formatação Rápida:**
+                                                * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                                                * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
+                                                * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
+                                                """, unsafe_allow_html=True)
 
-                                        edit_p = st.text_area("Pontos Chave / Resumo", height=200, key=key_p_edit)
-                                        
-                                        if st.button("💾 Salvar Alterações", use_container_width=True, type="primary", key=f"sv_{nota_id}"):
-                                            if edit_s and edit_p:
-                                                edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                st.session_state.nota_em_edicao = None
-                                                st.toast("✅ Anotação atualizada!", icon="📝")
-                                                time.sleep(0.5)
-                                                st.rerun()
-                                            else:
-                                                st.error("Preencha o subtema e a anotação para salvar.")
+                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
+                                            
+                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                                                if edit_s and edit_p:
+                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
+                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
+                                                    st.session_state.nota_em_edicao = None
+                                                    st.toast("✅ Anotação atualizada!", icon="📝")
+                                                    time.sleep(0.5)
+                                                    st.rerun()
+                                                else:
+                                                    st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -1316,7 +1314,25 @@ else:
                         "ID": b.get('id')
                     })
                 df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
-                st.table(df_q)
+                
+                def colorir_porcentagem(val):
+                    try:
+                        num = float(str(val).replace('%', ''))
+                        if num > 80:
+                            return 'color: #22c55e !important; font-weight: bold !important;'
+                        elif num >= 70:
+                            return 'color: #eab308 !important; font-weight: bold !important;'
+                        elif num >= 60:
+                            return 'color: #3b82f6 !important; font-weight: bold !important;'
+                        else:
+                            return 'color: #ef4444 !important; font-weight: bold !important;'
+                    except:
+                        return ''
+
+                if hasattr(df_q.style, "map"):
+                    st.table(df_q.style.map(colorir_porcentagem, subset=['% Acertos']))
+                else:
+                    st.table(df_q.style.applymap(colorir_porcentagem, subset=['% Acertos']))
                 
                 st.write("---")
                 with st.expander("✏️ Editar ou Excluir Registro de Questões"):
