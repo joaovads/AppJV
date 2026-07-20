@@ -206,8 +206,35 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# MOTORES DE IA COM FALLBACK AUTOMÁTICO (ANTI-CRASH)
+# MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
 # ==========================================
+def otimizar_imagem_para_api(img_data, max_size=1024):
+    """
+    Comprime e redimensiona a imagem antes de converter para Base64.
+    Isso evita o Erro 413 (Token Rate Limit) da API da Groq.
+    """
+    if Image is None:
+        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
+        return base64.b64encode(img_data.getvalue()).decode('utf-8')
+    try:
+        if isinstance(img_data, bytes):
+            img = Image.open(io.BytesIO(img_data))
+        else:
+            img = Image.open(img_data)
+            
+        if img.mode != 'RGB': 
+            img = img.convert('RGB')
+            
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception:
+        # Fallback de segurança se a conversão falhar
+        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
+        return base64.b64encode(img_data.getvalue()).decode('utf-8')
+
 def proc_visao(client, mensagens):
     modelos = [
         "qwen/qwen3.6-27b",
@@ -774,11 +801,13 @@ else:
                             
                             if imgs_crono:
                                 for img in imgs_crono:
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64.b64encode(img.getvalue()).decode('utf-8')}"}})
+                                    b64_otimizado = otimizar_imagem_para_api(img)
+                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
                             
                             if st.session_state.prints_colados:
                                 for item in st.session_state.prints_colados:
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(item['bytes']).decode('utf-8')}"}})
+                                    b64_otimizado = otimizar_imagem_para_api(item['bytes'])
+                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
                             
                             resposta = proc_visao(client_ia, [{"role": "user", "content": conteudo_api}])
                             tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
@@ -816,7 +845,7 @@ else:
                                 time.sleep(1)
                                 st.rerun()
                         except Exception as e:
-                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
+                            st.error(f"Erro na extração visual: {e}")
 
         with aba_manual:
             st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
@@ -1768,12 +1797,15 @@ else:
                                 from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
-                                    buf = io.BytesIO(); img.save(buf, format="JPEG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue()))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
-                            for img in imgs_prova: todas_imagens_b64.append(base64.b64encode(img.getvalue()).decode('utf-8'))
+                            for img in imgs_prova: 
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img))
                         if colagem_img_sim:
-                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG"); todas_imagens_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue()))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
