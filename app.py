@@ -206,12 +206,12 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
+# MOTORES DE IA COM FALLBACK AUTOMÁTICO (BALANCEAMENTO DE CARGA)
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=1024):
+def otimizar_imagem_para_api(img_data, max_size=800):
     """
-    Comprime e redimensiona a imagem antes de converter para Base64.
-    Isso evita o Erro 413 (Token Rate Limit) da API da Groq.
+    Comprime agresivamente e redimensiona a imagem antes de converter para Base64.
+    Isso evita o Erro 413 (Token Rate Limit Exceeded).
     """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -228,10 +228,9 @@ def otimizar_imagem_para_api(img_data, max_size=1024):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
+        img.save(buf, format="JPEG", quality=80)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
-        # Fallback de segurança se a conversão falhar
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
         return base64.b64encode(img_data.getvalue()).decode('utf-8')
 
@@ -257,10 +256,11 @@ def proc_visao(client, mensagens):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+            # Se for erro 413 ou Rate Limit, a API pula pro próximo modelo, agindo como um Load Balancer!
+            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
                 continue
             raise e
-    raise Exception(f"A API da Groq desativou todos os modelos de visão conhecidos. Erro: {ultimo_erro}")
+    raise Exception(f"Todos os modelos atingiram o limite ou falharam. Erro: {ultimo_erro}")
 
 def proc_texto(client, mensagens, temp=0.2, max_t=6000):
     modelos = [
@@ -284,10 +284,10 @@ def proc_texto(client, mensagens, temp=0.2, max_t=6000):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
                 continue
             raise e
-    raise Exception(f"A API da Groq desativou todos os modelos de texto conhecidos. Erro: {ultimo_erro}")
+    raise Exception(f"Todos os modelos de texto atingiram o limite ou falharam. Erro: {ultimo_erro}")
 
 # ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
@@ -340,18 +340,16 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     
-    # 1. Limpeza brutal do bloco de raciocínio <think> (Muito comum em modelos novos)
+    # Limpeza brutal do bloco de raciocínio <think> 
     texto_limpo = re.sub(r'<think>.*?</think>', '', texto, flags=re.DOTALL)
     if '<think>' in texto_limpo: 
         texto_limpo = re.sub(r'<think>.*', '', texto_limpo, flags=re.DOTALL)
         
-    # 2. Remove formatação markdown (```json e ```)
     texto_limpo = re.sub(r'```(?:json)?\n?', '', texto_limpo).replace('```', '').strip()
     
     try:
         return json.loads(texto_limpo)
     except:
-        # 3. Busca Forçada por Dicionário {...}
         try:
             start = texto_limpo.find('{')
             end = texto_limpo.rfind('}') + 1
@@ -360,7 +358,6 @@ def extrair_json_seguro(texto):
         except:
             pass
         
-        # 4. Busca por Lista [...]
         try:
             start = texto_limpo.find('[')
             end = texto_limpo.rfind(']') + 1
@@ -532,7 +529,6 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -791,61 +787,70 @@ else:
                 client_ia = get_ia_client()
                 if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
-                        try:
+                    with st.spinner("Visão Computacional analisando imagens uma a uma para evitar bloqueios de limite..."):
+                        
+                        todas_imagens_b64 = []
+                        if imgs_crono:
+                            for img in imgs_crono:
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=800))
+                        
+                        if st.session_state.prints_colados:
+                            for item in st.session_state.prints_colados:
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=800))
+                        
+                        tarefas_totais = []
+                        if todas_imagens_b64:
+                            barra_progresso = st.progress(0)
                             prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
                             REGRA DE OURO: Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO explicar o raciocínio.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
-                            conteudo_api = [{"type": "text", "text": prompt_visao}]
                             
-                            if imgs_crono:
-                                for img in imgs_crono:
-                                    b64_otimizado = otimizar_imagem_para_api(img)
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
+                            for idx_img, img_b64 in enumerate(todas_imagens_b64):
+                                conteudo_api = [
+                                    {"type": "text", "text": prompt_visao},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                                ]
+                                try:
+                                    resposta = proc_visao(client_ia, [{"role": "user", "content": conteudo_api}])
+                                    tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
+                                    tarefas_totais.extend(tarefas_lote)
+                                except Exception as e:
+                                    st.warning(f"Aviso na imagem {idx_img+1}: {e}")
+                                barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
+                        
+                        if not tarefas_totais:
+                            st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
+                        else:
+                            batch = db.batch()
+                            tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
+                            dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
                             
-                            if st.session_state.prints_colados:
-                                for item in st.session_state.prints_colados:
-                                    b64_otimizado = otimizar_imagem_para_api(item['bytes'])
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
-                            
-                            resposta = proc_visao(client_ia, [{"role": "user", "content": conteudo_api}])
-                            tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
-                            
-                            if not tarefas:
-                                pass
-                            else:
-                                batch = db.batch()
-                                tarefas.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                                dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
+                            for i, t in enumerate(tarefas_totais):
+                                dia_idx = (i // 4) % len(dias_semana)
+                                t_dia = dias_semana[dia_idx]
                                 
-                                for i, t in enumerate(tarefas):
-                                    dia_idx = (i // 4) % len(dias_semana)
-                                    t_dia = dias_semana[dia_idx]
-                                    
-                                    doc_ref = db.collection("cronogramas").document()
-                                    nova_tarefa = {
-                                        "usuario_id": u_id,
-                                        "semana": nome_semana,
-                                        "dia": t_dia,
-                                        "materia": t.get("materia", ""),
-                                        "tema": t.get("tema", ""),
-                                        "prioridade": safe_int(t.get("prioridade", 3)),
-                                        "concluido": False,
-                                        "data_importacao": str(hoje),
-                                        "data_conclusao": None
-                                    }
-                                    batch.set(doc_ref, nova_tarefa)
-                                    nova_tarefa["id"] = doc_ref.id
-                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
-                                batch.commit()
-                                
-                                st.session_state.prints_colados = []
-                                st.toast(f"✅ {len(tarefas)} aulas importadas e distribuídas!", icon="🎉")
-                                time.sleep(1)
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro na extração visual: {e}")
+                                doc_ref = db.collection("cronogramas").document()
+                                nova_tarefa = {
+                                    "usuario_id": u_id,
+                                    "semana": nome_semana,
+                                    "dia": t_dia,
+                                    "materia": t.get("materia", ""),
+                                    "tema": t.get("tema", ""),
+                                    "prioridade": safe_int(t.get("prioridade", 3)),
+                                    "concluido": False,
+                                    "data_importacao": str(hoje),
+                                    "data_conclusao": None
+                                }
+                                batch.set(doc_ref, nova_tarefa)
+                                nova_tarefa["id"] = doc_ref.id
+                                st.session_state.dados["cronogramas"].append(nova_tarefa)
+                            batch.commit()
+                            
+                            st.session_state.prints_colados = []
+                            st.toast(f"✅ {len(tarefas_totais)} aulas importadas e distribuídas!", icon="🎉")
+                            time.sleep(1)
+                            st.rerun()
 
         with aba_manual:
             st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
@@ -973,10 +978,8 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
-        # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
             
-        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
         if st.session_state.get('limpar_nova_nota', False):
             st.session_state.nota_imgs_temp = []
             st.session_state.limpar_nova_nota = False
@@ -1073,7 +1076,6 @@ else:
                 
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
-                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
                 areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
                 
                 if not notas_exibir:
@@ -1089,7 +1091,6 @@ else:
                                 subtema_str = limpar_texto(nota.get('subtema'))
                                 data_str = formatar_data_br(nota.get('data_criacao'))
                                 
-                                # --- NOTA COMPACTA (EXPANDER) ---
                                 with st.expander(f"📝 {subtema_str} - {data_str}"):
                                     c_del1, c_del2 = st.columns([0.85, 0.15])
                                     with c_del2:
@@ -1098,17 +1099,15 @@ else:
                                             st.toast("Anotação excluída!", icon="🗑️")
                                             st.rerun()
                                     
-                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
                                     conteudo_nota = nota.get('pontos_chave', '')
                                     st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
-                                    # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
                                     if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
                                         imgs_exibir.insert(0, nota['imagem_b64'])
                                         
                                     if imgs_exibir:
-                                        st.write("") # Espaçamento
+                                        st.write("") 
                                         cols_view = st.columns(min(len(imgs_exibir), 4))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
@@ -1116,7 +1115,6 @@ else:
                                     
                                     st.divider()
                                     
-                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
                                     if st.session_state.get('nota_em_edicao') != nota_id:
                                         if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = nota_id
@@ -1166,7 +1164,6 @@ else:
                                         elif edit_a == "Cirurgia Geral":
                                             sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
                                         
-                                        # Limpar a subespecialidade se já vier no texto
                                         s_puro = nota.get('subtema', '')
                                         if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
                                             s_puro = " - ".join(s_puro.split(" - ")[1:])
