@@ -53,8 +53,8 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-MODELO_VISAO = "llama-3.2-11b-vision-preview"
-MODELO_TEXTO = "llama-3.1-8b-instant"
+MODELO_VISAO = "qwen/qwen3.6-27b"
+MODELO_TEXTO = "openai/gpt-oss-20b"
 
 def ativar_pwa():
     pwa_html = """
