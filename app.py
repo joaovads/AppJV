@@ -136,11 +136,6 @@ def aplicar_css_tema(modo):
         background-color: {input_bg} !important; 
         border: 1px solid {metric_border} !important;
         border-radius: 8px !important;
-        transition: border-color 0.3s ease;
-    }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within {{
-        border-color: #2563eb !important;
-        box-shadow: 0 0 0 1px #2563eb !important;
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
@@ -250,7 +245,7 @@ def invalidar_cache(colecoes=None):
         st.session_state.user_data_loaded = False
 
 # ==========================================
-# INICIALIZADOR E EXTRATOR SEGURO DE JSON
+# INICIALIZADOR E EXTRATOR SEGURO DE JSON (NOVA VERSÃO BLINDADA)
 # ==========================================
 def get_ia_client():
     if "model_ia" not in st.session_state:
@@ -266,18 +261,39 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
-    crases = chr(96) + chr(96) + chr(96)
-    texto = texto.replace(crases + "json", "").replace(crases, "").strip()
+    
+    # 1. Remove qualquer formatação markdown (```json e ```)
+    texto_limpo = re.sub(r'```(?:json)?\n?', '', texto).replace('```', '').strip()
+    
     try:
-        return json.loads(texto)
+        # Tentativa padrão
+        return json.loads(texto_limpo)
     except:
+        # 2. Busca Forçada: Tenta encontrar o dicionário {...} no meio do texto
         try:
-            match = re.search(r'(\{.*\})', texto, re.DOTALL)
-            if match: return json.loads(match.group(1))
-        except Exception as e:
-            st.error("A IA enviou um formato corrompido que não pôde ser limpo.")
-            return {}
-    return {}
+            start = texto_limpo.find('{')
+            end = texto_limpo.rfind('}') + 1
+            if start != -1 and end != 0:
+                return json.loads(texto_limpo[start:end])
+        except:
+            pass
+        
+        # 3. Busca de Lista: Se a IA mandou direto um [...]
+        try:
+            start = texto_limpo.find('[')
+            end = texto_limpo.rfind(']') + 1
+            if start != -1 and end != 0:
+                lista = json.loads(texto_limpo[start:end])
+                # Compatível tanto com o cronograma quanto com questões
+                return {"tarefas": lista, "questoes": lista} 
+        except:
+            pass
+        
+        # Se tudo falhar, mostramos ao usuário o que a IA gerou
+        st.error("🚨 A IA não retornou os dados no formato esperado.")
+        with st.expander("Ver resposta bruta da IA (Para debugar)"):
+            st.code(texto)
+        return {}
 
 # ==========================================
 # CONSTANTES E CORES
@@ -697,7 +713,10 @@ else:
                 else:
                     with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
                         try:
-                            prompt_visao = """Analise estes prints de cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5. Retorne APENAS um JSON: {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
+                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            REGRA DE OURO: Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois.
+                            Formato OBRIGATÓRIO:
+                            {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             conteudo_api = [{"type": "text", "text": prompt_visao}]
                             
                             if imgs_crono:
@@ -717,7 +736,7 @@ else:
                             tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
                             
                             if not tarefas:
-                                st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
+                                pass # O erro já foi mostrado na função extrair_json_seguro
                             else:
                                 batch = db.batch()
                                 tarefas.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
@@ -1715,7 +1734,9 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """Extraia TODAS as questões da imagem. Retorne JSON: {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional.
+                            Formato OBRIGATÓRIO: 
+                            {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
                                 resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}], temperature=0.1)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
@@ -1774,7 +1795,10 @@ else:
                                     for page in reader.pages: texto_pdf += page.extract_text() + "\n"
                                     texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
                                     
-                                    prompt = f"Baseado puramente no seguinte material médico, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne APENAS um JSON válido no formato: {{\"questoes\": [{{\"num\": 1, \"texto\": \"...\", \"opcoes\": {{\"A\": \"...\", \"B\": \"...\"}}, \"correta\": \"A\", \"comentario\": \"...\"}}]}}. \n\nMaterial: {texto_pdf}"
+                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado no material médico fornecido, crie um simulado de {qtd_q} questões. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois.
+                                    Formato OBRIGATÓRIO: 
+                                    {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
+                                    Material: {texto_pdf}"""
                                     
                                     resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
@@ -1784,7 +1808,7 @@ else:
                                         st.session_state.respostas_usuario = {}
                                         st.toast("Simulado gerado! Acesse a aba 'Simulado IA'", icon="🎉")
                                     else:
-                                        st.error("A IA não conseguiu formatar o PDF.")
+                                        pass # O erro já foi mostrado na função extrair_json_seguro
                                 except Exception as e:
                                     st.error(f"Erro ao analisar PDF: {e}")
                         else:
