@@ -210,9 +210,10 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # ==========================================
 def proc_visao(client, mensagens):
     modelos = [
+        "llama-3.2-90b-vision-instruct",
+        "llama-3.2-11b-vision-instruct",
         "llama-3.2-11b-vision-preview", 
-        "llama-3.2-90b-vision-preview",
-        "llava-v1.5-7b-4096-preview"
+        "llama-3.2-90b-vision-preview"
     ]
     seguro = st.session_state.get("mod_vis_seguro")
     if seguro and seguro in modelos:
@@ -503,6 +504,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
+# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -1454,7 +1456,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = proc_texto(client_ia, [{"role": "user", "content": prompt_clonagem}], temp=0.4, max_t=2000)
+                                resposta_clone = proc_texto(client_ia, [{"role": "user", "content": prompt_clonagem}], temp=0.4, max_t=6000)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -1713,7 +1715,7 @@ else:
 
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador Interativo")
-        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
+        aba_p, aba_simulado, aba_sim_pdf, aba_osce = tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
         
         with aba_p:
             with st.form("sim_f", clear_on_submit=True):
