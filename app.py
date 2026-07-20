@@ -53,7 +53,7 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-MODELO_VISAO = "meta-llama/llama-4-scout-17b-16e-instruct"
+MODELO_VISAO = "llama-3.2-11b-vision-preview"
 MODELO_TEXTO = "llama-3.1-8b-instant"
 
 def ativar_pwa():
@@ -136,6 +136,11 @@ def aplicar_css_tema(modo):
         background-color: {input_bg} !important; 
         border: 1px solid {metric_border} !important;
         border-radius: 8px !important;
+        transition: border-color 0.3s ease;
+    }}
+    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within {{
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 1px #2563eb !important;
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
