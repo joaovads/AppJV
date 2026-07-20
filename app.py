@@ -210,6 +210,7 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # ==========================================
 def proc_visao(client, mensagens):
     modelos = [
+        "qwen/qwen3.6-27b",
         "llama-3.2-90b-vision-instruct",
         "llama-3.2-11b-vision-instruct",
         "llama-3.2-11b-vision-preview", 
@@ -237,9 +238,9 @@ def proc_visao(client, mensagens):
 def proc_texto(client, mensagens, temp=0.2, max_t=6000):
     modelos = [
         "llama-3.3-70b-versatile",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
         "llama-3.1-8b-instant",
-        "llama-3.1-70b-versatile",
-        "llama3-8b-8192",
         "mixtral-8x7b-32768"
     ]
     seguro = st.session_state.get("mod_txt_seguro")
@@ -1715,7 +1716,7 @@ else:
 
     elif menu == "🏥 Simulados & OSCE":
         st.header("Simulador Interativo")
-        aba_p, aba_simulado, aba_sim_pdf, aba_osce = tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
+        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
         
         with aba_p:
             with st.form("sim_f", clear_on_submit=True):
