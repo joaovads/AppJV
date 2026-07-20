@@ -53,10 +53,6 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-# Nomes Oficiais Ativos da Groq API
-MODELO_VISAO = "llama-3.2-90b-vision-preview"
-MODELO_TEXTO = "llama-3.3-70b-versatile"
-
 def ativar_pwa():
     pwa_html = """
     <script>
@@ -210,6 +206,61 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
+# MOTORES DE IA COM FALLBACK AUTOMÁTICO (ANTI-CRASH)
+# ==========================================
+def proc_visao(client, mensagens):
+    modelos = [
+        "llama-3.2-11b-vision-preview", 
+        "llama-3.2-90b-vision-preview",
+        "llava-v1.5-7b-4096-preview"
+    ]
+    seguro = st.session_state.get("mod_vis_seguro")
+    if seguro and seguro in modelos:
+        modelos.remove(seguro)
+        modelos.insert(0, seguro)
+        
+    ultimo_erro = None
+    for m in modelos:
+        try:
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=6000)
+            st.session_state.mod_vis_seguro = m
+            return r
+        except Exception as e:
+            ultimo_erro = e
+            err = str(e).lower()
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+                continue
+            raise e
+    raise Exception(f"A API da Groq desativou todos os modelos de visão conhecidos. Erro: {ultimo_erro}")
+
+def proc_texto(client, mensagens, temp=0.2, max_t=6000):
+    modelos = [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "llama-3.1-70b-versatile",
+        "llama3-8b-8192",
+        "mixtral-8x7b-32768"
+    ]
+    seguro = st.session_state.get("mod_txt_seguro")
+    if seguro and seguro in modelos:
+        modelos.remove(seguro)
+        modelos.insert(0, seguro)
+        
+    ultimo_erro = None
+    for m in modelos:
+        try:
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=temp, max_tokens=max_t)
+            st.session_state.mod_txt_seguro = m
+            return r
+        except Exception as e:
+            ultimo_erro = e
+            err = str(e).lower()
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+                continue
+            raise e
+    raise Exception(f"A API da Groq desativou todos os modelos de texto conhecidos. Erro: {ultimo_erro}")
+
+# ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
 # ==========================================
 def db_add(col_name, state_key, data):
@@ -260,9 +311,8 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     
-    # 1. Limpeza do bloco de raciocínio <think> (Muito comum em modelos novos)
+    # 1. Limpeza brutal do bloco de raciocínio <think> (Muito comum em modelos novos)
     texto_limpo = re.sub(r'<think>.*?</think>', '', texto, flags=re.DOTALL)
-    # Se a IA foi cortada e não fechou a tag </think>
     if '<think>' in texto_limpo: 
         texto_limpo = re.sub(r'<think>.*', '', texto_limpo, flags=re.DOTALL)
         
@@ -270,10 +320,9 @@ def extrair_json_seguro(texto):
     texto_limpo = re.sub(r'```(?:json)?\n?', '', texto_limpo).replace('```', '').strip()
     
     try:
-        # Tentativa padrão
         return json.loads(texto_limpo)
     except:
-        # 3. Busca Forçada: Tenta encontrar o dicionário {...} no meio do texto
+        # 3. Busca Forçada por Dicionário {...}
         try:
             start = texto_limpo.find('{')
             end = texto_limpo.rfind('}') + 1
@@ -282,7 +331,7 @@ def extrair_json_seguro(texto):
         except:
             pass
         
-        # 4. Busca de Lista: Se a IA mandou direto um [...]
+        # 4. Busca por Lista [...]
         try:
             start = texto_limpo.find('[')
             end = texto_limpo.rfind(']') + 1
@@ -292,7 +341,6 @@ def extrair_json_seguro(texto):
         except:
             pass
         
-        # Se tudo falhar, mostramos ao usuário o que a IA gerou
         st.error("🚨 A IA não retornou os dados no formato esperado.")
         with st.expander("Ver resposta bruta da IA (Para debugar)"):
             st.code(texto)
@@ -455,7 +503,6 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -730,17 +777,11 @@ else:
                                 for item in st.session_state.prints_colados:
                                     conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64.b64encode(item['bytes']).decode('utf-8')}"}})
                             
-                            resposta = client_ia.chat.completions.create(
-                                model=MODELO_VISAO, 
-                                messages=[{"role": "user", "content": conteudo_api}], 
-                                temperature=0.1,
-                                max_tokens=6000
-                            )
-                            
+                            resposta = proc_visao(client_ia, [{"role": "user", "content": conteudo_api}])
                             tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
                             
                             if not tarefas:
-                                pass # O erro já foi mostrado na função extrair_json_seguro
+                                pass
                             else:
                                 batch = db.batch()
                                 tarefas.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
@@ -1413,7 +1454,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=6000)
+                                resposta_clone = proc_texto(client_ia, [{"role": "user", "content": prompt_clonagem}], temp=0.4, max_t=2000)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -1444,7 +1485,7 @@ else:
                         st.session_state.chat_ia.append({"role": "user", "content": u_in})
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         try:
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=6000)
+                            r = proc_texto(client_ia, msgs_api, temp=0.2, max_t=6000)
                             st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
@@ -1525,7 +1566,7 @@ else:
                     with st.spinner("Avaliando..."):
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."},{"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], max_tokens=6000)
+                            r = proc_texto(client_ia, [{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temp=0.2, max_t=6000)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -1742,7 +1783,8 @@ else:
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
-                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=[{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}], temperature=0.1, max_tokens=6000)
+                                msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                                resposta = proc_visao(client_ia, msg_api)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                 for q in questoes_lote: q['imagem_fonte'] = img_b64
                                 st.session_state.prova_ativa.extend(questoes_lote)
@@ -1804,7 +1846,7 @@ else:
                                     {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
                                     Material: {texto_pdf}"""
                                     
-                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=6000)
+                                    resposta = proc_texto(client_ia, [{"role": "user", "content": prompt}], temp=0.2, max_t=6000)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                     
                                     if questoes_pdf:
@@ -1858,7 +1900,7 @@ else:
                             st.session_state.osce_finished = True
                             with st.spinner("Corrigindo conduta..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=6000)
+                                    r = proc_texto(client_ia, [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temp=0.3, max_t=2500)
                                     st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
                                 except Exception as e: st.error(str(e))
                         
@@ -1872,7 +1914,7 @@ else:
                             st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
                             with st.spinner("Paciente respondendo..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=6000)
+                                    r = proc_texto(client_ia, [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temp=0.6, max_t=1000)
                                     st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro IA: {e}")
                                 st.rerun()
