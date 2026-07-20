@@ -206,12 +206,12 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# MOTORES DE IA COM FALLBACK AUTOMÁTICO (BALANCEAMENTO DE CARGA)
+# MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=800):
+def otimizar_imagem_para_api(img_data, max_size=550):
     """
-    Comprime agresivamente e redimensiona a imagem antes de converter para Base64.
-    Isso evita o Erro 413 (Token Rate Limit Exceeded).
+    Comprime EXTREMAMENTE a imagem para não estourar os limites da Groq API.
+    A API limita em 8000 tokens/minuto, max_size de 550 gera approx 4k tokens.
     """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -228,19 +228,18 @@ def otimizar_imagem_para_api(img_data, max_size=800):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=80)
+        img.save(buf, format="JPEG", quality=60)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
+        # Fallback de segurança se a conversão falhar
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
         return base64.b64encode(img_data.getvalue()).decode('utf-8')
 
 def proc_visao(client, mensagens):
     modelos = [
         "qwen/qwen3.6-27b",
-        "llama-3.2-90b-vision-instruct",
-        "llama-3.2-11b-vision-instruct",
-        "llama-3.2-11b-vision-preview", 
-        "llama-3.2-90b-vision-preview"
+        "llama-3.2-90b-vision-preview",
+        "llama-3.2-11b-vision-preview"
     ]
     seguro = st.session_state.get("mod_vis_seguro")
     if seguro and seguro in modelos:
@@ -250,17 +249,18 @@ def proc_visao(client, mensagens):
     ultimo_erro = None
     for m in modelos:
         try:
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=6000)
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=1500)
             st.session_state.mod_vis_seguro = m
             return r
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            # Se for erro 413 ou Rate Limit, a API pula pro próximo modelo, agindo como um Load Balancer!
-            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
+            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
+                raise Exception("A imagem é muito pesada e bateu no limite (8.000 tokens) da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
                 continue
             raise e
-    raise Exception(f"Todos os modelos atingiram o limite ou falharam. Erro: {ultimo_erro}")
+    raise Exception(f"A API da Groq desativou os modelos de visão conhecidos. Erro: {ultimo_erro}")
 
 def proc_texto(client, mensagens, temp=0.2, max_t=6000):
     modelos = [
@@ -284,10 +284,12 @@ def proc_texto(client, mensagens, temp=0.2, max_t=6000):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
+            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
+                raise Exception("Limite de cota de inteligência artificial da Groq atingido. Aguarde 1 minuto e tente novamente.")
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
                 continue
             raise e
-    raise Exception(f"Todos os modelos de texto atingiram o limite ou falharam. Erro: {ultimo_erro}")
+    raise Exception(f"A API da Groq desativou os modelos de texto conhecidos. Erro: {ultimo_erro}")
 
 # ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
@@ -340,16 +342,18 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     
-    # Limpeza brutal do bloco de raciocínio <think> 
+    # 1. Limpeza brutal do bloco de raciocínio <think> 
     texto_limpo = re.sub(r'<think>.*?</think>', '', texto, flags=re.DOTALL)
     if '<think>' in texto_limpo: 
         texto_limpo = re.sub(r'<think>.*', '', texto_limpo, flags=re.DOTALL)
         
+    # 2. Remove formatação markdown (```json e ```)
     texto_limpo = re.sub(r'```(?:json)?\n?', '', texto_limpo).replace('```', '').strip()
     
     try:
         return json.loads(texto_limpo)
     except:
+        # 3. Busca Forçada por Dicionário {...}
         try:
             start = texto_limpo.find('{')
             end = texto_limpo.rfind('}') + 1
@@ -358,6 +362,7 @@ def extrair_json_seguro(texto):
         except:
             pass
         
+        # 4. Busca por Lista [...]
         try:
             start = texto_limpo.find('[')
             end = texto_limpo.rfind(']') + 1
@@ -792,11 +797,11 @@ else:
                         todas_imagens_b64 = []
                         if imgs_crono:
                             for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=800))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
                         
                         if st.session_state.prints_colados:
                             for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=800))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=550))
                         
                         tarefas_totais = []
                         if todas_imagens_b64:
@@ -978,8 +983,10 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
+        # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
             
+        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
         if st.session_state.get('limpar_nova_nota', False):
             st.session_state.nota_imgs_temp = []
             st.session_state.limpar_nova_nota = False
@@ -1076,6 +1083,7 @@ else:
                 
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
+                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
                 areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
                 
                 if not notas_exibir:
@@ -1091,6 +1099,7 @@ else:
                                 subtema_str = limpar_texto(nota.get('subtema'))
                                 data_str = formatar_data_br(nota.get('data_criacao'))
                                 
+                                # --- NOTA COMPACTA (EXPANDER) ---
                                 with st.expander(f"📝 {subtema_str} - {data_str}"):
                                     c_del1, c_del2 = st.columns([0.85, 0.15])
                                     with c_del2:
@@ -1099,15 +1108,17 @@ else:
                                             st.toast("Anotação excluída!", icon="🗑️")
                                             st.rerun()
                                     
+                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
                                     conteudo_nota = nota.get('pontos_chave', '')
                                     st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
+                                    # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
                                     if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
                                         imgs_exibir.insert(0, nota['imagem_b64'])
                                         
                                     if imgs_exibir:
-                                        st.write("") 
+                                        st.write("") # Espaçamento
                                         cols_view = st.columns(min(len(imgs_exibir), 4))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
@@ -1115,6 +1126,7 @@ else:
                                     
                                     st.divider()
                                     
+                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
                                     if st.session_state.get('nota_em_edicao') != nota_id:
                                         if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = nota_id
@@ -1164,6 +1176,7 @@ else:
                                         elif edit_a == "Cirurgia Geral":
                                             sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
                                         
+                                        # Limpar a subespecialidade se já vier no texto
                                         s_puro = nota.get('subtema', '')
                                         if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
                                             s_puro = " - ".join(s_puro.split(" - ")[1:])
@@ -1795,14 +1808,14 @@ else:
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue()))
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=550))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
                         if colagem_img_sim:
                             buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue()))
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=550))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
