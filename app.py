@@ -210,8 +210,8 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # ==========================================
 def otimizar_imagem_para_api(img_data, max_size=550):
     """
-    Comprime EXTREMAMENTE a imagem para não estourar os limites da Groq API.
-    A API limita em 8000 tokens/minuto, max_size de 550 gera approx 4k tokens.
+    Comprime agressivamente a imagem para não estourar os limites da Groq API.
+    A API limita em 8000 tokens/minuto, max_size de 550 gera ~1.5k tokens.
     """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -237,9 +237,11 @@ def otimizar_imagem_para_api(img_data, max_size=550):
 
 def proc_visao(client, mensagens):
     modelos = [
+        "llama-3.2-11b-vision-instruct",
+        "llama-3.2-90b-vision-instruct",
         "qwen/qwen3.6-27b",
-        "llama-3.2-90b-vision-preview",
-        "llama-3.2-11b-vision-preview"
+        "llama-3.2-11b-vision-preview", 
+        "llama-3.2-90b-vision-preview"
     ]
     seguro = st.session_state.get("mod_vis_seguro")
     if seguro and seguro in modelos:
@@ -249,14 +251,15 @@ def proc_visao(client, mensagens):
     ultimo_erro = None
     for m in modelos:
         try:
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=1500)
+            # max_tokens aumentado para 3500 para evitar que a resposta seja cortada no meio.
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.0, max_tokens=3500)
             st.session_state.mod_vis_seguro = m
             return r
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
             if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
-                raise Exception("A imagem é muito pesada e bateu no limite (8.000 tokens) da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
+                raise Exception("A imagem é muito pesada e bateu no limite da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
             if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
                 continue
             raise e
@@ -806,8 +809,8 @@ else:
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            REGRA DE OURO: Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO explicar o raciocínio.
+                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             
@@ -983,10 +986,8 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
-        # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
             
-        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
         if st.session_state.get('limpar_nova_nota', False):
             st.session_state.nota_imgs_temp = []
             st.session_state.limpar_nova_nota = False
@@ -1083,7 +1084,6 @@ else:
                 
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
-                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
                 areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
                 
                 if not notas_exibir:
@@ -1099,7 +1099,6 @@ else:
                                 subtema_str = limpar_texto(nota.get('subtema'))
                                 data_str = formatar_data_br(nota.get('data_criacao'))
                                 
-                                # --- NOTA COMPACTA (EXPANDER) ---
                                 with st.expander(f"📝 {subtema_str} - {data_str}"):
                                     c_del1, c_del2 = st.columns([0.85, 0.15])
                                     with c_del2:
@@ -1108,17 +1107,15 @@ else:
                                             st.toast("Anotação excluída!", icon="🗑️")
                                             st.rerun()
                                     
-                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
                                     conteudo_nota = nota.get('pontos_chave', '')
                                     st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
-                                    # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
                                     if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
                                         imgs_exibir.insert(0, nota['imagem_b64'])
                                         
                                     if imgs_exibir:
-                                        st.write("") # Espaçamento
+                                        st.write("") 
                                         cols_view = st.columns(min(len(imgs_exibir), 4))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
@@ -1126,7 +1123,6 @@ else:
                                     
                                     st.divider()
                                     
-                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
                                     if st.session_state.get('nota_em_edicao') != nota_id:
                                         if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = nota_id
@@ -1176,7 +1172,6 @@ else:
                                         elif edit_a == "Cirurgia Geral":
                                             sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
                                         
-                                        # Limpar a subespecialidade se já vier no texto
                                         s_puro = nota.get('subtema', '')
                                         if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
                                             s_puro = " - ".join(s_puro.split(" - ")[1:])
@@ -1824,7 +1819,7 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Comece a resposta DIRETAMENTE com o caracter '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
@@ -1886,7 +1881,7 @@ else:
                                     for page in reader.pages: texto_pdf += page.extract_text() + "\n"
                                     texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
                                     
-                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar.
+                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Responda DIRETAMENTE começando com o caracter '{{'.
                                     Formato OBRIGATÓRIO: 
                                     {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
                                     Material: {texto_pdf}"""
