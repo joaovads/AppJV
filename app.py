@@ -209,10 +209,6 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
 # ==========================================
 def otimizar_imagem_para_api(img_data, max_size=550):
-    """
-    Comprime agressivamente a imagem para não estourar os limites da Groq API.
-    A API limita em 8000 tokens/minuto, max_size de 550 gera ~1.5k tokens.
-    """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
         return base64.b64encode(img_data.getvalue()).decode('utf-8')
@@ -231,15 +227,14 @@ def otimizar_imagem_para_api(img_data, max_size=550):
         img.save(buf, format="JPEG", quality=60)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
-        # Fallback de segurança se a conversão falhar
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
         return base64.b64encode(img_data.getvalue()).decode('utf-8')
 
 def proc_visao(client, mensagens):
     modelos = [
-        "llama-3.2-11b-vision-instruct",
-        "llama-3.2-90b-vision-instruct",
         "qwen/qwen3.6-27b",
+        "llama-3.2-90b-vision-instruct",
+        "llama-3.2-11b-vision-instruct",
         "llama-3.2-11b-vision-preview", 
         "llama-3.2-90b-vision-preview"
     ]
@@ -251,8 +246,7 @@ def proc_visao(client, mensagens):
     ultimo_erro = None
     for m in modelos:
         try:
-            # max_tokens aumentado para 3500 para evitar que a resposta seja cortada no meio.
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.0, max_tokens=3500)
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=3500)
             st.session_state.mod_vis_seguro = m
             return r
         except Exception as e:
@@ -293,6 +287,7 @@ def proc_texto(client, mensagens, temp=0.2, max_t=6000):
                 continue
             raise e
     raise Exception(f"A API da Groq desativou os modelos de texto conhecidos. Erro: {ultimo_erro}")
+
 
 # ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
@@ -345,40 +340,54 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     
-    # 1. Limpeza brutal do bloco de raciocínio <think> 
-    texto_limpo = re.sub(r'<think>.*?</think>', '', texto, flags=re.DOTALL)
-    if '<think>' in texto_limpo: 
-        texto_limpo = re.sub(r'<think>.*', '', texto_limpo, flags=re.DOTALL)
-        
-    # 2. Remove formatação markdown (```json e ```)
-    texto_limpo = re.sub(r'```(?:json)?\n?', '', texto_limpo).replace('```', '').strip()
+    # 1. Limpeza brutal do bloco de raciocínio <think>
+    t = re.sub(r'<think>.*?</think>', '', str(texto), flags=re.DOTALL)
+    t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
     
-    try:
-        return json.loads(texto_limpo)
-    except:
-        # 3. Busca Forçada por Dicionário {...}
-        try:
-            start = texto_limpo.find('{')
-            end = texto_limpo.rfind('}') + 1
-            if start != -1 and end != 0:
-                return json.loads(texto_limpo[start:end])
-        except:
-            pass
-        
-        # 4. Busca por Lista [...]
-        try:
-            start = texto_limpo.find('[')
-            end = texto_limpo.rfind(']') + 1
-            if start != -1 and end != 0:
-                lista = json.loads(texto_limpo[start:end])
-                return {"tarefas": lista, "questoes": lista} 
-        except:
-            pass
-        
-        st.error("🚨 A IA não retornou os dados no formato esperado.")
-        with st.expander("Ver resposta bruta da IA (Para debugar)"):
-            st.code(texto)
+    # 2. Busca do primeiro '{' ou '[' e último '}' ou ']'
+    idx_obj_ini = t.find('{')
+    idx_arr_ini = t.find('[')
+    
+    is_obj = idx_obj_ini != -1 and (idx_arr_ini == -1 or idx_obj_ini < idx_arr_ini)
+    is_arr = idx_arr_ini != -1 and (idx_obj_ini == -1 or idx_arr_ini < idx_obj_ini)
+    
+    if not is_obj and not is_arr:
         return {}
+        
+    json_str = ""
+    try:
+        if is_obj:
+            fim = t.rfind('}')
+            json_str = t[idx_obj_ini:fim+1]
+        else:
+            fim = t.rfind(']')
+            json_str = t[idx_arr_ini:fim+1]
+            
+        json_str = re.sub(r'```(?:json)?', '', json_str).strip()
+        
+        parsed = json.loads(json_str)
+        if isinstance(parsed, list):
+            return {"tarefas": parsed, "questoes": parsed}
+        return parsed
+    except Exception:
+        # 3. Protocolo Auto-Cicatrizante: Tenta fechar a string cortada pela API
+        try:
+            faltando_chaves = json_str.count('{') - json_str.count('}')
+            faltando_colchetes = json_str.count('[') - json_str.count(']')
+            faltando_aspas = json_str.count('"') % 2
+            
+            fix = json_str
+            if faltando_aspas != 0: fix += '"'
+            if faltando_chaves > 0 and fix.strip().endswith(','): fix = fix.strip()[:-1] 
+            if faltando_colchetes > 0: fix += ']' * faltando_colchetes
+            if faltando_chaves > 0: fix += '}' * faltando_chaves
+            
+            parsed = json.loads(fix)
+            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+            return parsed
+        except:
+            st.error("A IA gerou um formato corrompido irreparável.")
+            return {}
 
 # ==========================================
 # CONSTANTES E CORES
@@ -392,11 +401,11 @@ CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecolog
 PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Vermelho", 5: "🟪 Roxo"}
 
 BANCO_IMAGENS_OSCE = {
-    "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
-    "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
-    "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
-    "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
-    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg"
+    "ecg_normal": "[https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png](https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png)",
+    "ecg_infarto_supra": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png)",
+    "rx_torax_normal": "[https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png](https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png)",
+    "rx_torax_pneumonia": "[https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg)",
+    "tc_cranio_normal": "[https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg](https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg)"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -809,8 +818,9 @@ else:
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
+                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            MUITO IMPORTANTE: PROIBIDO PENSAR EM VOZ ALTA. PROIBIDO USAR <think>. PROIBIDO QUALQUER TEXTO FORA DO JSON.
+                            Inicie a sua resposta diretamente com o caractere {.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             
@@ -856,7 +866,7 @@ else:
                             batch.commit()
                             
                             st.session_state.prints_colados = []
-                            st.toast(f"✅ {len(tarefas_totais)} aulas importadas e distribuídas!", icon="🎉")
+                            st.toast(f"✅ {len(tarefas_totais)} metas importadas e distribuídas!", icon="🎉")
                             time.sleep(1)
                             st.rerun()
 
@@ -1819,7 +1829,7 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Comece a resposta DIRETAMENTE com o caracter '{'.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar. PROIBIDO usar <think>. Inicie a resposta diretamente com o caractere '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
