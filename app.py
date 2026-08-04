@@ -208,7 +208,11 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # ==========================================
 # MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=550):
+def otimizar_imagem_para_api(img_data, max_size=800):
+    """
+    Comprime agresivamente e redimensiona a imagem antes de converter para Base64.
+    Isso evita o Erro 413 (Token Rate Limit Exceeded) na API e Excesso de Tamanho no Firestore.
+    """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
         return base64.b64encode(img_data.getvalue()).decode('utf-8')
@@ -224,7 +228,7 @@ def otimizar_imagem_para_api(img_data, max_size=550):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=60)
+        img.save(buf, format="JPEG", quality=75)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -246,18 +250,17 @@ def proc_visao(client, mensagens):
     ultimo_erro = None
     for m in modelos:
         try:
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=3500)
+            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=6000)
             st.session_state.mod_vis_seguro = m
             return r
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
-                raise Exception("A imagem é muito pesada e bateu no limite da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+            # Se for erro 413 ou Rate Limit, a API pula pro próximo modelo, agindo como um Load Balancer!
+            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
                 continue
             raise e
-    raise Exception(f"A API da Groq desativou os modelos de visão conhecidos. Erro: {ultimo_erro}")
+    raise Exception(f"Todos os modelos atingiram o limite ou falharam. Erro: {ultimo_erro}")
 
 def proc_texto(client, mensagens, temp=0.2, max_t=6000):
     modelos = [
@@ -281,13 +284,10 @@ def proc_texto(client, mensagens, temp=0.2, max_t=6000):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
-                raise Exception("Limite de cota de inteligência artificial da Groq atingido. Aguarde 1 minuto e tente novamente.")
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
+            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
                 continue
             raise e
-    raise Exception(f"A API da Groq desativou os modelos de texto conhecidos. Erro: {ultimo_erro}")
-
+    raise Exception(f"Todos os modelos de texto atingiram o limite ou falharam. Erro: {ultimo_erro}")
 
 # ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
@@ -340,43 +340,40 @@ def get_ia_client():
 def extrair_json_seguro(texto):
     if not texto: return {}
     
-    # 1. Limpeza brutal do bloco de raciocínio <think>
+    # Limpeza brutal do bloco de raciocínio <think> 
     t = re.sub(r'<think>.*?</think>', '', str(texto), flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
     
-    # 2. Busca do primeiro '{' ou '[' e último '}' ou ']'
-    idx_obj_ini = t.find('{')
-    idx_arr_ini = t.find('[')
+    # Remove marcações markdown
+    t = re.sub(r'```(?:json)?\n?', '', t).replace('```', '').strip()
     
-    is_obj = idx_obj_ini != -1 and (idx_arr_ini == -1 or idx_obj_ini < idx_arr_ini)
-    is_arr = idx_arr_ini != -1 and (idx_obj_ini == -1 or idx_arr_ini < idx_obj_ini)
-    
-    if not is_obj and not is_arr:
-        return {}
-        
-    json_str = ""
     try:
-        if is_obj:
-            fim = t.rfind('}')
-            json_str = t[idx_obj_ini:fim+1]
-        else:
-            fim = t.rfind(']')
-            json_str = t[idx_arr_ini:fim+1]
-            
-        json_str = re.sub(r'```(?:json)?', '', json_str).strip()
-        
-        parsed = json.loads(json_str)
-        if isinstance(parsed, list):
-            return {"tarefas": parsed, "questoes": parsed}
-        return parsed
-    except Exception:
-        # 3. Protocolo Auto-Cicatrizante: Tenta fechar a string cortada pela API
+        return json.loads(t)
+    except:
         try:
-            faltando_chaves = json_str.count('{') - json_str.count('}')
-            faltando_colchetes = json_str.count('[') - json_str.count(']')
-            faltando_aspas = json_str.count('"') % 2
+            start = t.find('{')
+            end = t.rfind('}') + 1
+            if start != -1 and end != 0:
+                return json.loads(t[start:end])
+        except:
+            pass
+        
+        try:
+            start = t.find('[')
+            end = t.rfind(']') + 1
+            if start != -1 and end != 0:
+                lista = json.loads(t[start:end])
+                return {"tarefas": lista, "questoes": lista} 
+        except:
+            pass
+        
+        # Reparo extremo: fechar chaves pendentes se a API cortou a resposta
+        try:
+            faltando_chaves = t.count('{') - t.count('}')
+            faltando_colchetes = t.count('[') - t.count(']')
+            faltando_aspas = t.count('"') % 2
             
-            fix = json_str
+            fix = t
             if faltando_aspas != 0: fix += '"'
             if faltando_chaves > 0 and fix.strip().endswith(','): fix = fix.strip()[:-1] 
             if faltando_colchetes > 0: fix += ']' * faltando_colchetes
@@ -386,7 +383,9 @@ def extrair_json_seguro(texto):
             if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
             return parsed
         except:
-            st.error("A IA gerou um formato corrompido irreparável.")
+            st.error("🚨 A IA não retornou os dados no formato esperado.")
+            with st.expander("Ver resposta bruta da IA (Para debugar)"):
+                st.code(texto)
             return {}
 
 # ==========================================
@@ -401,11 +400,11 @@ CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecolog
 PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Vermelho", 5: "🟪 Roxo"}
 
 BANCO_IMAGENS_OSCE = {
-    "ecg_normal": "[https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png](https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png)",
-    "ecg_infarto_supra": "[https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png)",
-    "rx_torax_normal": "[https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png](https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png)",
-    "rx_torax_pneumonia": "[https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg](https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg)",
-    "tc_cranio_normal": "[https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg](https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg)"
+    "ecg_normal": "https://upload.wikimedia.org/wikipedia/commons/b/b6/12_lead_normal_ECG.png",
+    "ecg_infarto_supra": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/12-lead_ECG_showing_inferior_STEMI.png/1024px-12-lead_ECG_showing_inferior_STEMI.png",
+    "rx_torax_normal": "https://upload.wikimedia.org/wikipedia/commons/c/c8/Chest_Xray_PA_3-8-2010.png",
+    "rx_torax_pneumonia": "https://upload.wikimedia.org/wikipedia/commons/e/e0/Pneumonia_Chest_X-ray.jpg",
+    "tc_cranio_normal": "https://upload.wikimedia.org/wikipedia/commons/1/1a/Normal_CT_of_the_brain.jpg"
 }
 
 def renderizar_mensagem_osce(texto):
@@ -809,18 +808,17 @@ else:
                         todas_imagens_b64 = []
                         if imgs_crono:
                             for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=800))
                         
                         if st.session_state.prints_colados:
                             for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=550))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=800))
                         
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            MUITO IMPORTANTE: PROIBIDO PENSAR EM VOZ ALTA. PROIBIDO USAR <think>. PROIBIDO QUALQUER TEXTO FORA DO JSON.
-                            Inicie a sua resposta diretamente com o caractere {.
+                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             
@@ -1017,9 +1015,7 @@ else:
                         key="paste_nota_nova"
                     )
                     if res_paste_nota.image_data is not None:
-                        buf = io.BytesIO()
-                        res_paste_nota.image_data.save(buf, format="PNG")
-                        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
                         if img_b64 not in st.session_state.nota_imgs_temp:
                             st.session_state.nota_imgs_temp.append(img_b64)
                             st.rerun()
@@ -1044,9 +1040,9 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             sub_a = ""
             if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
             elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
             with st.form("form_nova_nota", clear_on_submit=True):
                 s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
@@ -1154,12 +1150,10 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    buf_e = io.BytesIO()
-                                                    res_paste_edit.image_data.save(buf_e, format="PNG")
-                                                    img_eb64 = base64.b64encode(buf_e.getvalue()).decode('utf-8')
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
                                                     if img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": None})
+                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
                                                         st.rerun()
                                         with col_eimg:
                                             if imgs_exibir:
@@ -1169,7 +1163,7 @@ else:
                                                         st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
                                                             imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": None})
+                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
                                                             st.rerun()
 
                                         st.markdown("#### ✍️ Editar Texto")
@@ -1829,7 +1823,7 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar. PROIBIDO usar <think>. Inicie a resposta diretamente com o caractere '{'.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Responda DIRETAMENTE começando com o caracter '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
