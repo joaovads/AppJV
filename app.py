@@ -221,11 +221,15 @@ def db_add(col_name, state_key, data):
     return doc_ref
 
 def db_update(col_name, state_key, doc_id, updates):
+    # Cópia enviada para o Firebase Cloud
     db.collection(col_name).document(doc_id).update(updates)
+    
+    # Sincroniza a memória local blindada contra objetos Sentinel do Google
     if state_key in st.session_state.dados:
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
                 for k, v in updates.items():
+                    # Ignora e exclui objetos Sentinel do Google da memória local para não quebrar a tela
                     if 'Sentinel' in str(type(v)):
                         item.pop(k, None)
                     else:
@@ -253,11 +257,20 @@ def invalidar_cache(colecoes=None):
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
 def otimizar_imagem_para_api(img_data, max_size=550):
+    """
+    Compressor universal blindado. Identifica automaticamente se a imagem é
+    bytes, buffer do Streamlit ou objeto PIL Image nativo e faz a compressão de forma segura.
+    """
     if Image is None:
-        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
-        if hasattr(img_data, 'getvalue'): return base64.b64encode(img_data.getvalue()).decode('utf-8')
+        try:
+            if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
+            if hasattr(img_data, 'getvalue'): return base64.b64encode(img_data.getvalue()).decode('utf-8')
+            if hasattr(img_data, 'read'): return base64.b64encode(img_data.read()).decode('utf-8')
+        except: pass
         return ""
+        
     try:
+        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -274,10 +287,12 @@ def otimizar_imagem_para_api(img_data, max_size=550):
             img = img.convert('RGB')
             
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=75)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
+        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -498,6 +513,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
+# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -771,7 +787,7 @@ else:
                             
                             if st.session_state.prints_colados:
                                 for item in st.session_state.prints_colados:
-                                    b64_otimizado = otimizar_imagem_para_api(item['bytes'])
+                                    b64_otimizado = otimizar_imagem_para_api(item['img'])
                                     conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
                             
                             resposta = client_ia.chat.completions.create(
@@ -967,7 +983,7 @@ else:
                         key="paste_nota_nova"
                     )
                     if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data)
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
                         if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                             st.session_state.nota_imgs_temp.append(img_b64)
                             st.rerun()
@@ -981,7 +997,8 @@ else:
                     for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
                         with cols[idx % 3]:
                             if isinstance(img_b64, str) and len(img_b64) > 50:
-                                try: st.image(base64.b64decode(img_b64), use_container_width=True)
+                                try:
+                                    st.image(base64.b64decode(img_b64), use_container_width=True)
                                 except: pass
                             if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
                                 st.session_state.nota_imgs_temp.pop(idx)
@@ -994,9 +1011,9 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             sub_a = ""
             if a == "Clínica Médica":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
             elif a == "Cirurgia Geral":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
             with st.form("form_nova_nota", clear_on_submit=True):
                 s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
@@ -1080,7 +1097,7 @@ else:
                                         
                                     if imgs_exibir:
                                         st.write("") # Espaçamento
-                                        cols_view = st.columns(min(len(imgs_exibir), 4))
+                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
                                                 if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
@@ -1111,14 +1128,14 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data)
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
                                                         st.rerun()
                                         with col_eimg:
                                             if imgs_exibir:
-                                                cols_e = st.columns(3)
+                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
                                                 for idx_e, img_b64_e in enumerate(imgs_exibir):
                                                     with cols_e[idx_e % 3]:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
@@ -1571,7 +1588,7 @@ else:
                     with st.spinner("Avaliando..."):
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], max_tokens=6000)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=6000)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -1770,12 +1787,15 @@ else:
                                 from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(img))
+                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=550))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
-                            for img in imgs_prova: todas_imagens_b64.append(otimizar_imagem_para_api(img))
+                            for img in imgs_prova: 
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
                         if colagem_img_sim:
-                            todas_imagens_b64.append(otimizar_imagem_para_api(colagem_img_sim))
+                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=550))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
@@ -1784,7 +1804,7 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{'.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar. PROIBIDO usar <think>. Inicie a resposta diretamente com o caractere '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
@@ -1903,7 +1923,7 @@ else:
                             st.session_state.osce_finished = True
                             with st.spinner("Corrigindo conduta..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=6000)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
                                     st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
                                 except Exception as e: st.error(str(e))
                         
@@ -1917,7 +1937,7 @@ else:
                             st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
                             with st.spinner("Paciente respondendo..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=6000)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
                                     st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro IA: {e}")
                                 st.rerun()
