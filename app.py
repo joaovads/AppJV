@@ -208,10 +208,10 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
 # ==========================================
 # MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=800):
+def otimizar_imagem_para_api(img_data, max_size=550):
     """
     Comprime agresivamente e redimensiona a imagem antes de converter para Base64.
-    Isso evita o Erro 413 (Token Rate Limit Exceeded) na API e Excesso de Tamanho no Firestore.
+    Isso evita o Erro 413 (Token Rate Limit Exceeded).
     """
     if Image is None:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -228,7 +228,7 @@ def otimizar_imagem_para_api(img_data, max_size=800):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=75)
+        img.save(buf, format="JPEG", quality=60)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -256,11 +256,12 @@ def proc_visao(client, mensagens):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            # Se for erro 413 ou Rate Limit, a API pula pro próximo modelo, agindo como um Load Balancer!
-            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
+            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
+                raise Exception("A imagem é muito pesada e bateu no limite da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
                 continue
             raise e
-    raise Exception(f"Todos os modelos atingiram o limite ou falharam. Erro: {ultimo_erro}")
+    raise Exception(f"A API da Groq desativou os modelos de visão conhecidos. Erro: {ultimo_erro}")
 
 def proc_texto(client, mensagens, temp=0.2, max_t=6000):
     modelos = [
@@ -284,10 +285,12 @@ def proc_texto(client, mensagens, temp=0.2, max_t=6000):
         except Exception as e:
             ultimo_erro = e
             err = str(e).lower()
-            if any(k in err for k in ["404", "400", "413", "429", "not found", "decommissioned", "does not exist", "rate_limit", "too large"]): 
+            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
+                raise Exception("Limite de cota de inteligência artificial da Groq atingido. Aguarde 1 minuto e tente novamente.")
+            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
                 continue
             raise e
-    raise Exception(f"Todos os modelos de texto atingiram o limite ou falharam. Erro: {ultimo_erro}")
+    raise Exception(f"A API da Groq desativou os modelos de texto conhecidos. Erro: {ultimo_erro}")
 
 # ==========================================
 # FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
@@ -301,11 +304,18 @@ def db_add(col_name, state_key, data):
     return doc_ref
 
 def db_update(col_name, state_key, doc_id, updates):
+    # Envia para a nuvem
     db.collection(col_name).document(doc_id).update(updates)
+    
+    # Atualiza a memória local (e exclui os campos marcados com DELETE_FIELD para não quebrar o app)
     if state_key in st.session_state.dados:
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
-                item.update(updates)
+                for k, v in updates.items():
+                    if v == firestore.DELETE_FIELD:
+                        item.pop(k, None)
+                    else:
+                        item[k] = v
                 break
 
 def db_delete(col_name, state_key, doc_id):
@@ -808,17 +818,18 @@ else:
                         todas_imagens_b64 = []
                         if imgs_crono:
                             for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=800))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
                         
                         if st.session_state.prints_colados:
                             for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=800))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=550))
                         
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
+                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            MUITO IMPORTANTE: PROIBIDO PENSAR EM VOZ ALTA. PROIBIDO USAR <think>. PROIBIDO QUALQUER TEXTO FORA DO JSON.
+                            Inicie a sua resposta diretamente com o caractere {.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
                             
@@ -1028,7 +1039,10 @@ else:
                     cols = st.columns(3)
                     for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
                         with cols[idx % 3]:
-                            st.image(base64.b64decode(img_b64), use_container_width=True)
+                            if isinstance(img_b64, str):
+                                try:
+                                    st.image(base64.b64decode(img_b64), use_container_width=True)
+                                except: pass
                             if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
                                 st.session_state.nota_imgs_temp.pop(idx)
                                 st.rerun()
@@ -1040,9 +1054,9 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             sub_a = ""
             if a == "Clínica Médica":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
             elif a == "Cirurgia Geral":
-                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
             with st.form("form_nova_nota", clear_on_submit=True):
                 s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
@@ -1122,10 +1136,13 @@ else:
                                         
                                     if imgs_exibir:
                                         st.write("") 
-                                        cols_view = st.columns(min(len(imgs_exibir), 4))
+                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
-                                                st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                    try:
+                                                        st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                    except: pass
                                     
                                     st.divider()
                                     
@@ -1157,10 +1174,13 @@ else:
                                                         st.rerun()
                                         with col_eimg:
                                             if imgs_exibir:
-                                                cols_e = st.columns(3)
+                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
                                                 for idx_e, img_b64_e in enumerate(imgs_exibir):
                                                     with cols_e[idx_e % 3]:
-                                                        st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
+                                                            try:
+                                                                st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                            except: pass
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
                                                             imgs_exibir.pop(idx_e)
                                                             db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
