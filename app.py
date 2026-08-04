@@ -53,6 +53,10 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
+# Modelos atualizados de produção
+MODELO_VISAO = "qwen/qwen3.6-27b"
+MODELO_TEXTO = "llama-3.3-70b-versatile"
+
 def ativar_pwa():
     pwa_html = """
     <script>
@@ -206,94 +210,7 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# MOTORES DE IA COM FALLBACK AUTOMÁTICO E COMPRESSOR DE IMAGENS
-# ==========================================
-def otimizar_imagem_para_api(img_data, max_size=550):
-    """
-    Comprime agresivamente e redimensiona a imagem antes de converter para Base64.
-    Isso evita o Erro 413 (Token Rate Limit Exceeded).
-    """
-    if Image is None:
-        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
-        return base64.b64encode(img_data.getvalue()).decode('utf-8')
-    try:
-        if isinstance(img_data, bytes):
-            img = Image.open(io.BytesIO(img_data))
-        else:
-            img = Image.open(img_data)
-            
-        if img.mode != 'RGB': 
-            img = img.convert('RGB')
-            
-        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-        
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=60)
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
-    except Exception:
-        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
-        return base64.b64encode(img_data.getvalue()).decode('utf-8')
-
-def proc_visao(client, mensagens):
-    modelos = [
-        "qwen/qwen3.6-27b",
-        "llama-3.2-90b-vision-instruct",
-        "llama-3.2-11b-vision-instruct",
-        "llama-3.2-11b-vision-preview", 
-        "llama-3.2-90b-vision-preview"
-    ]
-    seguro = st.session_state.get("mod_vis_seguro")
-    if seguro and seguro in modelos:
-        modelos.remove(seguro)
-        modelos.insert(0, seguro)
-        
-    ultimo_erro = None
-    for m in modelos:
-        try:
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=0.1, max_tokens=6000)
-            st.session_state.mod_vis_seguro = m
-            return r
-        except Exception as e:
-            ultimo_erro = e
-            err = str(e).lower()
-            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
-                raise Exception("A imagem é muito pesada e bateu no limite da cota gratuita da API. Recorte a imagem focando apenas no texto ou envie apenas uma por vez.")
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
-                continue
-            raise e
-    raise Exception(f"A API da Groq desativou os modelos de visão conhecidos. Erro: {ultimo_erro}")
-
-def proc_texto(client, mensagens, temp=0.2, max_t=6000):
-    modelos = [
-        "llama-3.3-70b-versatile",
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "llama-3.1-8b-instant",
-        "mixtral-8x7b-32768"
-    ]
-    seguro = st.session_state.get("mod_txt_seguro")
-    if seguro and seguro in modelos:
-        modelos.remove(seguro)
-        modelos.insert(0, seguro)
-        
-    ultimo_erro = None
-    for m in modelos:
-        try:
-            r = client.chat.completions.create(model=m, messages=mensagens, temperature=temp, max_tokens=max_t)
-            st.session_state.mod_txt_seguro = m
-            return r
-        except Exception as e:
-            ultimo_erro = e
-            err = str(e).lower()
-            if "413" in err or "too large" in err or "rate limit" in err or "tokens per minute" in err:
-                raise Exception("Limite de cota de inteligência artificial da Groq atingido. Aguarde 1 minuto e tente novamente.")
-            if "404" in err or "400" in err or "not found" in err or "decommissioned" in err or "does not exist" in err: 
-                continue
-            raise e
-    raise Exception(f"A API da Groq desativou os modelos de texto conhecidos. Erro: {ultimo_erro}")
-
-# ==========================================
-# FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
+# FUNÇÕES DE BANCO OTIMIZADAS (ZERO LATÊNCIA)
 # ==========================================
 def db_add(col_name, state_key, data):
     doc_ref = db.collection(col_name).document()
@@ -304,15 +221,12 @@ def db_add(col_name, state_key, data):
     return doc_ref
 
 def db_update(col_name, state_key, doc_id, updates):
-    # Envia para a nuvem
     db.collection(col_name).document(doc_id).update(updates)
-    
-    # Atualiza a memória local (e exclui os campos marcados com DELETE_FIELD para não quebrar o app)
     if state_key in st.session_state.dados:
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
                 for k, v in updates.items():
-                    if v == firestore.DELETE_FIELD:
+                    if 'Sentinel' in str(type(v)):
                         item.pop(k, None)
                     else:
                         item[k] = v
@@ -335,6 +249,48 @@ def invalidar_cache(colecoes=None):
         st.session_state.pop('dados', None)
         st.session_state.user_data_loaded = False
 
+# ==========================================
+# COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
+# ==========================================
+def otimizar_imagem_para_api(img_data, max_size=550):
+    if Image is None:
+        if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
+        if hasattr(img_data, 'getvalue'): return base64.b64encode(img_data.getvalue()).decode('utf-8')
+        return ""
+    try:
+        if isinstance(img_data, Image.Image):
+            img = img_data.copy()
+        elif isinstance(img_data, bytes):
+            img = Image.open(io.BytesIO(img_data))
+        elif hasattr(img_data, 'getvalue'):
+            img = Image.open(io.BytesIO(img_data.getvalue()))
+        elif hasattr(img_data, 'read'):
+            img_data.seek(0)
+            img = Image.open(io.BytesIO(img_data.read()))
+        else:
+            img = Image.open(img_data)
+            
+        if img.mode != 'RGB': 
+            img = img.convert('RGB')
+            
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=75)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception:
+        try:
+            if isinstance(img_data, Image.Image):
+                buf = io.BytesIO()
+                img_data.save(buf, format="PNG")
+                return base64.b64encode(buf.getvalue()).decode('utf-8')
+            if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
+            if hasattr(img_data, 'getvalue'): return base64.b64encode(img_data.getvalue()).decode('utf-8')
+            if hasattr(img_data, 'read'):
+                img_data.seek(0)
+                return base64.b64encode(img_data.read()).decode('utf-8')
+        except: pass
+        return ""
+
 def get_ia_client():
     if "model_ia" not in st.session_state:
         if Groq and CHAVE_GROQ_FIXA:
@@ -349,52 +305,39 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
-    
-    # Limpeza brutal do bloco de raciocínio <think> 
     t = re.sub(r'<think>.*?</think>', '', str(texto), flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
-    
-    # Remove marcações markdown
-    t = re.sub(r'```(?:json)?\n?', '', t).replace('```', '').strip()
-    
+    crases = chr(96) + chr(96) + chr(96)
+    t = t.replace(crases + "json", "").replace(crases, "").strip()
     try:
         return json.loads(t)
     except:
         try:
-            start = t.find('{')
-            end = t.rfind('}') + 1
-            if start != -1 and end != 0:
-                return json.loads(t[start:end])
-        except:
-            pass
-        
+            match = re.search(r'(\{.*\})', t, re.DOTALL)
+            if match: return json.loads(match.group(1))
+        except: pass
         try:
             start = t.find('[')
             end = t.rfind(']') + 1
             if start != -1 and end != 0:
                 lista = json.loads(t[start:end])
                 return {"tarefas": lista, "questoes": lista} 
-        except:
-            pass
-        
-        # Reparo extremo: fechar chaves pendentes se a API cortou a resposta
+        except: pass
         try:
             faltando_chaves = t.count('{') - t.count('}')
             faltando_colchetes = t.count('[') - t.count(']')
             faltando_aspas = t.count('"') % 2
-            
             fix = t
             if faltando_aspas != 0: fix += '"'
             if faltando_chaves > 0 and fix.strip().endswith(','): fix = fix.strip()[:-1] 
             if faltando_colchetes > 0: fix += ']' * faltando_colchetes
             if faltando_chaves > 0: fix += '}' * faltando_chaves
-            
             parsed = json.loads(fix)
             if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
             return parsed
         except:
-            st.error("🚨 A IA não retornou os dados no formato esperado.")
-            with st.expander("Ver resposta bruta da IA (Para debugar)"):
+            st.error("A IA enviou um formato corrompido que não pôde ser limpo.")
+            with st.expander("Ver resposta bruta da IA"):
                 st.code(texto)
             return {}
 
@@ -813,71 +756,67 @@ else:
                 client_ia = get_ia_client()
                 if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando imagens uma a uma para evitar bloqueios de limite..."):
-                        
-                        todas_imagens_b64 = []
-                        if imgs_crono:
-                            for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
-                        
-                        if st.session_state.prints_colados:
-                            for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['bytes'], max_size=550))
-                        
-                        tarefas_totais = []
-                        if todas_imagens_b64:
-                            barra_progresso = st.progress(0)
+                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
+                        try:
                             prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            MUITO IMPORTANTE: PROIBIDO PENSAR EM VOZ ALTA. PROIBIDO USAR <think>. PROIBIDO QUALQUER TEXTO FORA DO JSON.
-                            Inicie a sua resposta diretamente com o caractere {.
+                            REGRA DE OURO: Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO explicar o raciocínio. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caractere {.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
+                            conteudo_api = [{"type": "text", "text": prompt_visao}]
                             
-                            for idx_img, img_b64 in enumerate(todas_imagens_b64):
-                                conteudo_api = [
-                                    {"type": "text", "text": prompt_visao},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                                ]
-                                try:
-                                    resposta = proc_visao(client_ia, [{"role": "user", "content": conteudo_api}])
-                                    tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
-                                    tarefas_totais.extend(tarefas_lote)
-                                except Exception as e:
-                                    st.warning(f"Aviso na imagem {idx_img+1}: {e}")
-                                barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
-                        
-                        if not tarefas_totais:
-                            st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
-                        else:
-                            batch = db.batch()
-                            tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                            dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
+                            if imgs_crono:
+                                for img in imgs_crono:
+                                    b64_otimizado = otimizar_imagem_para_api(img)
+                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
                             
-                            for i, t in enumerate(tarefas_totais):
-                                dia_idx = (i // 4) % len(dias_semana)
-                                t_dia = dias_semana[dia_idx]
+                            if st.session_state.prints_colados:
+                                for item in st.session_state.prints_colados:
+                                    b64_otimizado = otimizar_imagem_para_api(item['bytes'])
+                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
+                            
+                            resposta = client_ia.chat.completions.create(
+                                model=MODELO_VISAO, 
+                                messages=[{"role": "user", "content": conteudo_api}], 
+                                temperature=0.1,
+                                max_tokens=3500
+                            )
+                            
+                            tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
+                            
+                            if not tarefas:
+                                st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
+                            else:
+                                batch = db.batch()
+                                tarefas.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
+                                dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
                                 
-                                doc_ref = db.collection("cronogramas").document()
-                                nova_tarefa = {
-                                    "usuario_id": u_id,
-                                    "semana": nome_semana,
-                                    "dia": t_dia,
-                                    "materia": t.get("materia", ""),
-                                    "tema": t.get("tema", ""),
-                                    "prioridade": safe_int(t.get("prioridade", 3)),
-                                    "concluido": False,
-                                    "data_importacao": str(hoje),
-                                    "data_conclusao": None
-                                }
-                                batch.set(doc_ref, nova_tarefa)
-                                nova_tarefa["id"] = doc_ref.id
-                                st.session_state.dados["cronogramas"].append(nova_tarefa)
-                            batch.commit()
-                            
-                            st.session_state.prints_colados = []
-                            st.toast(f"✅ {len(tarefas_totais)} metas importadas e distribuídas!", icon="🎉")
-                            time.sleep(1)
-                            st.rerun()
+                                for i, t in enumerate(tarefas):
+                                    dia_idx = (i // 4) % len(dias_semana)
+                                    t_dia = dias_semana[dia_idx]
+                                    
+                                    doc_ref = db.collection("cronogramas").document()
+                                    nova_tarefa = {
+                                        "usuario_id": u_id,
+                                        "semana": nome_semana,
+                                        "dia": t_dia,
+                                        "materia": t.get("materia", ""),
+                                        "tema": t.get("tema", ""),
+                                        "prioridade": safe_int(t.get("prioridade", 3)),
+                                        "concluido": False,
+                                        "data_importacao": str(hoje),
+                                        "data_conclusao": None
+                                    }
+                                    batch.set(doc_ref, nova_tarefa)
+                                    nova_tarefa["id"] = doc_ref.id
+                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
+                                batch.commit()
+                                
+                                st.session_state.prints_colados = []
+                                st.toast(f"✅ {len(tarefas)} aulas importadas e distribuídas!", icon="🎉")
+                                time.sleep(1)
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
 
         with aba_manual:
             st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
@@ -1005,8 +944,10 @@ else:
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
         
+        # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
             
+        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
         if st.session_state.get('limpar_nova_nota', False):
             st.session_state.nota_imgs_temp = []
             st.session_state.limpar_nova_nota = False
@@ -1026,8 +967,8 @@ else:
                         key="paste_nota_nova"
                     )
                     if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                        if img_b64 not in st.session_state.nota_imgs_temp:
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data)
+                        if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                             st.session_state.nota_imgs_temp.append(img_b64)
                             st.rerun()
                 else:
@@ -1039,9 +980,8 @@ else:
                     cols = st.columns(3)
                     for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
                         with cols[idx % 3]:
-                            if isinstance(img_b64, str):
-                                try:
-                                    st.image(base64.b64decode(img_b64), use_container_width=True)
+                            if isinstance(img_b64, str) and len(img_b64) > 50:
+                                try: st.image(base64.b64decode(img_b64), use_container_width=True)
                                 except: pass
                             if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
                                 st.session_state.nota_imgs_temp.pop(idx)
@@ -1054,9 +994,9 @@ else:
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
             sub_a = ""
             if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
             elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                sub_a = col_s.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
                 
             with st.form("form_nova_nota", clear_on_submit=True):
                 s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
@@ -1104,6 +1044,7 @@ else:
                 
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
+                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
                 areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
                 
                 if not notas_exibir:
@@ -1119,6 +1060,7 @@ else:
                                 subtema_str = limpar_texto(nota.get('subtema'))
                                 data_str = formatar_data_br(nota.get('data_criacao'))
                                 
+                                # --- NOTA COMPACTA (EXPANDER) ---
                                 with st.expander(f"📝 {subtema_str} - {data_str}"):
                                     c_del1, c_del2 = st.columns([0.85, 0.15])
                                     with c_del2:
@@ -1127,25 +1069,27 @@ else:
                                             st.toast("Anotação excluída!", icon="🗑️")
                                             st.rerun()
                                     
+                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
                                     conteudo_nota = nota.get('pontos_chave', '')
                                     st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
+                                    # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
                                     if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
                                         imgs_exibir.insert(0, nota['imagem_b64'])
                                         
                                     if imgs_exibir:
-                                        st.write("") 
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
+                                        st.write("") # Espaçamento
+                                        cols_view = st.columns(min(len(imgs_exibir), 4))
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
                                                 if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try:
-                                                        st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
                                                     except: pass
                                     
                                     st.divider()
                                     
+                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
                                     if st.session_state.get('nota_em_edicao') != nota_id:
                                         if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = nota_id
@@ -1167,19 +1111,18 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 not in imgs_exibir:
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data)
+                                                    if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
                                                         st.rerun()
                                         with col_eimg:
                                             if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                                cols_e = st.columns(3)
                                                 for idx_e, img_b64_e in enumerate(imgs_exibir):
                                                     with cols_e[idx_e % 3]:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try:
-                                                                st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                             except: pass
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
                                                             imgs_exibir.pop(idx_e)
@@ -1196,6 +1139,7 @@ else:
                                         elif edit_a == "Cirurgia Geral":
                                             sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
                                         
+                                        # Limpar a subespecialidade se já vier no texto
                                         s_puro = nota.get('subtema', '')
                                         if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
                                             s_puro = " - ".join(s_puro.split(" - ")[1:])
@@ -1515,7 +1459,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = proc_texto(client_ia, [{"role": "user", "content": prompt_clonagem}], temp=0.4, max_t=6000)
+                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=6000)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -1546,7 +1490,7 @@ else:
                         st.session_state.chat_ia.append({"role": "user", "content": u_in})
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         try:
-                            r = proc_texto(client_ia, msgs_api, temp=0.2, max_t=6000)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=6000)
                             st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
@@ -1627,7 +1571,7 @@ else:
                     with st.spinner("Avaliando..."):
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = proc_texto(client_ia, [{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temp=0.2, max_t=6000)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], max_tokens=6000)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -1826,15 +1770,12 @@ else:
                                 from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
-                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=550))
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(img))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
-                            for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
+                            for img in imgs_prova: todas_imagens_b64.append(otimizar_imagem_para_api(img))
                         if colagem_img_sim:
-                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=550))
+                            todas_imagens_b64.append(otimizar_imagem_para_api(colagem_img_sim))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
@@ -1843,12 +1784,12 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Responda DIRETAMENTE começando com o caracter '{'.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
                                 msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                                resposta = proc_visao(client_ia, msg_api)
+                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=3500)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                 for q in questoes_lote: q['imagem_fonte'] = img_b64
                                 st.session_state.prova_ativa.extend(questoes_lote)
@@ -1905,12 +1846,10 @@ else:
                                     for page in reader.pages: texto_pdf += page.extract_text() + "\n"
                                     texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
                                     
-                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Responda DIRETAMENTE começando com o caracter '{{'.
-                                    Formato OBRIGATÓRIO: 
-                                    {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
-                                    Material: {texto_pdf}"""
+                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado puramente no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{{'.
+                                    Formato OBRIGATÓRIO: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}} \n\nMaterial: {texto_pdf}"""
                                     
-                                    resposta = proc_texto(client_ia, [{"role": "user", "content": prompt}], temp=0.2, max_t=6000)
+                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=6000)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                     
                                     if questoes_pdf:
@@ -1964,7 +1903,7 @@ else:
                             st.session_state.osce_finished = True
                             with st.spinner("Corrigindo conduta..."):
                                 try:
-                                    r = proc_texto(client_ia, [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temp=0.3, max_t=2500)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=6000)
                                     st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
                                 except Exception as e: st.error(str(e))
                         
@@ -1978,7 +1917,7 @@ else:
                             st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
                             with st.spinner("Paciente respondendo..."):
                                 try:
-                                    r = proc_texto(client_ia, [{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temp=0.6, max_t=1000)
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=6000)
                                     st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro IA: {e}")
                                 st.rerun()
