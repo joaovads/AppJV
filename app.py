@@ -256,7 +256,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=550):
+def otimizar_imagem_para_api(img_data, max_size=500):
     """
     Compressor universal blindado. Identifica automaticamente se a imagem é
     bytes, buffer do Streamlit ou objeto PIL Image nativo e faz a compressão de forma segura.
@@ -289,7 +289,7 @@ def otimizar_imagem_para_api(img_data, max_size=550):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=75)
+        img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         # Fallback de sobrevivência final
@@ -513,7 +513,6 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-# Função Callback para Botões de Formatação Instantânea
 def inserir_formatacao(chave_estado, formato):
     if chave_estado not in st.session_state:
         st.session_state[chave_estado] = ""
@@ -772,67 +771,75 @@ else:
                 client_ia = get_ia_client()
                 if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando cores e metas... Isso pode levar alguns segundos."):
-                        try:
-                            prompt_visao = """[SISTEMA NÍVEL 5] Você é um extrator JSON automatizado. Analise as imagens do cronograma e extraia os dias, matérias e temas. Atribua prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            REGRA DE OURO: Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO explicar o raciocínio. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caractere {.
+                    with st.spinner("Visão Computacional analisando imagens uma a uma para evitar bloqueios de limite..."):
+                        
+                        todas_imagens_b64 = []
+                        if imgs_crono:
+                            for img in imgs_crono:
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
+                        
+                        if st.session_state.prints_colados:
+                            for item in st.session_state.prints_colados:
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=500))
+                        
+                        tarefas_totais = []
+                        if todas_imagens_b64:
+                            barra_progresso = st.progress(0)
+                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
+                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
                             Formato OBRIGATÓRIO:
                             {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
-                            conteudo_api = [{"type": "text", "text": prompt_visao}]
                             
-                            if imgs_crono:
-                                for img in imgs_crono:
-                                    b64_otimizado = otimizar_imagem_para_api(img)
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
+                            for idx_img, img_b64 in enumerate(todas_imagens_b64):
+                                conteudo_api = [
+                                    {"type": "text", "text": prompt_visao},
+                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+                                ]
+                                try:
+                                    resposta = client_ia.chat.completions.create(
+                                        model=MODELO_VISAO, 
+                                        messages=[{"role": "user", "content": conteudo_api}], 
+                                        temperature=0.1,
+                                        max_tokens=1200
+                                    )
+                                    tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
+                                    tarefas_totais.extend(tarefas_lote)
+                                except Exception as e:
+                                    st.warning(f"Aviso na imagem {idx_img+1}: {e}")
+                                barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
+                        
+                        if not tarefas_totais:
+                            st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
+                        else:
+                            batch = db.batch()
+                            tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
+                            dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
                             
-                            if st.session_state.prints_colados:
-                                for item in st.session_state.prints_colados:
-                                    b64_otimizado = otimizar_imagem_para_api(item['img'])
-                                    conteudo_api.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_otimizado}"}})
-                            
-                            resposta = client_ia.chat.completions.create(
-                                model=MODELO_VISAO, 
-                                messages=[{"role": "user", "content": conteudo_api}], 
-                                temperature=0.1,
-                                max_tokens=3500
-                            )
-                            
-                            tarefas = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
-                            
-                            if not tarefas:
-                                st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
-                            else:
-                                batch = db.batch()
-                                tarefas.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                                dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
+                            for i, t in enumerate(tarefas_totais):
+                                dia_idx = (i // 4) % len(dias_semana)
+                                t_dia = dias_semana[dia_idx]
                                 
-                                for i, t in enumerate(tarefas):
-                                    dia_idx = (i // 4) % len(dias_semana)
-                                    t_dia = dias_semana[dia_idx]
-                                    
-                                    doc_ref = db.collection("cronogramas").document()
-                                    nova_tarefa = {
-                                        "usuario_id": u_id,
-                                        "semana": nome_semana,
-                                        "dia": t_dia,
-                                        "materia": t.get("materia", ""),
-                                        "tema": t.get("tema", ""),
-                                        "prioridade": safe_int(t.get("prioridade", 3)),
-                                        "concluido": False,
-                                        "data_importacao": str(hoje),
-                                        "data_conclusao": None
-                                    }
-                                    batch.set(doc_ref, nova_tarefa)
-                                    nova_tarefa["id"] = doc_ref.id
-                                    st.session_state.dados["cronogramas"].append(nova_tarefa)
-                                batch.commit()
-                                
-                                st.session_state.prints_colados = []
-                                st.toast(f"✅ {len(tarefas)} aulas importadas e distribuídas!", icon="🎉")
-                                time.sleep(1)
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Erro na leitura da imagem. Detalhes: {e}")
+                                doc_ref = db.collection("cronogramas").document()
+                                nova_tarefa = {
+                                    "usuario_id": u_id,
+                                    "semana": nome_semana,
+                                    "dia": t_dia,
+                                    "materia": t.get("materia", ""),
+                                    "tema": t.get("tema", ""),
+                                    "prioridade": safe_int(t.get("prioridade", 3)),
+                                    "concluido": False,
+                                    "data_importacao": str(hoje),
+                                    "data_conclusao": None
+                                }
+                                batch.set(doc_ref, nova_tarefa)
+                                nova_tarefa["id"] = doc_ref.id
+                                st.session_state.dados["cronogramas"].append(nova_tarefa)
+                            batch.commit()
+                            
+                            st.session_state.prints_colados = []
+                            st.toast(f"✅ {len(tarefas_totais)} metas importadas e distribuídas!", icon="🎉")
+                            time.sleep(1)
+                            st.rerun()
 
         with aba_manual:
             st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
@@ -983,7 +990,7 @@ else:
                         key="paste_nota_nova"
                     )
                     if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=500)
                         if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                             st.session_state.nota_imgs_temp.append(img_b64)
                             st.rerun()
@@ -1128,7 +1135,7 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=500)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
@@ -1476,7 +1483,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=6000)
+                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -1507,7 +1514,7 @@ else:
                         st.session_state.chat_ia.append({"role": "user", "content": u_in})
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         try:
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=6000)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
                             st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
@@ -1588,7 +1595,7 @@ else:
                     with st.spinner("Avaliando..."):
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=6000)
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -1788,14 +1795,14 @@ else:
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
                                     buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=550))
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=550))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
                         if colagem_img_sim:
                             buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=550))
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
@@ -1804,12 +1811,12 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar. PROIBIDO usar <think>. Inicie a resposta diretamente com o caractere '{'.
+                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{'.
                             Formato OBRIGATÓRIO: 
                             {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
                             try:
                                 msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=3500)
+                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                 for q in questoes_lote: q['imagem_fonte'] = img_b64
                                 st.session_state.prova_ativa.extend(questoes_lote)
@@ -1869,7 +1876,7 @@ else:
                                     prompt = f"""[SISTEMA NÍVEL 5] Baseado puramente no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{{'.
                                     Formato OBRIGATÓRIO: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}} \n\nMaterial: {texto_pdf}"""
                                     
-                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=6000)
+                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                     
                                     if questoes_pdf:
