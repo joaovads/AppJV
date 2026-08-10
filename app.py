@@ -210,7 +210,7 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
+# FUNÇÕES DE BANCO OTIMIZADAS (ZERO LATÊNCIA)
 # ==========================================
 def db_add(col_name, state_key, data):
     doc_ref = db.collection(col_name).document()
@@ -252,6 +252,9 @@ def invalidar_cache(colecoes=None):
         st.session_state.pop('dados', None)
         st.session_state.user_data_loaded = False
 
+# ==========================================
+# COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
+# ==========================================
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
@@ -324,8 +327,6 @@ def extrair_json_seguro(texto):
     start_arr = t.find('[')
     
     if start_obj == -1 and start_arr == -1:
-        st.error("🚨 A IA não retornou os dados no formato esperado.")
-        with st.expander("Ver resposta bruta da IA (Para debugar)"): st.code(texto)
         return {}
         
     is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
@@ -374,9 +375,6 @@ def extrair_json_seguro(texto):
             if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
             return parsed
         except Exception:
-            st.error("🚨 A IA não retornou os dados no formato esperado.")
-            with st.expander("Ver resposta bruta da IA (Para debugar)"):
-                st.code(texto)
             return {}
 
 # ==========================================
@@ -808,10 +806,8 @@ else:
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Aja como API de dados JSON. Analise as imagens do cronograma e extraia dias, matérias e temas. Prioridade: Azul=1, Verde=2, Amarelo=3, Vermelho=4, Roxo=5.
-                            MUITO IMPORTANTE: PROIBIDO pensar. PROIBIDO usar a tag <think>. PROIBIDO raciocinar passo a passo. Responda DIRETAMENTE começando com o caracter '{'.
-                            Formato OBRIGATÓRIO:
-                            {"tarefas": [{"dia": "Segunda-feira", "materia": "Ginecologia", "tema": "Sangramento Uterino", "prioridade": 1}]}"""
+                            prompt_visao = """Extraia as tarefas dessa imagem. Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
+                            Retorne APENAS o JSON puro. Nao escreva mais nada."""
                             
                             for idx_img, img_b64 in enumerate(todas_imagens_b64):
                                 conteudo_api = [
@@ -835,6 +831,18 @@ else:
                             st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
                         else:
                             batch = db.batch()
+                            
+                            # Traduz a cor para prioridade no lado do Python, não da IA
+                            for t in tarefas_totais:
+                                c = str(t.get("cor", "")).lower()
+                                p = 3
+                                if "azul" in c: p = 1
+                                elif "verde" in c: p = 2
+                                elif "amarelo" in c: p = 3
+                                elif "vermelho" in c: p = 4
+                                elif "roxo" in c: p = 5
+                                t["prioridade"] = p
+                                
                             tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                             dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
                             
@@ -1817,13 +1825,15 @@ else:
                                 from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(img))
+                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
                         if colagem_img_sim:
-                            todas_imagens_b64.append(otimizar_imagem_para_api(colagem_img_sim))
+                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
@@ -1832,9 +1842,8 @@ else:
                         
                         for i in range(len(todas_imagens_b64)):
                             img_b64 = todas_imagens_b64[i]
-                            prompt = """[SISTEMA NÍVEL 5] Extraia TODAS as questões da imagem. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto adicional. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{'.
-                            Formato OBRIGATÓRIO: 
-                            {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}"""
+                            prompt = """Extraia as questões da imagem e retorne um JSON no formato {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}
+                            Retorne apenas o JSON. Não pense, não explique e não use tags markdown."""
                             try:
                                 msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
                                 resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
@@ -1894,8 +1903,8 @@ else:
                                     for page in reader.pages: texto_pdf += page.extract_text() + "\n"
                                     texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
                                     
-                                    prompt = f"""[SISTEMA NÍVEL 5] Baseado puramente no material médico fornecido, crie um simulado de {qtd_q} questões de múltipla escolha. Retorne EXCLUSIVAMENTE um objeto JSON válido. NENHUM texto antes ou depois. PROIBIDO raciocinar passo a passo. PROIBIDO usar a tag <think>. Inicie a resposta diretamente com o caracter '{{'.
-                                    Formato OBRIGATÓRIO: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}} \n\nMaterial: {texto_pdf}"""
+                                    prompt = f"""Baseado no material fornecido, crie um simulado de {qtd_q} questões. Retorne um JSON no formato: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
+                                    Material: {texto_pdf}"""
                                     
                                     resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
