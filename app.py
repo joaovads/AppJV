@@ -210,7 +210,7 @@ for d in ["materiais_estudo", "imagens_flashcards"]:
     if not os.path.exists(d): os.makedirs(d)
 
 # ==========================================
-# FUNÇÕES DE BANCO OTIMIZADAS (ZERO LATÊNCIA)
+# FUNÇÕES DE BANCO OTIMIZADAS E JSON SEGURO
 # ==========================================
 def db_add(col_name, state_key, data):
     doc_ref = db.collection(col_name).document()
@@ -229,7 +229,6 @@ def db_update(col_name, state_key, doc_id, updates):
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
                 for k, v in updates.items():
-                    # Ignora e exclui objetos Sentinel do Google da memória local para não quebrar a tela
                     if 'Sentinel' in str(type(v)):
                         item.pop(k, None)
                     else:
@@ -253,14 +252,7 @@ def invalidar_cache(colecoes=None):
         st.session_state.pop('dados', None)
         st.session_state.user_data_loaded = False
 
-# ==========================================
-# COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
-# ==========================================
 def otimizar_imagem_para_api(img_data, max_size=500):
-    """
-    Compressor universal blindado. Identifica automaticamente se a imagem é
-    bytes, buffer do Streamlit ou objeto PIL Image nativo e faz a compressão de forma segura.
-    """
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -270,7 +262,6 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
-        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -292,7 +283,6 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
-        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -320,39 +310,72 @@ def get_ia_client():
 
 def extrair_json_seguro(texto):
     if not texto: return {}
-    t = re.sub(r'<think>.*?</think>', '', str(texto), flags=re.DOTALL)
+    t = str(texto)
+    # Limpeza nuclear de pensamento da IA
+    t = re.sub(r'<think>.*?</think>', '', t, flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
-    crases = chr(96) + chr(96) + chr(96)
+    
+    # Remoção de crases de markdown
+    crases = chr(96) * 3
     t = t.replace(crases + "json", "").replace(crases, "").strip()
+    
+    # Isolar escopo JSON e ignorar textos inúteis que a IA fala antes ou depois
+    start_obj = t.find('{')
+    start_arr = t.find('[')
+    
+    if start_obj == -1 and start_arr == -1:
+        st.error("🚨 A IA não retornou os dados no formato esperado.")
+        with st.expander("Ver resposta bruta da IA (Para debugar)"): st.code(texto)
+        return {}
+        
+    is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
+    t = t[start_obj:] if is_obj else t[start_arr:]
+    
     try:
-        return json.loads(t)
-    except:
+        parsed = json.loads(t)
+        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+        return parsed
+    except: pass
+    
+    # Isolar do lado direito se houver lixo
+    end_idx = t.rfind('}') if is_obj else t.rfind(']')
+    if end_idx != -1:
         try:
-            match = re.search(r'(\{.*\})', t, re.DOTALL)
-            if match: return json.loads(match.group(1))
-        except: pass
-        try:
-            start = t.find('[')
-            end = t.rfind(']') + 1
-            if start != -1 and end != 0:
-                lista = json.loads(t[start:end])
-                return {"tarefas": lista, "questoes": lista} 
-        except: pass
-        try:
-            faltando_chaves = t.count('{') - t.count('}')
-            faltando_colchetes = t.count('[') - t.count(']')
-            faltando_aspas = t.count('"') % 2
-            fix = t
-            if faltando_aspas != 0: fix += '"'
-            if faltando_chaves > 0 and fix.strip().endswith(','): fix = fix.strip()[:-1] 
-            if faltando_colchetes > 0: fix += ']' * faltando_colchetes
-            if faltando_chaves > 0: fix += '}' * faltando_chaves
-            parsed = json.loads(fix)
+            parsed = json.loads(t[:end_idx+1])
             if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
             return parsed
-        except:
-            st.error("A IA enviou um formato corrompido que não pôde ser limpo.")
-            with st.expander("Ver resposta bruta da IA"):
+        except: pass
+        
+    # Auto-Reparo: Fechar chaves pendentes caso a Groq API decepe a string por tokens
+    fix = t
+    if fix.count('"') % 2 != 0: fix += '"'
+    fix = fix.strip()
+    if fix.endswith(','): fix = fix[:-1]
+    
+    faltando_chaves = fix.count('{') - fix.count('}')
+    faltando_colchetes = fix.count('[') - fix.count(']')
+    
+    if faltando_colchetes > 0: fix += ']' * faltando_colchetes
+    if faltando_chaves > 0: fix += '}' * faltando_chaves
+    
+    try:
+        parsed = json.loads(fix)
+        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+        return parsed
+    except:
+        fix_alt = t
+        if fix_alt.count('"') % 2 != 0: fix_alt += '"'
+        fix_alt = fix_alt.strip()
+        if fix_alt.endswith(','): fix_alt = fix_alt[:-1]
+        if faltando_chaves > 0: fix_alt += '}' * faltando_chaves
+        if faltando_colchetes > 0: fix_alt += ']' * faltando_colchetes
+        try:
+            parsed = json.loads(fix_alt)
+            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+            return parsed
+        except Exception:
+            st.error("🚨 A IA não retornou os dados no formato esperado.")
+            with st.expander("Ver resposta bruta da IA (Para debugar)"):
                 st.code(texto)
             return {}
 
@@ -1794,15 +1817,13 @@ else:
                                 from pdf2image import convert_from_bytes
                                 imagens_paginas = convert_from_bytes(arq_pdf.read())
                                 for img in imagens_paginas:
-                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(img))
                             except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
                         if imgs_prova:
                             for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img))
                         if colagem_img_sim:
-                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
+                            todas_imagens_b64.append(otimizar_imagem_para_api(colagem_img_sim))
 
                     if todas_imagens_b64:
                         st.session_state.prova_ativa = []
