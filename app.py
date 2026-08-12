@@ -430,20 +430,21 @@ def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 
 
 def parse_data(d):
     """
-    OTIMIZAÇÃO DE CPU EXTREMA (Fast-Path):
-    Para não travar a UI renderizando listas inteiras, converte datas nativamente 
-    no formato padrão YYYY-MM-DD instantaneamente antes de tentar o strptime.
+    Motor O(1) de conversão de datas super otimizado para evitar travamentos
+    e sobrecarga de CPU na renderização do aplicativo Streamlit.
     """
     if not d: return get_agora().date()
     if isinstance(d, datetime): return d.date()
     if isinstance(d, date): return d
     if isinstance(d, str):
         d_str = d.strip()[:10]
-        try:
-            # Fast Path O(1)
-            if len(d_str) == 10 and d_str[4] == '-' and d_str[7] == '-':
-                return date(int(d_str[0:4]), int(d_str[5:7]), int(d_str[8:10]))
-        except: pass
+        if len(d_str) == 10:
+            if d_str[4] == '-' and d_str[7] == '-':
+                try: return date(int(d_str[0:4]), int(d_str[5:7]), int(d_str[8:10]))
+                except: pass
+            elif d_str[2] == '/' and d_str[5] == '/':
+                try: return date(int(d_str[6:10]), int(d_str[3:5]), int(d_str[0:2]))
+                except: pass
         
         try:
             if '-' in d_str:
@@ -924,16 +925,9 @@ else:
         with aba_lista:
             meu_crono = dados_cronogramas
             
-            # OTIMIZAÇÃO: Pré-calcular datas máximas por semana (De O(N^2) para O(N))
-            week_max_date = {}
-            for c in meu_crono:
-                sem = c.get("semana", "Semana Geral")
-                d = parse_data(c.get("data_importacao", str(hoje)))
-                if sem not in week_max_date or d > week_max_date[sem]:
-                    week_max_date[sem] = d
-                    
             def sort_key_week(sem):
-                max_d = week_max_date.get(sem, parse_data(None))
+                dates = [parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem]
+                max_d = max(dates) if dates else parse_data(None)
                 nums = re.findall(r'\d+', sem)
                 num = int(nums[0]) if nums else 0
                 return (max_d, num)
@@ -1184,7 +1178,7 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=500)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
@@ -1252,21 +1246,6 @@ else:
 
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
-        
-        # --- NOVIDADE: ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
-        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
-        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
-        
-        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
-        if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
-        else:
-            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
-        st.divider()
-        # --------------------------------------------------------
-        
         qs_sess_all = [dict(q) for q in dados_questoes]
         qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
@@ -1318,19 +1297,38 @@ else:
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador de Ciclos")
         
-        # --- DESTAQUE NÍTIDO E IMEDIATO DAS REVISÕES ---
+        # --- DESTAQUES VISUAIS NÍTIDOS DAS METAS DO DIA E FUTURO ---
         todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        qtd_hoje_atrasadas = sum(1 for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) <= hoje)
+        atrasadas = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) < hoje]
+        qtd_atrasadas = len(atrasadas)
+        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
+        qtd_hoje = len(hoje_revs)
         futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma"
-        
-        col_st1, col_st2 = st.columns(2)
+        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
+
+        col_st1, col_st2, col_st3 = st.columns(3)
         with col_st1:
-            st.metric("🚨 Revisões para Hoje / Atrasadas", qtd_hoje_atrasadas)
+            st.metric("🚨 Revisões Atrasadas", qtd_atrasadas)
         with col_st2:
+            st.metric("🎯 Para Fazer Hoje", qtd_hoje)
+        with col_st3:
             st.metric("📅 Próxima Revisão Futura", prox_data_str)
+            
+        if qtd_atrasadas > 0:
+            if st.button("🧹 Excluir Todas as Revisões Atrasadas (Começar a partir de Hoje)", type="primary", use_container_width=True):
+                with st.spinner("Excluindo revisões do passado..."):
+                    batch = db.batch()
+                    ids_del = set()
+                    for r in atrasadas:
+                        batch.delete(db.collection("revisoes").document(r['id']))
+                        ids_del.add(r['id'])
+                    batch.commit()
+                    st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
+                    st.toast(f"✅ {len(ids_del)} revisões atrasadas excluídas!", icon="🧹")
+                    time.sleep(1)
+                    st.rerun()
         st.divider()
-        # -----------------------------------------------
+        # ------------------------------------------------------------
         
         aba_pendentes, aba_historico = st.tabs(["📝 Pendentes", "✅ Histórico"])
         
@@ -1341,6 +1339,15 @@ else:
             
             data_filtro_exata = None
             if visao == "🔎 Escolher Data Específica": data_filtro_exata = st.date_input("Filtrar e exibir lista apenas para o dia:", hoje, format="DD/MM/YYYY")
+            
+            # --- CÁLCULO PRÉVIO DO DESEMPENHO EM QUESTÕES PARA O CARD ---
+            desempenho_por_tema = {}
+            for q in dados_questoes:
+                t_str = limpar_texto(q.get('subtema', ''))
+                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
+                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
+                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
+            # ------------------------------------------------------------
             
             todas_pendentes = []
             for r_orig in dados_revisoes:
@@ -1383,10 +1390,31 @@ else:
             else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
 
             if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
+            
             for r in lista_pendentes:
+                tema_card = r['tema']
+                pct_str = "--"
+                cor_pct = "#94a3b8"
+                if tema_card in desempenho_por_tema:
+                    ac = desempenho_por_tema[tema_card]['ac']
+                    er = desempenho_por_tema[tema_card]['er']
+                    tot = ac + er
+                    if tot > 0:
+                        pct = ac / tot
+                        pct_str = f"{pct*100:.0f}%"
+                        if pct >= 0.8: cor_pct = "#22c55e"
+                        elif pct >= 0.6: cor_pct = "#eab308"
+                        else: cor_pct = "#ef4444"
+
                 with st.container(border=True):
-                    st.markdown(f"<span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> **{r['tema']}** ({r.get('ciclo','')}) - Alvo: {formatar_data_br(r['data_agendada_obj'])}", unsafe_allow_html=True)
-                    with st.expander("Concluir"):
+                    c1_card, c2_card = st.columns([0.8, 0.2])
+                    with c1_card:
+                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
+                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Alvo: **{formatar_data_br(r['data_agendada_obj'])}**")
+                    with c2_card:
+                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Desempenho</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
+                        
+                    with st.expander("✅ Concluir Revisão"):
                         with st.form(f"f_{r['id']}", clear_on_submit=True):
                             col1, col2, col3 = st.columns(3)
                             q = col1.number_input("Questões", 0)
