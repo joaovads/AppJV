@@ -641,30 +641,19 @@ else:
                 aulas_recuperadas = get_user_docs("aulas", u_id)
                 revisoes_recuperadas = get_user_docs("revisoes", u_id)
                 
-                revisoes_existentes = set()
-                for r in revisoes_recuperadas:
-                    revisoes_existentes.add((str(r.get("aula_id")), str(r.get("ciclo"))))
-
-                batch = db.batch()
-                novas_revisoes = []
-                ciclos_padrao = {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}
-
-                for aula in aulas_recuperadas:
-                    aula_id = str(aula.get("id"))
-                    data_aula_str = aula.get("data_aula")
-                    if not data_aula_str: continue
-
-                    d = parse_data(data_aula_str) 
-                    for c, dias in ciclos_padrao.items():
-                        if (aula_id, c) not in revisoes_existentes:
-                            doc_ref = db.collection("revisoes").document()
-                            nova_rev = {"usuario_id": u_id, "aula_id": aula_id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"}
-                            batch.set(doc_ref, nova_rev)
-                            novas_revisoes.append({"id": doc_ref.id, **nova_rev})
-
-                if novas_revisoes:
-                    batch.commit()
-                    revisoes_recuperadas.extend(novas_revisoes)
+                # --- NOVIDADE (ORDEM DO USUÁRIO): PURGA DAS REVISÕES ATRASADAS ---
+                revs_para_deletar = [r for r in revisoes_recuperadas if str(r.get('status')).lower() in ['pendente', 'pendentes'] and parse_data(r.get('data_agendada')) < hoje]
+                if revs_para_deletar:
+                    # Deletamos em lotes de segurança para não explodir o limite do Firebase
+                    for i in range(0, len(revs_para_deletar), 400):
+                        batch = db.batch()
+                        pedaco = revs_para_deletar[i:i+400]
+                        for r in pedaco:
+                            batch.delete(db.collection("revisoes").document(r['id']))
+                        batch.commit()
+                    ids_deletados = set(r['id'] for r in revs_para_deletar)
+                    revisoes_recuperadas = [r for r in revisoes_recuperadas if r['id'] not in ids_deletados]
+                # ------------------------------------------------------------------
 
                 st.session_state.dados = {
                     "aulas": aulas_recuperadas,
@@ -844,7 +833,6 @@ else:
                         else:
                             batch = db.batch()
                             
-                            # Traduz a cor para prioridade no lado do Python, não da IA
                             for t in tarefas_totais:
                                 c = str(t.get("cor", "")).lower()
                                 p = 3
@@ -1178,7 +1166,7 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=500)
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
@@ -1295,72 +1283,52 @@ else:
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
 
     elif menu == "📅 Agenda de Revisões":
-        st.header("Organizador de Ciclos")
+        st.header("Organizador Adaptativo de Ciclos")
         
-        # --- DESTAQUES VISUAIS NÍTIDOS DAS METAS DO DIA E FUTURO ---
+        # --- NOVO PAINEL DE MISSÕES (CLARO E NÍTIDO) ---
         todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        atrasadas = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) < hoje]
-        qtd_atrasadas = len(atrasadas)
         hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
         qtd_hoje = len(hoje_revs)
         futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
         prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
 
-        col_st1, col_st2, col_st3 = st.columns(3)
+        st.markdown("### 🎯 Seu Painel de Missões")
+        col_st1, col_st2 = st.columns(2)
         with col_st1:
-            st.metric("🚨 Revisões Atrasadas", qtd_atrasadas)
+            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
         with col_st2:
-            st.metric("🎯 Para Fazer Hoje", qtd_hoje)
-        with col_st3:
-            st.metric("📅 Próxima Revisão Futura", prox_data_str)
-            
-        if qtd_atrasadas > 0:
-            if st.button("🧹 Excluir Todas as Revisões Atrasadas (Começar a partir de Hoje)", type="primary", use_container_width=True):
-                with st.spinner("Excluindo revisões do passado..."):
-                    batch = db.batch()
-                    ids_del = set()
-                    for r in atrasadas:
-                        batch.delete(db.collection("revisoes").document(r['id']))
-                        ids_del.add(r['id'])
-                    batch.commit()
-                    st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
-                    st.toast(f"✅ {len(ids_del)} revisões atrasadas excluídas!", icon="🧹")
-                    time.sleep(1)
-                    st.rerun()
+            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
         st.divider()
-        # ------------------------------------------------------------
-        
-        aba_pendentes, aba_historico = st.tabs(["📝 Pendentes", "✅ Histórico"])
+        # ------------------------------------------------
+
+        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
         
         with aba_pendentes:
             c_v, c_o = st.columns(2)
-            visao = c_v.radio("Filtro Rápido:", ["📆 Hoje/Atrasadas", "🗓️ Próximos 7 Dias", "♾️ Todas", "🔎 Escolher Data Específica"], horizontal=True)
-            ordem = c_o.radio("Prioridade:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
+            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
+            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
             
             data_filtro_exata = None
-            if visao == "🔎 Escolher Data Específica": data_filtro_exata = st.date_input("Filtrar e exibir lista apenas para o dia:", hoje, format="DD/MM/YYYY")
+            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
             
-            # --- CÁLCULO PRÉVIO DO DESEMPENHO EM QUESTÕES PARA O CARD ---
+            # --- CÁLCULO DE DESEMPENHO CRUZADO PARA O CARD ---
             desempenho_por_tema = {}
             for q in dados_questoes:
                 t_str = limpar_texto(q.get('subtema', ''))
                 if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
                 desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
                 desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
-            # ------------------------------------------------------------
+            # -------------------------------------------------
             
             todas_pendentes = []
             for r_orig in dados_revisoes:
                 if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                aula_id_limpo = str(r_orig.get('aula_id', '')).strip()
-                if aula_id_limpo in mapa_aulas:
-                    r = dict(r_orig)
-                    r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                    aula = mapa_aulas[aula_id_limpo]
-                    r['tema'] = limpar_texto(aula.get('tema', 'Sem título'))
-                    r['area'] = aula.get('area', 'Geral')
-                    r['data_aula_obj'] = parse_data(aula.get('data_aula'))
-                    todas_pendentes.append(r)
+                r = dict(r_orig)
+                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
+                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
+                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
+                todas_pendentes.append(r)
             
             if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
             if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
@@ -1380,10 +1348,14 @@ else:
             st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
             st.divider()
 
-            if visao == "🔎 Escolher Data Específica" and data_filtro_exata:
+            if visao == "🔎 Data Específica" and data_filtro_exata:
                 lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
+            elif visao == "📆 Para Hoje":
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
+            elif visao == "🗓️ Próximos 7 Dias":
+                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
             else:
-                lista_pendentes = [r for r in todas_pendentes if not (visao == "📆 Hoje/Atrasadas" and r['data_agendada_obj'] > hoje) and not (visao == "🗓️ Próximos 7 Dias" and r['data_agendada_obj'] > (hoje + timedelta(days=7)))]
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
             
             if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
             elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
@@ -1392,7 +1364,7 @@ else:
             if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
             
             for r in lista_pendentes:
-                tema_card = r['tema']
+                tema_card = limpar_texto(r['tema'])
                 pct_str = "--"
                 cor_pct = "#94a3b8"
                 if tema_card in desempenho_por_tema:
@@ -1410,29 +1382,29 @@ else:
                     c1_card, c2_card = st.columns([0.8, 0.2])
                     with c1_card:
                         st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
-                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Alvo: **{formatar_data_br(r['data_agendada_obj'])}**")
+                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
                     with c2_card:
-                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Desempenho</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
                         
                     with st.expander("✅ Concluir Revisão"):
                         with st.form(f"f_{r['id']}", clear_on_submit=True):
                             col1, col2, col3 = st.columns(3)
-                            q = col1.number_input("Questões", 0)
+                            q = col1.number_input("Questões Feitas", 0)
                             e = col2.number_input("Erros", 0, max_value=max(q,0))
-                            f = col3.number_input("Flashcards", 0)
-                            if st.form_submit_button("✅ Marcar Concluída"):
+                            f = col3.number_input("Flashcards Lidos", 0)
+                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
                                 db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
                                 time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
-            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"] and str(d.get('aula_id', '')).strip() in mapa_aulas]
+            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
             if conc_docs:
                 dados_h = []
                 for d in conc_docs:
-                    aula_id = str(d.get('aula_id', '')).strip()
-                    tema = limpar_texto(mapa_aulas.get(aula_id, {}).get('tema', 'Sem título'))
+                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                    tema = limpar_texto(tema)
                     acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
                     if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
                     dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
@@ -1476,7 +1448,7 @@ else:
                                 st.rerun()
 
     elif menu == "🎯 Questões":
-        aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
+        aba_reg, aba_erros = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo"])
         with aba_reg:
             col_a, col_sub = st.columns(2)
             a = col_a.selectbox("Área", AREAS_MED, key="q_area")
@@ -1487,17 +1459,62 @@ else:
                 sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="q_sub_cg")
                 
             with st.form("q_form", clear_on_submit=True):
+                st.info("Ao registrar suas questões, o sistema irá recalcular o seu desempenho e reagendar a sua próxima revisão automaticamente.")
                 c1, c2 = st.columns(2)
-                s = c1.text_input("Subtema")
+                s = c1.text_input("Subtema (Ex: Insuficiência Cardíaca)")
                 d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
                 ac, er = st.columns(2)
                 acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
-                cc = st.text_input("Conceito Chave (Motivo do erro)")
-                if st.form_submit_button("Registrar", use_container_width=True):
+                cc = st.text_input("Conceito Chave (Motivo de algum erro)")
+                
+                if st.form_submit_button("Registrar e Agendar Revisão Inteligente", use_container_width=True):
                     s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
                     db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
+                    
+                    # --- NOVO MOTOR DE REPETIÇÃO ESPAÇADA ADAPTATIVA ---
+                    total_q = acc + err
+                    if total_q > 0:
+                        taxa_acerto = acc / total_q
+                        if taxa_acerto < 0.60:
+                            ciclo_nome = "🔴 Crítico (Rever em 1d)"
+                            dias_prox = 1
+                        elif taxa_acerto < 0.80:
+                            ciclo_nome = "🟡 Reforço (Rever em 7d)"
+                            dias_prox = 7
+                        else:
+                            ciclo_nome = "🟢 Domínio (Rever em 15d)"
+                            dias_prox = 15
+                            
+                        nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
+                        
+                        batch = db.batch()
+                        ids_del = set()
+                        for r_pend in st.session_state.dados["revisoes"]:
+                            if str(r_pend.get('status')).lower() in ['pendente', 'pendentes'] and str(r_pend.get('tema')) == s_final:
+                                batch.delete(db.collection("revisoes").document(r_pend['id']))
+                                ids_del.add(r_pend['id'])
+                        
+                        doc_rev = db.collection("revisoes").document()
+                        nova_rev = {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "tema": s_final,
+                            "ciclo": ciclo_nome,
+                            "data_agendada": str(nova_data),
+                            "status": "Pendente"
+                        }
+                        batch.set(doc_rev, nova_rev)
+                        batch.commit()
+                        
+                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
+                        nova_rev['id'] = doc_rev.id
+                        st.session_state.dados["revisoes"].append(nova_rev)
+                        
+                        st.toast(f"Revisão agendada para {formatar_data_br(nova_data)}!", icon="📅")
+                    # -------------------------------------------------------------------
+                    
                     st.toast("Questões registradas!", icon="✅")
-                    time.sleep(0.5)
+                    time.sleep(1)
                     st.rerun()
             
             if dados_questoes: 
@@ -1711,6 +1728,7 @@ else:
         col_form, col_lista = st.columns([1, 2.5])
         with col_form:
             st.subheader("➕ Adicionar Aula")
+            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
             c_area, c_sub = st.columns(2)
             a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
             sub_al = ""
@@ -1722,23 +1740,14 @@ else:
             with st.form("n_aula", clear_on_submit=True):
                 t = st.text_input("Assunto da Aula (Tema)")
                 d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
-                if st.form_submit_button("Registrar e Gerar Ciclo R", use_container_width=True):
+                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
                     doc_a = db.collection("aulas").document()
                     t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
                     n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
                     doc_a.set(n_aula)
                     n_aula["id"] = doc_a.id
                     st.session_state.dados["aulas"].append(n_aula)
-                    
-                    batch = db.batch()
-                    for c, dias in {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}.items():
-                        doc_r = db.collection("revisoes").document()
-                        n_rev = {"usuario_id": u_id, "aula_id": doc_a.id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"}
-                        batch.set(doc_r, n_rev)
-                        n_rev["id"] = doc_r.id
-                        st.session_state.dados["revisoes"].append(n_rev)
-                    batch.commit()
-                    st.toast("Aula registrada no ciclo!", icon="📚")
+                    st.toast("Aula registrada com sucesso!", icon="📚")
                     time.sleep(0.5)
                     st.rerun()
                     
@@ -1746,15 +1755,9 @@ else:
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
                 if opcoes_del_dict:
                     op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
-                    if st.button("Deletar Aula e Suas Revisões", use_container_width=True) and op_del_chave:
+                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
                         id_del = str(opcoes_del_dict[op_del_chave])
-                        batch = db.batch()
-                        for rd in st.session_state.dados["revisoes"]:
-                            if str(rd.get("aula_id")) == id_del:
-                                batch.delete(db.collection("revisoes").document(rd.get("id")))
-                        batch.delete(db.collection("aulas").document(id_del))
-                        batch.commit()
-                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if str(r.get("aula_id")) != id_del]
+                        db.collection("aulas").document(id_del).delete()
                         st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
                         st.toast("Aula apagada.", icon="🗑️")
                         time.sleep(0.5)
