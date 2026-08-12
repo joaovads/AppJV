@@ -429,11 +429,22 @@ def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
 def parse_data(d):
+    """
+    OTIMIZAÇÃO DE CPU EXTREMA (Fast-Path):
+    Para não travar a UI renderizando listas inteiras, converte datas nativamente 
+    no formato padrão YYYY-MM-DD instantaneamente antes de tentar o strptime.
+    """
     if not d: return get_agora().date()
     if isinstance(d, datetime): return d.date()
     if isinstance(d, date): return d
     if isinstance(d, str):
         d_str = d.strip()[:10]
+        try:
+            # Fast Path O(1)
+            if len(d_str) == 10 and d_str[4] == '-' and d_str[7] == '-':
+                return date(int(d_str[0:4]), int(d_str[5:7]), int(d_str[8:10]))
+        except: pass
+        
         try:
             if '-' in d_str:
                 parts = d_str.split('-')
@@ -832,6 +843,7 @@ else:
                         else:
                             batch = db.batch()
                             
+                            # Traduz a cor para prioridade no lado do Python, não da IA
                             for t in tarefas_totais:
                                 c = str(t.get("cor", "")).lower()
                                 p = 3
@@ -912,9 +924,16 @@ else:
         with aba_lista:
             meu_crono = dados_cronogramas
             
+            # OTIMIZAÇÃO: Pré-calcular datas máximas por semana (De O(N^2) para O(N))
+            week_max_date = {}
+            for c in meu_crono:
+                sem = c.get("semana", "Semana Geral")
+                d = parse_data(c.get("data_importacao", str(hoje)))
+                if sem not in week_max_date or d > week_max_date[sem]:
+                    week_max_date[sem] = d
+                    
             def sort_key_week(sem):
-                dates = [parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                max_d = max(dates) if dates else parse_data(None)
+                max_d = week_max_date.get(sem, parse_data(None))
                 nums = re.findall(r'\d+', sem)
                 num = int(nums[0]) if nums else 0
                 return (max_d, num)
@@ -1233,6 +1252,21 @@ else:
 
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
+        
+        # --- NOVIDADE: ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
+        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
+        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
+        
+        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
+        if revs_hoje_lista:
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
+        else:
+            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
+        st.divider()
+        # --------------------------------------------------------
+        
         qs_sess_all = [dict(q) for q in dados_questoes]
         qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
@@ -1283,6 +1317,21 @@ else:
 
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador de Ciclos")
+        
+        # --- DESTAQUE NÍTIDO E IMEDIATO DAS REVISÕES ---
+        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        qtd_hoje_atrasadas = sum(1 for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) <= hoje)
+        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma"
+        
+        col_st1, col_st2 = st.columns(2)
+        with col_st1:
+            st.metric("🚨 Revisões para Hoje / Atrasadas", qtd_hoje_atrasadas)
+        with col_st2:
+            st.metric("📅 Próxima Revisão Futura", prox_data_str)
+        st.divider()
+        # -----------------------------------------------
+        
         aba_pendentes, aba_historico = st.tabs(["📝 Pendentes", "✅ Histórico"])
         
         with aba_pendentes:
@@ -1399,8 +1448,7 @@ else:
                                 st.rerun()
 
     elif menu == "🎯 Questões":
-        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
-        
+        aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
         with aba_reg:
             col_a, col_sub = st.columns(2)
             a = col_a.selectbox("Área", AREAS_MED, key="q_area")
@@ -1420,34 +1468,8 @@ else:
                 if st.form_submit_button("Registrar", use_container_width=True):
                     s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
                     db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
-                    
-                    # --- MOTOR DE REPETIÇÃO ESPAÇADA ADAPTATIVA ---
-                    total_q = acc + err
-                    if total_q > 0:
-                        taxa_acerto = acc / total_q
-                        if taxa_acerto < 0.60 or taxa_acerto >= 0.80:
-                            aulas_alvo = [str(au.get('id')) for au in dados_aulas if str(au.get('tema', '')) != '' and s_final.lower() in str(au.get('tema', '')).lower()]
-                            if aulas_alvo:
-                                revs_pendentes = [r for r in dados_revisoes if str(r.get('aula_id')) in aulas_alvo and str(r.get('status')).lower() in ['pendente', 'pendentes']]
-                                if revs_pendentes:
-                                    revs_pendentes.sort(key=lambda x: parse_data(x.get('data_agendada')))
-                                    rev_alvo = revs_pendentes[0]
-                                    data_antiga = parse_data(rev_alvo.get('data_agendada'))
-                                    
-                                    if taxa_acerto < 0.60:
-                                        nova_data = hoje + timedelta(days=1)
-                                        if nova_data < data_antiga: # Só puxa se já não for amanhã ou hoje
-                                            db_update("revisoes", "revisoes", rev_alvo['id'], {"data_agendada": str(nova_data)})
-                                            st.toast(f"⚠️ Desempenho baixo ({taxa_acerto*100:.0f}%). A Revisão '{rev_alvo.get('ciclo')}' de '{s_final}' foi antecipada para amanhã!", icon="🚨")
-                                    elif taxa_acerto >= 0.80:
-                                        nova_data = data_antiga + timedelta(days=15)
-                                        if nova_data < hoje + timedelta(days=15): nova_data = hoje + timedelta(days=15)
-                                        db_update("revisoes", "revisoes", rev_alvo['id'], {"data_agendada": str(nova_data)})
-                                        st.toast(f"🌟 Domínio detectado ({taxa_acerto*100:.0f}%). A Revisão '{rev_alvo.get('ciclo')}' de '{s_final}' foi adiada em 15 dias!", icon="🚀")
-                    # ------------------------------------------------
-                    
                     st.toast("Questões registradas!", icon="✅")
-                    time.sleep(1)
+                    time.sleep(0.5)
                     st.rerun()
             
             if dados_questoes: 
@@ -1552,48 +1574,6 @@ else:
                     db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                     st.toast("Flashcard adicionado aos estudos!", icon="🧠")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
-
-        with aba_alvos:
-            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
-            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
-            
-            historico_dict = {}
-            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
-                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
-                if t_str not in historico_dict: historico_dict[t_str] = []
-                if len(historico_dict[t_str]) < 3:
-                    historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
-            
-            alvos_criticos = []
-            for t_str, sessoes in historico_dict.items():
-                t_ac = sum(s['ac'] for s in sessoes)
-                t_er = sum(s['er'] for s in sessoes)
-                t_total = t_ac + t_er
-                if t_total > 0:
-                    media = t_ac / t_total
-                    if media < 0.6:
-                        alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
-                        
-            if not alvos_criticos:
-                st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
-            else:
-                alvos_criticos.sort(key=lambda x: x['Média'])
-                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
-                st.table(df_alvos)
-                
-                st.write("---")
-                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
-                    client_ia = get_ia_client()
-                    if client_ia:
-                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
-                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
-                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
-                            try:
-                                resposta_recup = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
-                                with st.container(border=True):
-                                    st.markdown(resposta_recup.choices[0].message.content)
-                            except Exception as e:
-                                st.error(f"Erro ao gerar simulado: {e}")
 
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
