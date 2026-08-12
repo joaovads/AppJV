@@ -832,7 +832,6 @@ else:
                         else:
                             batch = db.batch()
                             
-                            # Traduz a cor para prioridade no lado do Python, não da IA
                             for t in tarefas_totais:
                                 c = str(t.get("cor", "")).lower()
                                 p = 3
@@ -1021,7 +1020,7 @@ else:
                         key="paste_nota_nova"
                     )
                     if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=500)
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
                         if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                             st.session_state.nota_imgs_temp.append(img_b64)
                             st.rerun()
@@ -1166,7 +1165,7 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=500)
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
@@ -1400,7 +1399,8 @@ else:
                                 st.rerun()
 
     elif menu == "🎯 Questões":
-        aba_reg, aba_erros = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo"])
+        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
+        
         with aba_reg:
             col_a, col_sub = st.columns(2)
             a = col_a.selectbox("Área", AREAS_MED, key="q_area")
@@ -1420,8 +1420,34 @@ else:
                 if st.form_submit_button("Registrar", use_container_width=True):
                     s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
                     db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
+                    
+                    # --- MOTOR DE REPETIÇÃO ESPAÇADA ADAPTATIVA ---
+                    total_q = acc + err
+                    if total_q > 0:
+                        taxa_acerto = acc / total_q
+                        if taxa_acerto < 0.60 or taxa_acerto >= 0.80:
+                            aulas_alvo = [str(au.get('id')) for au in dados_aulas if str(au.get('tema', '')) != '' and s_final.lower() in str(au.get('tema', '')).lower()]
+                            if aulas_alvo:
+                                revs_pendentes = [r for r in dados_revisoes if str(r.get('aula_id')) in aulas_alvo and str(r.get('status')).lower() in ['pendente', 'pendentes']]
+                                if revs_pendentes:
+                                    revs_pendentes.sort(key=lambda x: parse_data(x.get('data_agendada')))
+                                    rev_alvo = revs_pendentes[0]
+                                    data_antiga = parse_data(rev_alvo.get('data_agendada'))
+                                    
+                                    if taxa_acerto < 0.60:
+                                        nova_data = hoje + timedelta(days=1)
+                                        if nova_data < data_antiga: # Só puxa se já não for amanhã ou hoje
+                                            db_update("revisoes", "revisoes", rev_alvo['id'], {"data_agendada": str(nova_data)})
+                                            st.toast(f"⚠️ Desempenho baixo ({taxa_acerto*100:.0f}%). A Revisão '{rev_alvo.get('ciclo')}' de '{s_final}' foi antecipada para amanhã!", icon="🚨")
+                                    elif taxa_acerto >= 0.80:
+                                        nova_data = data_antiga + timedelta(days=15)
+                                        if nova_data < hoje + timedelta(days=15): nova_data = hoje + timedelta(days=15)
+                                        db_update("revisoes", "revisoes", rev_alvo['id'], {"data_agendada": str(nova_data)})
+                                        st.toast(f"🌟 Domínio detectado ({taxa_acerto*100:.0f}%). A Revisão '{rev_alvo.get('ciclo')}' de '{s_final}' foi adiada em 15 dias!", icon="🚀")
+                    # ------------------------------------------------
+                    
                     st.toast("Questões registradas!", icon="✅")
-                    time.sleep(0.5)
+                    time.sleep(1)
                     st.rerun()
             
             if dados_questoes: 
@@ -1526,6 +1552,48 @@ else:
                     db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                     st.toast("Flashcard adicionado aos estudos!", icon="🧠")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
+
+        with aba_alvos:
+            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
+            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
+            
+            historico_dict = {}
+            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
+                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                if t_str not in historico_dict: historico_dict[t_str] = []
+                if len(historico_dict[t_str]) < 3:
+                    historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
+            
+            alvos_criticos = []
+            for t_str, sessoes in historico_dict.items():
+                t_ac = sum(s['ac'] for s in sessoes)
+                t_er = sum(s['er'] for s in sessoes)
+                t_total = t_ac + t_er
+                if t_total > 0:
+                    media = t_ac / t_total
+                    if media < 0.6:
+                        alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
+                        
+            if not alvos_criticos:
+                st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
+            else:
+                alvos_criticos.sort(key=lambda x: x['Média'])
+                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
+                st.table(df_alvos)
+                
+                st.write("---")
+                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
+                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
+                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
+                            try:
+                                resposta_recup = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
+                                with st.container(border=True):
+                                    st.markdown(resposta_recup.choices[0].message.content)
+                            except Exception as e:
+                                st.error(f"Erro ao gerar simulado: {e}")
 
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
