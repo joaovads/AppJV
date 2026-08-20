@@ -255,7 +255,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=500):
+def otimizar_imagem_para_api(img_data, max_size=720):
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -265,6 +265,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
+        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -283,9 +284,10 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=65)
+        img.save(buf, format="JPEG", quality=75)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
+        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -641,19 +643,30 @@ else:
                 aulas_recuperadas = get_user_docs("aulas", u_id)
                 revisoes_recuperadas = get_user_docs("revisoes", u_id)
                 
-                # --- NOVIDADE (ORDEM DO USUÁRIO): PURGA DAS REVISÕES ATRASADAS ---
-                revs_para_deletar = [r for r in revisoes_recuperadas if str(r.get('status')).lower() in ['pendente', 'pendentes'] and parse_data(r.get('data_agendada')) < hoje]
-                if revs_para_deletar:
-                    # Deletamos em lotes de segurança para não explodir o limite do Firebase
-                    for i in range(0, len(revs_para_deletar), 400):
-                        batch = db.batch()
-                        pedaco = revs_para_deletar[i:i+400]
-                        for r in pedaco:
-                            batch.delete(db.collection("revisoes").document(r['id']))
-                        batch.commit()
-                    ids_deletados = set(r['id'] for r in revs_para_deletar)
-                    revisoes_recuperadas = [r for r in revisoes_recuperadas if r['id'] not in ids_deletados]
-                # ------------------------------------------------------------------
+                revisoes_existentes = set()
+                for r in revisoes_recuperadas:
+                    revisoes_existentes.add((str(r.get("aula_id")), str(r.get("ciclo"))))
+
+                batch = db.batch()
+                novas_revisoes = []
+                ciclos_padrao = {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}
+
+                for aula in aulas_recuperadas:
+                    aula_id = str(aula.get("id"))
+                    data_aula_str = aula.get("data_aula")
+                    if not data_aula_str: continue
+
+                    d = parse_data(data_aula_str) 
+                    for c, dias in ciclos_padrao.items():
+                        if (aula_id, c) not in revisoes_existentes:
+                            doc_ref = db.collection("revisoes").document()
+                            nova_rev = {"usuario_id": u_id, "aula_id": aula_id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"}
+                            batch.set(doc_ref, nova_rev)
+                            novas_revisoes.append({"id": doc_ref.id, **nova_rev})
+
+                if novas_revisoes:
+                    batch.commit()
+                    revisoes_recuperadas.extend(novas_revisoes)
 
                 st.session_state.dados = {
                     "aulas": aulas_recuperadas,
@@ -798,17 +811,18 @@ else:
                         todas_imagens_b64 = []
                         if imgs_crono:
                             for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=720))
                         
                         if st.session_state.prints_colados:
                             for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=500))
+                                todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=720))
                         
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """Extraia as tarefas dessa imagem. Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
-                            Retorne APENAS o JSON puro. Nao escreva mais nada."""
+                            prompt_visao = """[SISTEMA NÍVEL 5] Extraia RIGOROSAMENTE TODAS as tarefas visíveis na imagem, do início ao fim (não pule nenhuma). 
+                            Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
+                            MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINIFICADO (sem quebras de linha e sem espaços). PROIBIDO usar <think> ou explicar."""
                             
                             for idx_img, img_b64 in enumerate(todas_imagens_b64):
                                 conteudo_api = [
@@ -816,12 +830,25 @@ else:
                                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
                                 ]
                                 try:
-                                    resposta = client_ia.chat.completions.create(
-                                        model=MODELO_VISAO, 
-                                        messages=[{"role": "user", "content": conteudo_api}], 
-                                        temperature=0.1,
-                                        max_tokens=1200
-                                    )
+                                    try:
+                                        resposta = client_ia.chat.completions.create(
+                                            model=MODELO_VISAO, 
+                                            messages=[{"role": "user", "content": conteudo_api}], 
+                                            temperature=0.1,
+                                            max_tokens=2500
+                                        )
+                                    except Exception as e_api:
+                                        if "rate" in str(e_api).lower() or "429" in str(e_api) or "413" in str(e_api):
+                                            time.sleep(12) 
+                                            resposta = client_ia.chat.completions.create(
+                                                model=MODELO_VISAO, 
+                                                messages=[{"role": "user", "content": conteudo_api}], 
+                                                temperature=0.1,
+                                                max_tokens=2500
+                                            )
+                                        else:
+                                            raise e_api
+                                    
                                     tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
                                     tarefas_totais.extend(tarefas_lote)
                                 except Exception as e:
@@ -1234,6 +1261,21 @@ else:
 
     elif menu == "🏠 Dashboard":
         st.header("Painel de Desempenho Global")
+        
+        # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
+        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
+        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
+        
+        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
+        if revs_hoje_lista:
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
+        else:
+            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
+        st.divider()
+        # --------------------------------------------------------
+        
         qs_sess_all = [dict(q) for q in dados_questoes]
         qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
@@ -1285,22 +1327,39 @@ else:
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador Adaptativo de Ciclos")
         
-        # --- NOVO PAINEL DE MISSÕES (CLARO E NÍTIDO) ---
+        # --- PAINEL GIGANTE DE MISSÕES ---
         todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        atrasadas = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) < hoje]
+        qtd_atrasadas = len(atrasadas)
         hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
         qtd_hoje = len(hoje_revs)
         futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
         prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
 
-        st.markdown("### 🎯 Seu Painel de Missões")
-        col_st1, col_st2 = st.columns(2)
+        col_st1, col_st2, col_st3 = st.columns(3)
         with col_st1:
-            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
+            st.metric("🚨 Revisões Atrasadas", qtd_atrasadas)
         with col_st2:
-            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
+            st.metric("🎯 Para Fazer Hoje", qtd_hoje)
+        with col_st3:
+            st.metric("📅 Próxima Revisão Futura", prox_data_str)
+            
+        if qtd_atrasadas > 0:
+            if st.button("🧹 Excluir Todas as Revisões Atrasadas (Começar a partir de Hoje)", type="primary", use_container_width=True):
+                with st.spinner("Limpando banco de dados..."):
+                    batch = db.batch()
+                    ids_del = set()
+                    for r in atrasadas:
+                        batch.delete(db.collection("revisoes").document(r['id']))
+                        ids_del.add(r['id'])
+                    batch.commit()
+                    st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
+                    st.toast(f"✅ {len(ids_del)} revisões apagadas!", icon="🧹")
+                    time.sleep(1)
+                    st.rerun()
         st.divider()
         # ------------------------------------------------
-
+        
         aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
         
         with aba_pendentes:
