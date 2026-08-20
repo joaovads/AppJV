@@ -601,24 +601,35 @@ if not st.session_state.logado:
             if st.form_submit_button("Entrar no Sistema", use_container_width=True):
                 try:
                     logou = False
-                    for doc in db.collection("usuarios").where(filter=FieldFilter("nome", "==", u)).get():
-                        if doc.to_dict().get("senha") == hash_senha(p):
-                            st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
-                            logou = True
-                            if lembrar and cookie_controller:
-                                novo_token = str(uuid.uuid4())
-                                db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
-                                cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                            st.rerun()
+                    u_limpo = u.strip()
+                    p_limpo = p.strip()
+                    for doc in db.collection("usuarios").get():
+                        nome_banco = str(doc.to_dict().get("nome", "")).strip()
+                        if nome_banco.lower() == u_limpo.lower():
+                            if doc.to_dict().get("senha") == hash_senha(p) or doc.to_dict().get("senha") == hash_senha(p_limpo):
+                                st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
+                                logou = True
+                                if lembrar and cookie_controller:
+                                    novo_token = str(uuid.uuid4())
+                                    db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
+                                    cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
+                                st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
     with aba_c:
         with st.form("cadastro_form"):
             nu, np = st.text_input("Novo Usuário"), st.text_input("Senha", type="password")
             if st.form_submit_button("Cadastrar", use_container_width=True):
-                if db.collection("usuarios").where(filter=FieldFilter("nome", "==", nu)).get(): st.error("Usuário já existe.")
+                nu_limpo = nu.strip()
+                np_limpo = np.strip()
+                existe = False
+                for doc in db.collection("usuarios").get():
+                    if str(doc.to_dict().get("nome", "")).strip().lower() == nu_limpo.lower():
+                        existe = True
+                        break
+                if existe: st.error("Usuário já existe.")
                 else:
-                    db.collection("usuarios").add({"nome": nu, "senha": hash_senha(np), "tema_modo": st.session_state.temp_theme})
+                    db.collection("usuarios").add({"nome": nu_limpo, "senha": hash_senha(np_limpo), "tema_modo": st.session_state.temp_theme})
                     st.toast("✅ Conta criada com sucesso!", icon="🎉")
 
 # ==========================================
@@ -642,31 +653,6 @@ else:
                 
                 aulas_recuperadas = get_user_docs("aulas", u_id)
                 revisoes_recuperadas = get_user_docs("revisoes", u_id)
-                
-                revisoes_existentes = set()
-                for r in revisoes_recuperadas:
-                    revisoes_existentes.add((str(r.get("aula_id")), str(r.get("ciclo"))))
-
-                batch = db.batch()
-                novas_revisoes = []
-                ciclos_padrao = {"R1":1, "R7":7, "R15":15, "R30":30, "R90":90, "R180":180, "R360":360}
-
-                for aula in aulas_recuperadas:
-                    aula_id = str(aula.get("id"))
-                    data_aula_str = aula.get("data_aula")
-                    if not data_aula_str: continue
-
-                    d = parse_data(data_aula_str) 
-                    for c, dias in ciclos_padrao.items():
-                        if (aula_id, c) not in revisoes_existentes:
-                            doc_ref = db.collection("revisoes").document()
-                            nova_rev = {"usuario_id": u_id, "aula_id": aula_id, "ciclo": c, "data_agendada": str(d + timedelta(days=dias)), "status": "Pendente"}
-                            batch.set(doc_ref, nova_rev)
-                            novas_revisoes.append({"id": doc_ref.id, **nova_rev})
-
-                if novas_revisoes:
-                    batch.commit()
-                    revisoes_recuperadas.extend(novas_revisoes)
 
                 st.session_state.dados = {
                     "aulas": aulas_recuperadas,
@@ -1270,7 +1256,7 @@ else:
         
         st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
         if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
         else:
             st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
         st.divider()
@@ -1329,34 +1315,19 @@ else:
         
         # --- PAINEL GIGANTE DE MISSÕES ---
         todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        atrasadas = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) < hoje]
-        qtd_atrasadas = len(atrasadas)
+        
         hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
         qtd_hoje = len(hoje_revs)
+        
         futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
         prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
 
-        col_st1, col_st2, col_st3 = st.columns(3)
+        st.markdown("### 🎯 Seu Painel de Missões")
+        col_st1, col_st2 = st.columns(2)
         with col_st1:
-            st.metric("🚨 Revisões Atrasadas", qtd_atrasadas)
+            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
         with col_st2:
-            st.metric("🎯 Para Fazer Hoje", qtd_hoje)
-        with col_st3:
-            st.metric("📅 Próxima Revisão Futura", prox_data_str)
-            
-        if qtd_atrasadas > 0:
-            if st.button("🧹 Excluir Todas as Revisões Atrasadas (Começar a partir de Hoje)", type="primary", use_container_width=True):
-                with st.spinner("Limpando banco de dados..."):
-                    batch = db.batch()
-                    ids_del = set()
-                    for r in atrasadas:
-                        batch.delete(db.collection("revisoes").document(r['id']))
-                        ids_del.add(r['id'])
-                    batch.commit()
-                    st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
-                    st.toast(f"✅ {len(ids_del)} revisões apagadas!", icon="🧹")
-                    time.sleep(1)
-                    st.rerun()
+            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
         st.divider()
         # ------------------------------------------------
         
@@ -1507,7 +1478,8 @@ else:
                                 st.rerun()
 
     elif menu == "🎯 Questões":
-        aba_reg, aba_erros = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo"])
+        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
+        
         with aba_reg:
             col_a, col_sub = st.columns(2)
             a = col_a.selectbox("Área", AREAS_MED, key="q_area")
@@ -1678,6 +1650,48 @@ else:
                     db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                     st.toast("Flashcard adicionado aos estudos!", icon="🧠")
             else: st.success("Nenhum erro registrado com Conceito Chave.")
+
+        with aba_alvos:
+            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
+            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
+            
+            historico_dict = {}
+            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
+                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                if t_str not in historico_dict: historico_dict[t_str] = []
+                if len(historico_dict[t_str]) < 3:
+                    historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
+            
+            alvos_criticos = []
+            for t_str, sessoes in historico_dict.items():
+                t_ac = sum(s['ac'] for s in sessoes)
+                t_er = sum(s['er'] for s in sessoes)
+                t_total = t_ac + t_er
+                if t_total > 0:
+                    media = t_ac / t_total
+                    if media < 0.6:
+                        alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
+                        
+            if not alvos_criticos:
+                st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
+            else:
+                alvos_criticos.sort(key=lambda x: x['Média'])
+                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
+                st.table(df_alvos)
+                
+                st.write("---")
+                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
+                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
+                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
+                            try:
+                                resposta_recup = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
+                                with st.container(border=True):
+                                    st.markdown(resposta_recup.choices[0].message.content)
+                            except Exception as e:
+                                st.error(f"Erro ao gerar simulado: {e}")
 
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
