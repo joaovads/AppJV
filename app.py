@@ -255,7 +255,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=500):
+def otimizar_imagem_para_api(img_data, max_size=720):
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -265,6 +265,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
+        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -283,9 +284,10 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=65)
+        img.save(buf, format="JPEG", quality=75)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
+        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -641,7 +643,7 @@ else:
             "aulas": [], "revisoes": [], "flashcards": [], 
             "questoes": [], "simulados": [], "focus": [], 
             "materiais": [], "cronogramas": [], "anotacoes": [],
-            "questoes_hiit": [], "revisoes_hiit": []
+            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": []
         }
 
     if st.session_state.get('user_data_loaded') is not True:
@@ -654,6 +656,7 @@ else:
                 revisoes_recuperadas = get_user_docs("revisoes", u_id)
                 questoes_hiit_recuperadas = get_user_docs("questoes_hiit", u_id)
                 revisoes_hiit_recuperadas = get_user_docs("revisoes_hiit", u_id)
+                anotacoes_hiit_recuperadas = get_user_docs("anotacoes_hiit", u_id)
 
                 st.session_state.dados = {
                     "aulas": aulas_recuperadas,
@@ -666,7 +669,8 @@ else:
                     "cronogramas": get_user_docs("cronogramas", u_id),
                     "anotacoes": get_user_docs("anotacoes", u_id),
                     "questoes_hiit": questoes_hiit_recuperadas,
-                    "revisoes_hiit": revisoes_hiit_recuperadas
+                    "revisoes_hiit": revisoes_hiit_recuperadas,
+                    "anotacoes_hiit": anotacoes_hiit_recuperadas
                 }
                 
                 if 'model_ia' not in st.session_state: 
@@ -692,6 +696,7 @@ else:
     dados_anotacoes = _dados_cache.get("anotacoes", [])
     dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
     dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
+    dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
 
     # APLICA O TEMA DO USUARIO LOGADO
     modo_atual = user_settings.get("tema_modo", "Escuro")
@@ -1016,7 +1021,7 @@ else:
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
-        aba_reg_hiit, aba_cal_hiit = st.tabs(["📝 Registrar Questões HIIT", "📅 Calendário HIIT"])
+        aba_reg_hiit, aba_cal_hiit, aba_notas_hiit = st.tabs(["📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT"])
 
         with aba_reg_hiit:
             col_a, col_sub = st.columns(2)
@@ -1043,14 +1048,14 @@ else:
                     if total_q > 0:
                         taxa_acerto = acc / total_q
                         if taxa_acerto < 0.60:
-                            ciclo_nome = "🔴 HIIT Alerta (1d)"
-                            dias_prox = 1
-                        elif taxa_acerto < 0.80:
-                            ciclo_nome = "🟡 HIIT Reforço (7d)"
+                            ciclo_nome = "🔴 HIIT Alerta (7d)"
                             dias_prox = 7
+                        elif taxa_acerto < 0.80:
+                            ciclo_nome = "🟡 HIIT Reforço (14d)"
+                            dias_prox = 14
                         else:
-                            ciclo_nome = "🟢 HIIT Domínio (15d)"
-                            dias_prox = 15
+                            ciclo_nome = "🟢 HIIT Domínio (30d)"
+                            dias_prox = 30
                             
                         nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
                         
@@ -1178,474 +1183,96 @@ else:
                             time.sleep(0.5)
                             st.rerun()
 
-    elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        
-        # INICIALIZAÇÃO DE ESTADOS
-        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
-            
-        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
-        if st.session_state.get('limpar_nova_nota', False):
-            st.session_state.nota_imgs_temp = []
-            st.session_state.limpar_nova_nota = False
-            st.toast("✅ Anotação salva com sucesso!", icon="📝")
-            
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        
-        with aba_nova:
-            col_btn, col_img = st.columns([1, 2])
-            with col_btn:
-                st.markdown("### 🖼️ Colar Imagem (Opcional)")
-                if paste_image_button is not None:
-                    res_paste_nota = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8",
-                        key="paste_nota_nova"
-                    )
-                    if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                        if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                            st.session_state.nota_imgs_temp.append(img_b64)
+        with aba_notas_hiit:
+            if 'hiit_nota_imgs_temp' not in st.session_state: st.session_state.hiit_nota_imgs_temp = []
+            if st.session_state.get('limpar_nova_nota_hiit', False):
+                st.session_state.hiit_nota_imgs_temp = []
+                st.session_state.limpar_nova_nota_hiit = False
+                
+            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo", "📖 Cadernos HIIT"])
+            with aba_hn1:
+                col_b, col_i = st.columns([1, 2])
+                with col_b:
+                    st.markdown("### 🖼️ Colar Imagem")
+                    if paste_image_button is not None:
+                        res_paste_hiit = paste_image_button(
+                            label="Colar Imagem (Ctrl+V)",
+                            background_color="#2563eb", hover_background_color="#1d4ed8",
+                            key="paste_hiit_nota"
+                        )
+                        if res_paste_hiit.image_data is not None:
+                            ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
+                            if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
+                                st.session_state.hiit_nota_imgs_temp.append(ib64)
+                                st.rerun()
+                with col_i:
+                    if st.session_state.hiit_nota_imgs_temp:
+                        cols = st.columns(3)
+                        for idx, img_b64 in enumerate(st.session_state.hiit_nota_imgs_temp):
+                            with cols[idx % 3]:
+                                if isinstance(img_b64, str) and len(img_b64)>50:
+                                    try: st.image(base64.b64decode(img_b64), use_container_width=True)
+                                    except: pass
+                                if st.button("🗑️", key=f"rm_hiit_img_{idx}"):
+                                    st.session_state.hiit_nota_imgs_temp.pop(idx)
+                                    st.rerun()
+                
+                st.markdown("### ✍️ Escrever Resumo")
+                area_h = st.selectbox("Grande Bloco", ["Cirurgia", "Clínica Médica", "GO", "Pediatria", "Preventiva"], key="sel_bloco_hiit")
+                with st.form("form_hiit_nota", clear_on_submit=True):
+                    sub_h = st.text_input("Tema / Assunto")
+                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200)
+                    if st.form_submit_button("💾 Salvar Resumo HIIT", use_container_width=True):
+                        if sub_h and txt_h:
+                            db_add("anotacoes_hiit", "anotacoes_hiit", {
+                                "usuario_id": u_id, "area": area_h, "subtema": sub_h, "pontos_chave": txt_h,
+                                "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
+                            })
+                            st.session_state.limpar_nova_nota_hiit = True
+                            st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
+                            time.sleep(0.5)
                             st.rerun()
-                else:
-                    st.warning("Biblioteca de colar imagem não detectada.")
-                    
-            with col_img:
-                if st.session_state.nota_imgs_temp:
-                    st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
-                    cols = st.columns(3)
-                    for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
-                        with cols[idx % 3]:
-                            if isinstance(img_b64, str) and len(img_b64) > 50:
-                                try:
-                                    st.image(base64.b64decode(img_b64), use_container_width=True)
-                                except: pass
-                            if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
-                                st.session_state.nota_imgs_temp.pop(idx)
-                                st.rerun()
-
-            st.divider()
-            st.markdown("### ✍️ Escrever Resumo")
-            
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            sub_a = ""
-            if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
-                
-            with st.form("form_nova_nota", clear_on_submit=True):
-                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                
-                with st.container(border=True):
-                    st.markdown("""
-                    **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
-                    * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                    * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
-                    * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
-                    * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
-                    * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
-                    * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
-                    """, unsafe_allow_html=True)
-                
-                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s_final,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota = True
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes:
-                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                
-                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
-                
-                if not notas_exibir:
-                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
-                else:
-                    abas_areas = st.tabs(areas_presentes)
-                    for i, area_tab in enumerate(areas_presentes):
-                        with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
+                        else:
+                            st.error("Preencha o tema e a anotação.")
                             
-                            for nota in notas_area:
-                                nota_id = str(nota.get('id', '0000'))
-                                subtema_str = limpar_texto(nota.get('subtema'))
-                                data_str = formatar_data_br(nota.get('data_criacao'))
-                                
-                                # --- NOTA COMPACTA (EXPANDER) ---
-                                with st.expander(f"📝 {subtema_str} - {data_str}"):
-                                    c_del1, c_del2 = st.columns([0.85, 0.15])
-                                    with c_del2:
-                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
-                                            db_delete("anotacoes", "anotacoes", nota_id)
-                                            st.toast("Anotação excluída!", icon="🗑️")
-                                            st.rerun()
-                                    
-                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
-                                    conteudo_nota = nota.get('pontos_chave', '')
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
-                                    
-                                    # Exibindo as imagens de forma organizada (Grade)
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
-                                        imgs_exibir.insert(0, nota['imagem_b64'])
+            with aba_hn2:
+                if not dados_anotacoes_hiit:
+                    st.info("Nenhum resumo HIIT cadastrado.")
+                else:
+                    pesq_h = st.text_input("🔍 Pesquisar...", key="pesq_hiit")
+                    notas_h_exibir = list(dados_anotacoes_hiit)
+                    if pesq_h:
+                        t_low = pesq_h.lower()
+                        notas_h_exibir = [n for n in notas_h_exibir if t_low in str(n.get('subtema','')).lower() or t_low in str(n.get('pontos_chave','')).lower()]
+                    notas_h_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                    
+                    blocos_presentes = sorted(list(set([n.get('area', 'Clínica Médica') for n in notas_h_exibir])))
+                    if not notas_h_exibir:
+                        st.warning("Nada encontrado.")
+                    else:
+                        abas_b = st.tabs(blocos_presentes)
+                        for i, bl in enumerate(blocos_presentes):
+                            with abas_b[i]:
+                                for nh in [x for x in notas_h_exibir if x.get('area') == bl]:
+                                    id_nh = str(nh.get('id', '00'))
+                                    with st.expander(f"📝 {limpar_texto(nh.get('subtema'))} - {formatar_data_br(nh.get('data_criacao'))}"):
+                                        c_d1, c_d2 = st.columns([0.85, 0.15])
+                                        with c_d2:
+                                            if st.button("🗑️ Excluir", key=f"del_h_{id_nh}", use_container_width=True):
+                                                db_delete("anotacoes_hiit", "anotacoes_hiit", id_nh)
+                                                st.toast("Anotação excluída!", icon="🗑️")
+                                                time.sleep(0.5)
+                                                st.rerun()
+                                        st.markdown(f"<div style='border-left: 3px solid #2563eb; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
                                         
-                                    if imgs_exibir:
-                                        st.write("") # Espaçamento
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                    except: pass
-                                    
-                                    st.divider()
-                                    
-                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
-                                    if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = nota_id
-                                            st.rerun()
-                                    else:
-                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = None
-                                            st.rerun()
-                                            
-                                        st.markdown("#### 🖼️ Imagens da Anotação")
-                                        col_ebtn, col_eimg = st.columns([1, 2])
-                                        with col_ebtn:
-                                            st.markdown("➕ **Adicionar Mais Imagens:**")
-                                            if paste_image_button is not None:
-                                                res_paste_edit = paste_image_button(
-                                                    label="Colar Imagem (Ctrl+V)",
-                                                    background_color="#2563eb",
-                                                    hover_background_color="#1d4ed8",
-                                                    key=f"paste_edit_{nota_id}" 
-                                                )
-                                                if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        st.rerun()
-                                        with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                    with cols_e[idx_e % 3]:
-                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                            except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                            st.rerun()
-
-                                        st.markdown("#### ✍️ Editar Texto")
-                                        
-                                        col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
-                                        sub_ea = ""
-                                        if edit_a == "Clínica Médica":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
-                                        elif edit_a == "Cirurgia Geral":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
-                                        
-                                        # Limpar a subespecialidade se já vier no texto
-                                        s_puro = nota.get('subtema', '')
-                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            edit_s = st.text_input("Subtema", value=s_puro)
-                                            
-                                            with st.container(border=True):
-                                                st.markdown("""
-                                                **⌨️ Comandos de Formatação Rápida:**
-                                                * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                                                * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
-                                                * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
-                                                """, unsafe_allow_html=True)
-
-                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
-                                            
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Preencha o subtema e a anotação para salvar.")
-
-    elif menu == "📍 GPS da Aprovação":
-        st.header("GPS da Aprovação")
-        alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
-        if dados_simulados:
-            notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
-            st.metric("Sua Média Global", f"{sum(notas)/len(notas):.1f}%")
-
-    elif menu == "🏠 Dashboard":
-        st.header("Painel de Desempenho Global")
-        
-        # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
-        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
-        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
-        
-        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
-        if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
-        else:
-            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
-        st.divider()
-        # --------------------------------------------------------
-        
-        qs_sess_all = [dict(q) for q in dados_questoes]
-        qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
-        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
-        with aba_geral:
-            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all)
-            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all)
-            t_questoes_g = t_acertos_g + t_erros_g
-            
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Questões Totais", t_questoes_g)
-            c2.metric("🟢 Acertos", t_acertos_g)
-            c3.metric("🔴 Erros", t_erros_g)
-            c4.metric("🎯 Taxa de Acerto", f"{(t_acertos_g / t_questoes_g * 100) if t_questoes_g > 0 else 0:.1f}%")
-            
-            st.divider()
-            col_g1, col_g2 = st.columns([1, 1.5])
-            
-            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-            
-            with col_g1:
-                if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-            with col_g2:
-                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
-                df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
-                if not df_r.empty:
-                    df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
-                    df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
-                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-
-        with aba_detalhada:
-            filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
-            qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
-            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula') == filtro_dash]
-            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f)
-            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f)
-            t_questoes_f = t_acertos_f + t_erros_f
-            
-            c1_f, c2_f, c3_f = st.columns(3)
-            c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
-            c2_f.metric("🟢 Acertos", t_acertos_f)
-            c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
-
-    elif menu == "📅 Agenda de Revisões":
-        st.header("Organizador Adaptativo de Ciclos")
-        
-        # --- PAINEL GIGANTE DE MISSÕES ---
-        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        
-        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
-        qtd_hoje = len(hoje_revs)
-        
-        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
-
-        st.markdown("### 🎯 Seu Painel de Missões")
-        col_st1, col_st2 = st.columns(2)
-        with col_st1:
-            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
-        with col_st2:
-            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
-        st.divider()
-        # ------------------------------------------------
-        
-        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
-        
-        with aba_pendentes:
-            c_v, c_o = st.columns(2)
-            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
-            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
-            
-            data_filtro_exata = None
-            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
-            
-            # --- CÁLCULO DE DESEMPENHO CRUZADO PARA O CARD ---
-            desempenho_por_tema = {}
-            for q in dados_questoes:
-                t_str = limpar_texto(q.get('subtema', ''))
-                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
-                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
-                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
-            # -------------------------------------------------
-            
-            todas_pendentes = []
-            for r_orig in dados_revisoes:
-                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                r = dict(r_orig)
-                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
-                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
-                todas_pendentes.append(r)
-            
-            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
-            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
-            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
-            with nav_r1:
-                if st.button("⬅️ Mês Anterior", key="prev_rev"):
-                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
-                    else: st.session_state.cal_mes_revs -= 1
-                    st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
-            with nav_r3:
-                if st.button("Próximo Mês ➡️", key="next_rev"):
-                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
-                    else: st.session_state.cal_mes_revs += 1
-                    st.rerun()
-
-            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
-            st.divider()
-
-            if visao == "🔎 Data Específica" and data_filtro_exata:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
-            elif visao == "📆 Para Hoje":
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
-            elif visao == "🗓️ Próximos 7 Dias":
-                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
-            else:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
-            
-            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
-            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
-            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
-
-            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
-            
-            for r in lista_pendentes:
-                tema_card = limpar_texto(r['tema'])
-                pct_str = "--"
-                cor_pct = "#94a3b8"
-                if tema_card in desempenho_por_tema:
-                    ac = desempenho_por_tema[tema_card]['ac']
-                    er = desempenho_por_tema[tema_card]['er']
-                    tot = ac + er
-                    if tot > 0:
-                        pct = ac / tot
-                        pct_str = f"{pct*100:.0f}%"
-                        if pct >= 0.8: cor_pct = "#22c55e"
-                        elif pct >= 0.6: cor_pct = "#eab308"
-                        else: cor_pct = "#ef4444"
-
-                with st.container(border=True):
-                    c1_card, c2_card = st.columns([0.8, 0.2])
-                    with c1_card:
-                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
-                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
-                    with c2_card:
-                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
-                        
-                    with st.expander("✅ Concluir Revisão"):
-                        with st.form(f"f_{r['id']}", clear_on_submit=True):
-                            col1, col2, col3 = st.columns(3)
-                            q = col1.number_input("Questões Feitas", 0)
-                            e = col2.number_input("Erros", 0, max_value=max(q,0))
-                            f = col3.number_input("Flashcards Lidos", 0)
-                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
-                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                st.toast("✅ Revisão Concluída!", icon="🚀")
-                                time.sleep(0.5)
-                                st.rerun()
-
-        with aba_historico:
-            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
-            if conc_docs:
-                dados_h = []
-                for d in conc_docs:
-                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                    tema = limpar_texto(tema)
-                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
-                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
-                
-                df_h = pd.DataFrame(dados_h)
-                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
-                df_h = df_h.dropna(subset=['Conclusão_dt']) 
-                
-                if not df_h.empty:
-                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
-                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    c1g, c2g = st.columns(2)
-                    
-                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-                    
-                    with c1g: 
-                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    with c2g: 
-                        fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    
-                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
-                    st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
-                    
-                    st.divider()
-                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
-                        opcoes_desfazer = {}
-                        for _, row in df_h.iterrows():
-                            opcoes_desfazer[f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})"] = row['ID']
-                        if opcoes_desfazer:
-                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
-                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
-                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                st.toast("Revisão desfeita!", icon="⏪")
-                                time.sleep(0.5)
-                                st.rerun()
+                                        imgs_exibir = list(nh.get('imagens_b64', []))
+                                        if imgs_exibir:
+                                            cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
+                                            for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                                with cols_view[idx_v % 4]:
+                                                    if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                        try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                        except: pass
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
@@ -1863,6 +1490,462 @@ else:
                             except Exception as e:
                                 st.error(f"Erro ao gerar simulado: {e}")
 
+    elif menu == "📚 Registro de Aulas":
+        st.header("Biblioteca Pessoal de Conteúdo")
+        col_form, col_lista = st.columns([1, 2.5])
+        with col_form:
+            st.subheader("➕ Adicionar Aula")
+            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
+            c_area, c_sub = st.columns(2)
+            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
+            sub_al = ""
+            if a == "Clínica Médica":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
+                
+            with st.form("n_aula", clear_on_submit=True):
+                t = st.text_input("Assunto da Aula (Tema)")
+                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
+                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
+                    doc_a = db.collection("aulas").document()
+                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
+                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
+                    doc_a.set(n_aula)
+                    n_aula["id"] = doc_a.id
+                    st.session_state.dados["aulas"].append(n_aula)
+                    st.toast("Aula registrada com sucesso!", icon="📚")
+                    time.sleep(0.5)
+                    st.rerun()
+                    
+            with st.expander("🗑️ Excluir Aula do Banco"):
+                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
+                if opcoes_del_dict:
+                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
+                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
+                        id_del = str(opcoes_del_dict[op_del_chave])
+                        db.collection("aulas").document(id_del).delete()
+                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
+                        st.toast("Aula apagada.", icon="🗑️")
+                        time.sleep(0.5)
+                        st.rerun()
+
+        with col_lista:
+            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
+            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
+            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
+            with nav_a1:
+                if st.button("⬅️ Mês Anterior", key="prev_aula"):
+                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
+                    else: st.session_state.cal_mes_aulas -= 1
+                    st.rerun()
+            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
+            with nav_a3:
+                if st.button("Próximo Mês ➡️", key="next_aula"):
+                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
+                    else: st.session_state.cal_mes_aulas += 1
+                    st.rerun()
+            
+            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
+            
+            col_f1, col_f2 = st.columns([3, 2])
+            with col_f1: st.subheader("Linha do Tempo")
+            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
+            
+            aulas_exibir = list(dados_aulas)
+            if filtrar_data_aula:
+                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
+                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
+
+            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
+            for al in aulas_exibir:
+                with st.container(border=True):
+                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
+                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
+
+    elif menu == "📝 Anotações Rápidas":
+        st.header("Caderno de Resumos e Anotações")
+        
+        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
+            
+        if st.session_state.get('limpar_nova_nota', False):
+            st.session_state.nota_imgs_temp = []
+            st.session_state.limpar_nova_nota = False
+            st.toast("✅ Anotação salva com sucesso!", icon="📝")
+            
+        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
+        
+        with aba_nova:
+            col_btn, col_img = st.columns([1, 2])
+            with col_btn:
+                st.markdown("### 🖼️ Colar Imagem (Opcional)")
+                if paste_image_button is not None:
+                    res_paste_nota = paste_image_button(
+                        label="CLIQUE AQUI E APERTE Ctrl+V",
+                        background_color="#2563eb",
+                        hover_background_color="#1d4ed8",
+                        key="paste_nota_nova"
+                    )
+                    if res_paste_nota.image_data is not None:
+                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
+                        if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
+                            st.session_state.nota_imgs_temp.append(img_b64)
+                            st.rerun()
+                else:
+                    st.warning("Biblioteca de colar imagem não detectada.")
+                    
+            with col_img:
+                if st.session_state.nota_imgs_temp:
+                    st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
+                    cols = st.columns(3)
+                    for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
+                        with cols[idx % 3]:
+                            if isinstance(img_b64, str) and len(img_b64) > 50:
+                                try:
+                                    st.image(base64.b64decode(img_b64), use_container_width=True)
+                                except: pass
+                            if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
+                                st.session_state.nota_imgs_temp.pop(idx)
+                                st.rerun()
+
+            st.divider()
+            st.markdown("### ✍️ Escrever Resumo")
+            
+            col_a, col_s = st.columns(2)
+            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            sub_a = ""
+            if a == "Clínica Médica":
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                
+            with st.form("form_nova_nota", clear_on_submit=True):
+                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                
+                with st.container(border=True):
+                    st.markdown("""
+                    **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
+                    * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                    * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
+                    * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
+                    * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
+                    * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
+                    * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
+                    """, unsafe_allow_html=True)
+                
+                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
+                
+                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
+                    if s and p:
+                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
+                        db_add("anotacoes", "anotacoes", {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "subtema": s_final,
+                            "pontos_chave": p,
+                            "imagens_b64": st.session_state.nota_imgs_temp,
+                            "data_criacao": str(hoje)
+                        })
+                        st.session_state.limpar_nova_nota = True
+                        st.rerun()
+                    else:
+                        st.error("Preencha o subtema e a anotação para salvar.")
+
+        with aba_lista:
+            minhas_anotacoes = dados_anotacoes
+            if not minhas_anotacoes:
+                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
+            else:
+                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
+                
+                notas_exibir = list(minhas_anotacoes)
+                if pesquisa_nota:
+                    termo = pesquisa_nota.lower()
+                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
+                
+                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                
+                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
+                
+                if not notas_exibir:
+                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
+                else:
+                    abas_areas = st.tabs(areas_presentes)
+                    for i, area_tab in enumerate(areas_presentes):
+                        with abas_areas[i]:
+                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
+                            
+                            for nota in notas_area:
+                                nota_id = str(nota.get('id', '0000'))
+                                subtema_str = limpar_texto(nota.get('subtema'))
+                                data_str = formatar_data_br(nota.get('data_criacao'))
+                                
+                                with st.expander(f"📝 {subtema_str} - {data_str}"):
+                                    c_del1, c_del2 = st.columns([0.85, 0.15])
+                                    with c_del2:
+                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
+                                            db_delete("anotacoes", "anotacoes", nota_id)
+                                            st.toast("Anotação excluída!", icon="🗑️")
+                                            st.rerun()
+                                    
+                                    conteudo_nota = nota.get('pontos_chave', '')
+                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
+                                    
+                                    imgs_exibir = list(nota.get('imagens_b64', []))
+                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
+                                        imgs_exibir.insert(0, nota['imagem_b64'])
+                                        
+                                    if imgs_exibir:
+                                        st.write("") 
+                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
+                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                            with cols_view[idx_v % 4]:
+                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                    except: pass
+                                    
+                                    st.divider()
+                                    
+                                    if st.session_state.get('nota_em_edicao') != nota_id:
+                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
+                                            st.session_state.nota_em_edicao = nota_id
+                                            st.rerun()
+                                    else:
+                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
+                                            st.session_state.nota_em_edicao = None
+                                            st.rerun()
+                                            
+                                        st.markdown("#### 🖼️ Imagens da Anotação")
+                                        col_ebtn, col_eimg = st.columns([1, 2])
+                                        with col_ebtn:
+                                            st.markdown("➕ **Adicionar Mais Imagens:**")
+                                            if paste_image_button is not None:
+                                                res_paste_edit = paste_image_button(
+                                                    label="Colar Imagem (Ctrl+V)",
+                                                    background_color="#2563eb",
+                                                    hover_background_color="#1d4ed8",
+                                                    key=f"paste_edit_{nota_id}" 
+                                                )
+                                                if res_paste_edit.image_data is not None:
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                    if img_eb64 and img_eb64 not in imgs_exibir:
+                                                        imgs_exibir.append(img_eb64)
+                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
+                                                        st.rerun()
+                                        with col_eimg:
+                                            if imgs_exibir:
+                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                                    with cols_e[idx_e % 3]:
+                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
+                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                            except: pass
+                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
+                                                            imgs_exibir.pop(idx_e)
+                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
+                                                            st.rerun()
+
+                                        st.markdown("#### ✍️ Editar Texto")
+                                        
+                                        col_ea, col_es = st.columns(2)
+                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
+                                        sub_ea = ""
+                                        if edit_a == "Clínica Médica":
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
+                                        elif edit_a == "Cirurgia Geral":
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
+                                        
+                                        s_puro = nota.get('subtema', '')
+                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                            
+                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
+                                            edit_s = st.text_input("Subtema", value=s_puro)
+                                            
+                                            with st.container(border=True):
+                                                st.markdown("""
+                                                **⌨️ Comandos de Formatação Rápida:**
+                                                * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
+                                                * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
+                                                * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
+                                                """, unsafe_allow_html=True)
+
+                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
+                                            
+                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                                                if edit_s and edit_p:
+                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
+                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
+                                                    st.session_state.nota_em_edicao = None
+                                                    st.toast("✅ Anotação atualizada!", icon="📝")
+                                                    time.sleep(0.5)
+                                                    st.rerun()
+                                                else:
+                                                    st.error("Preencha o subtema e a anotação para salvar.")
+
+    elif menu == "📅 Agenda de Revisões":
+        st.header("Organizador Adaptativo de Ciclos")
+        
+        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
+        qtd_hoje = len(hoje_revs)
+        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
+
+        st.markdown("### 🎯 Seu Painel de Missões")
+        col_st1, col_st2 = st.columns(2)
+        with col_st1:
+            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
+        with col_st2:
+            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
+        st.divider()
+        
+        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
+        
+        with aba_pendentes:
+            c_v, c_o = st.columns(2)
+            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
+            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
+            
+            data_filtro_exata = None
+            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
+            
+            desempenho_por_tema = {}
+            for q in dados_questoes:
+                t_str = limpar_texto(q.get('subtema', ''))
+                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
+                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
+                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
+            
+            todas_pendentes = []
+            for r_orig in dados_revisoes:
+                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
+                r = dict(r_orig)
+                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
+                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
+                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
+                todas_pendentes.append(r)
+            
+            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
+            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
+            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
+            with nav_r1:
+                if st.button("⬅️ Mês Anterior", key="prev_rev"):
+                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
+                    else: st.session_state.cal_mes_revs -= 1
+                    st.rerun()
+            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
+            with nav_r3:
+                if st.button("Próximo Mês ➡️", key="next_rev"):
+                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
+                    else: st.session_state.cal_mes_revs += 1
+                    st.rerun()
+
+            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
+            st.divider()
+
+            if visao == "🔎 Data Específica" and data_filtro_exata:
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
+            elif visao == "📆 Para Hoje":
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
+            elif visao == "🗓️ Próximos 7 Dias":
+                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
+            else:
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
+            
+            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
+            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
+            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
+
+            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
+            
+            for r in lista_pendentes:
+                tema_card = limpar_texto(r['tema'])
+                pct_str = "--"
+                cor_pct = "#94a3b8"
+                if tema_card in desempenho_por_tema:
+                    ac = desempenho_por_tema[tema_card]['ac']
+                    er = desempenho_por_tema[tema_card]['er']
+                    tot = ac + er
+                    if tot > 0:
+                        pct = ac / tot
+                        pct_str = f"{pct*100:.0f}%"
+                        if pct >= 0.8: cor_pct = "#22c55e"
+                        elif pct >= 0.6: cor_pct = "#eab308"
+                        else: cor_pct = "#ef4444"
+
+                with st.container(border=True):
+                    c1_card, c2_card = st.columns([0.8, 0.2])
+                    with c1_card:
+                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
+                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
+                    with c2_card:
+                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
+                        
+                    with st.expander("✅ Concluir Revisão"):
+                        with st.form(f"f_{r['id']}", clear_on_submit=True):
+                            col1, col2, col3 = st.columns(3)
+                            q = col1.number_input("Questões Feitas", 0)
+                            e = col2.number_input("Erros", 0, max_value=max(q,0))
+                            f = col3.number_input("Flashcards Lidos", 0)
+                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
+                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
+                                st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
+                                st.rerun()
+
+        with aba_historico:
+            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
+            if conc_docs:
+                dados_h = []
+                for d in conc_docs:
+                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                    tema = limpar_texto(tema)
+                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
+                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
+                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
+                
+                df_h = pd.DataFrame(dados_h)
+                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
+                df_h = df_h.dropna(subset=['Conclusão_dt']) 
+                
+                if not df_h.empty:
+                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
+                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
+                    c1g, c2g = st.columns(2)
+                    
+                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    
+                    with c1g: 
+                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    with c2g: 
+                        fig2 = px.bar(df_ag, x="Data", y="Cards")
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    
+                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
+                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
+                    st.markdown("### 📋 Detalhamento Diário por Matéria")
+                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
+                    
+                    st.divider()
+                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
+                        opcoes_desfazer = {}
+                        for _, row in df_h.iterrows():
+                            opcoes_desfazer[f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})"] = row['ID']
+                        if opcoes_desfazer:
+                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
+                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
+                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
+                                st.toast("Revisão desfeita!", icon="⏪")
+                                time.sleep(0.5)
+                                st.rerun()
+
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
         with aba_chat:
@@ -1966,6 +2049,248 @@ else:
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
+    elif menu == "📁 Materiais e Simulados":
+        st.header("Gerenciador de PDFs")
+        arq = st.file_uploader("Upload PDF de Estudo", type=['pdf'])
+        if arq and st.button("Salvar na Nuvem", use_container_width=True):
+            caminho = os.path.join("materiais_estudo", arq.name)
+            with open(caminho, "wb") as f: f.write(arq.getbuffer())
+            db_add("materiais", "materiais", {"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
+            st.toast("Salvo com sucesso!", icon="📄")
+            
+        if dados_materiais: 
+            st.write("---")
+            st.subheader("Meus Arquivos")
+            for mat in dados_materiais:
+                mat_id = str(mat.get('id', '0000'))
+                with st.container(border=True):
+                    col_t, col_d, col_v, col_del = st.columns([4, 1, 1, 1])
+                    col_t.markdown(f"**{mat.get('titulo')}**")
+                    col_d.caption(f"Data: {formatar_data_br(mat.get('data_upload'))}")
+                    
+                    if os.path.exists(mat.get('path', '')):
+                        with open(mat['path'], "rb") as pdf_file:
+                            pdf_bytes = pdf_file.read()
+                            col_v.download_button("📥 Baixar", data=pdf_bytes, file_name=mat.get('titulo'), key=f"dl_{mat_id}")
+                    else:
+                        col_v.warning("Arquivo perdido.")
+                        
+                    if col_del.button("🗑️ Excluir", key=f"del_{mat_id}"):
+                        db_delete("materiais", "materiais", mat_id)
+                        if os.path.exists(mat.get('path', '')): os.remove(mat['path'])
+                        st.rerun()
+
+    elif menu == "🏥 Simulados & OSCE":
+        st.header("Simulador Interativo")
+        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
+        
+        with aba_p:
+            with st.form("sim_f", clear_on_submit=True):
+                c1, c2, c3 = st.columns(3)
+                ins, an, dt = c1.selectbox("Instituição", INSTITUICOES), c2.text_input("Ano da Prova"), c3.date_input("Data de Resolução", hoje, format="DD/MM/YYYY")
+                co, no = st.columns(2)
+                cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
+                if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
+                    db_add("simulados", "simulados", {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
+                    st.rerun()
+            if len(dados_simulados) >= 3:
+                dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
+                dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
+                if len(dfs['DU'].unique()) > 1:
+                    x_vals = dfs['DU'].values
+                    y_vals = dfs['N'].values
+                    coefs = np.polyfit(x_vals, y_vals, 1)
+                    poly_func = np.poly1d(coefs)
+                    
+                    fut = [dfs['D'].max() + timedelta(days=30*i) for i in range(1, 4)]
+                    fut_x = pd.to_numeric(pd.to_datetime(fut)).values
+                    p = poly_func(fut_x)
+                    
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
+                    fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
+                    
+                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, theme=None)
+
+        with aba_simulado:
+            col_sim1, col_sim2 = st.columns(2)
+            colagem_img_sim = None
+            with col_sim1:
+                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
+                if paste_image_button is not None:
+                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
+                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
+            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
+            
+            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
+                client_ia = get_ia_client()
+                if client_ia:
+                    todas_imagens_b64 = []
+                    with st.spinner("Empacotando arquivos para envio..."):
+                        if arq_pdf:
+                            try:
+                                from pdf2image import convert_from_bytes
+                                imagens_paginas = convert_from_bytes(arq_pdf.read())
+                                for img in imagens_paginas:
+                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
+                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
+                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
+                        if imgs_prova:
+                            for img in imgs_prova: 
+                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
+                        if colagem_img_sim:
+                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
+                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
+
+                    if todas_imagens_b64:
+                        st.session_state.prova_ativa = []
+                        st.session_state.respostas_usuario = {}
+                        barra_progresso = st.progress(0)
+                        
+                        for i in range(len(todas_imagens_b64)):
+                            img_b64 = todas_imagens_b64[i]
+                            prompt = """Extraia as questões da imagem e retorne um JSON no formato {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}
+                            Retorne apenas o JSON. Não pense, não explique e não use tags markdown."""
+                            try:
+                                msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
+                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
+                                questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
+                                for q in questoes_lote: q['imagem_fonte'] = img_b64
+                                st.session_state.prova_ativa.extend(questoes_lote)
+                            except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
+                            barra_progresso.progress((i + 1) / len(todas_imagens_b64))
+                        st.toast("🎉 Extração concluída!")
+                        st.rerun()
+
+            if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
+                st.divider(); st.subheader("📝 Resolvendo Simulado")
+                for i, q in enumerate(st.session_state.prova_ativa):
+                    with st.container(border=True):
+                        st.markdown(f"**Questão {q.get('num', i+1)}**")
+                        if q.get('imagem_fonte'):
+                            with st.expander("🖼️ Ver Imagem"): st.image(base64.b64decode(q['imagem_fonte']), use_container_width=True)
+                        st.write(q.get('texto', ''))
+                        opcoes_dict = q.get('opcoes', {})
+                        if opcoes_dict: st.session_state.respostas_usuario[i] = st.radio("Selecione:", options=list(opcoes_dict.keys()), format_func=lambda x: f"{x}) {opcoes_dict.get(x, '')}", key=f"q_radio_{i}", index=None)
+
+                if st.button("🏁 Finalizar e Ver Gabarito", use_container_width=True):
+                    acertos = 0
+                    for idx, questao in enumerate(st.session_state.prova_ativa):
+                        resp_user = st.session_state.respostas_usuario.get(idx)
+                        correta = questao.get('correta', '')
+                        st.write("---")
+                        if resp_user == correta and correta != '': st.success(f"Questão {questao.get('num', idx+1)}: ACERTOU! ({resp_user})"); acertos += 1
+                        else: st.error(f"Questão {questao.get('num', idx+1)}: ERROU. (Sua resposta: {resp_user} | Correta: {correta})")
+                        with st.expander("Comentário"): st.write(questao.get('comentario', 'Sem comentário.'))
+                    
+                    nota_final = (acertos / len(st.session_state.prova_ativa)) * 100 if len(st.session_state.prova_ativa) > 0 else 0
+                    st.balloons(); st.metric("Nota Líquida", f"{nota_final:.1f}%")
+                    db_add("simulados", "simulados", {"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
+                    
+                if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
+
+        with aba_sim_pdf:
+            st.subheader("Gerar Simulado baseado em seus Materiais (PDF)")
+            if not dados_materiais:
+                st.warning("Você não tem PDFs salvos na aba 'Materiais e Simulados'.")
+            else:
+                mat_escolhido = st.selectbox("Escolha o PDF de Estudo:", [m['titulo'] for m in dados_materiais])
+                qtd_q = st.slider("Quantidade de Questões", 5, 100, 10)
+                st.caption("Atenção: PDFs muito extensos podem ser cortados pela IA devido ao limite de leitura.")
+                
+                if st.button("Gerar Simulado Exclusivo", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia and PyPDF2:
+                        caminho_pdf = next(m['path'] for m in dados_materiais if m['titulo'] == mat_escolhido)
+                        if os.path.exists(caminho_pdf):
+                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questões..."):
+                                try:
+                                    reader = PyPDF2.PdfReader(caminho_pdf)
+                                    texto_pdf = ""
+                                    for page in reader.pages: texto_pdf += page.extract_text() + "\n"
+                                    texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
+                                    
+                                    prompt = f"""Baseado no material fornecido, crie um simulado de {qtd_q} questões. Retorne um JSON no formato: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
+                                    Material: {texto_pdf}"""
+                                    
+                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
+                                    questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
+                                    
+                                    if questoes_pdf:
+                                        st.session_state.prova_ativa = questoes_pdf
+                                        st.session_state.respostas_usuario = {}
+                                        st.toast("Simulado gerado! Acesse a aba 'Simulado IA'", icon="🎉")
+                                    else:
+                                        pass # O erro já foi mostrado na função extrair_json_seguro
+                                except Exception as e:
+                                    st.error(f"Erro ao analisar PDF: {e}")
+                        else:
+                            st.error("Arquivo PDF não encontrado no servidor físico.")
+
+        with aba_osce:
+            client_ia = get_ia_client()
+            if client_ia:
+                modo_osce = st.radio("Cenário", ["🎯 Doença Específica", "🎲 Surpresa"])
+                if modo_osce == "🎯 Doença Específica": doenca_alvo = st.text_input("Doença (Ex: Infarto com supra)")
+                else:
+                    col_m, col_t = st.columns(2)
+                    mat_alvo = col_m.selectbox("Área", AREAS_MED, key="osce_mat")
+                    sub_o = ""
+                    if mat_alvo == "Clínica Médica":
+                        sub_o = col_t.selectbox("Subespecialidade", SUB_CM, key="osce_sub_cm")
+                    elif mat_alvo == "Cirurgia Geral":
+                        sub_o = col_t.selectbox("Subespecialidade", SUB_CG, key="osce_sub_cg")
+                    tema_alvo = st.text_input("Tema", key="osce_tema")
+
+                if st.button("▶️ Abrir Consultório"):
+                    st.session_state.osce_hist, st.session_state.osce_active, st.session_state.osce_finished = [], True, False
+                    base_p = f"""Você é paciente num OSCE de Medicina. Não diga o diagnóstico de cara. Fale os sintomas. Se o médico pedir um exame dessa lista [{", ".join(BANCO_IMAGENS_OSCE.keys())}], responda com a tag [EXAME: nome_do_exame]."""
+                    tema_final = f"{sub_o} - {tema_alvo}" if modo_osce == "🎲 Surpresa" and sub_o and sub_o != "Geral" else (tema_alvo if modo_osce == "🎲 Surpresa" else "")
+                    st.session_state.osce_sys_prompt = f"{base_p}\nDoença: {doenca_alvo}." if modo_osce == "🎯 Doença Específica" else f"{base_p}\nSorteie para: {mat_alvo} - {tema_final}."
+                    st.rerun()
+
+                if getattr(st.session_state, 'osce_active', False):
+                    chat_box = st.container(height=450)
+                    with chat_box:
+                        for msg in st.session_state.osce_hist:
+                            with st.chat_message(msg["role"]):
+                                if msg["role"] == "assistant": renderizar_mensagem_osce(msg["content"])
+                                else: st.write(msg["content"])
+                    
+                    if not getattr(st.session_state, 'osce_finished', False):
+                        col_t, col_a = st.columns([4, 1])
+                        texto_medico = col_t.chat_input("Fale ou prescreva...", key="input_osce")
+                        audio_medico = col_a.audio_input("Voz", label_visibility="collapsed")
+                        prescricao_final = st.text_area("📝 Receituário Final:")
+
+                        if st.button("🛑 Chamar Preceptor", use_container_width=True):
+                            st.session_state.osce_finished = True
+                            with st.spinner("Corrigindo conduta..."):
+                                try:
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
+                                    st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
+                                except Exception as e: st.error(str(e))
+                        
+                        entrada_final = texto_medico
+                        if audio_medico:
+                            with st.spinner("Transcrevendo..."):
+                                try: entrada_final = client_ia.audio.transcriptions.create(file=("audio.wav", audio_medico.getvalue()), model="whisper-large-v3").text
+                                except Exception as e: st.error(f"Erro no áudio: {e}")
+                        
+                        if entrada_final:
+                            st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
+                            with st.spinner("Paciente respondendo..."):
+                                try:
+                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
+                                    st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
+                                except Exception as e: st.error(f"Erro IA: {e}")
+                                st.rerun()
+
+                    if getattr(st.session_state, 'osce_finished', False):
+                        st.divider(); st.markdown("### 📋 Avaliação"); st.info(st.session_state.osce_eval)
+
     elif menu == "⚙️ Configurações":
         st.header("Controle de Perfil")
         uf = st.file_uploader("Foto de Perfil", type=['jpg', 'png'])
@@ -2004,7 +2329,7 @@ else:
                 if st.button("🚫 Apagar Conta", use_container_width=True):
                     uid = del_u.split(" | ")[0]
                     if uid != u_id:
-                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit"]:
+                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit"]:
                             for doc in db.collection(col).where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection(col).document(doc.id).delete()
                         db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
                     else: st.warning("Você não pode banir a si mesmo.")
@@ -2013,7 +2338,7 @@ else:
             st.subheader("📦 Exportação de Backup em Nuvem")
             if st.button("Baixar Dados (JSON)"):
                 with st.spinner("Coletando tudo..."):
-                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit"]}
+                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit"]}
                     st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
         except Exception as e:
             st.error(f"Erro Admin: {e}")
