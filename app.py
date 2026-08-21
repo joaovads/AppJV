@@ -265,6 +265,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
+        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -286,6 +287,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
+        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -1426,7 +1428,7 @@ else:
         
         st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
         if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
         else:
             st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
         st.divider()
@@ -1511,7 +1513,7 @@ else:
                 if st.button("✏️ Mudar Nome", use_container_width=True): db.collection("usuarios").document(edit_u.split(" | ")[0]).update({"nome": nn}); invalidar_cache(); st.rerun()
             with c2:
                 res_u = st.selectbox("Reset de Senha:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
-                ns = st.text_input("Nova Senha")
+                ns = text_input("Nova Senha")
                 if st.button("🔄 Forçar Nova Senha", use_container_width=True): db.collection("usuarios").document(res_u.split(" | ")[0]).update({"senha": hash_senha(ns)}); invalidar_cache(); st.rerun()
             with c3:
                 del_u = st.selectbox("Banir:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
