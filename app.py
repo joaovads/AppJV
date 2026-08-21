@@ -265,7 +265,6 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
-        # Processamento inteligente detectando a verdadeira classe do objeto
         if isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif isinstance(img_data, bytes):
@@ -287,7 +286,6 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
-        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -1101,7 +1099,7 @@ else:
                         "% Acertos": porcentagem
                     })
                 df_h = pd.DataFrame(lista_hiit).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"], errors='ignore')
-                st.table(df_h)
+                st.dataframe(df_h, use_container_width=True)
 
         with aba_cal_hiit:
             todas_pendentes_hiit_cru = [r for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
@@ -1428,7 +1426,7 @@ else:
         
         st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
         if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE (ou atrasadas). Vá na aba 'Agenda de Revisões'.")
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões pendentes para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
         else:
             st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
         st.divider()
@@ -1482,6 +1480,492 @@ else:
             c2_f.metric("🟢 Acertos", t_acertos_f)
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
 
+    elif menu == "📅 Agenda de Revisões":
+        st.header("Organizador Adaptativo de Ciclos")
+        
+        # --- PAINEL GIGANTE DE MISSÕES ---
+        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        
+        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
+        qtd_hoje = len(hoje_revs)
+        
+        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
+
+        st.markdown("### 🎯 Seu Painel de Missões")
+        col_st1, col_st2 = st.columns(2)
+        with col_st1:
+            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
+        with col_st2:
+            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
+        st.divider()
+        # ------------------------------------------------
+        
+        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
+        
+        with aba_pendentes:
+            c_v, c_o = st.columns(2)
+            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
+            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
+            
+            data_filtro_exata = None
+            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
+            
+            # --- CÁLCULO DE DESEMPENHO CRUZADO PARA O CARD ---
+            desempenho_por_tema = {}
+            for q in dados_questoes:
+                t_str = limpar_texto(q.get('subtema', ''))
+                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
+                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
+                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
+            # -------------------------------------------------
+            
+            todas_pendentes = []
+            for r_orig in dados_revisoes:
+                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
+                r = dict(r_orig)
+                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
+                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
+                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
+                todas_pendentes.append(r)
+            
+            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
+            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
+            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
+            with nav_r1:
+                if st.button("⬅️ Mês Anterior", key="prev_rev"):
+                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
+                    else: st.session_state.cal_mes_revs -= 1
+                    st.rerun()
+            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
+            with nav_r3:
+                if st.button("Próximo Mês ➡️", key="next_rev"):
+                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
+                    else: st.session_state.cal_mes_revs += 1
+                    st.rerun()
+
+            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
+            st.divider()
+
+            if visao == "🔎 Data Específica" and data_filtro_exata:
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
+            elif visao == "📆 Para Hoje":
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
+            elif visao == "🗓️ Próximos 7 Dias":
+                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
+            else:
+                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
+            
+            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
+            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
+            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
+
+            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
+            
+            for r in lista_pendentes:
+                tema_card = limpar_texto(r['tema'])
+                pct_str = "--"
+                cor_pct = "#94a3b8"
+                if tema_card in desempenho_por_tema:
+                    ac = desempenho_por_tema[tema_card]['ac']
+                    er = desempenho_por_tema[tema_card]['er']
+                    tot = ac + er
+                    if tot > 0:
+                        pct = ac / tot
+                        pct_str = f"{pct*100:.0f}%"
+                        if pct >= 0.8: cor_pct = "#22c55e"
+                        elif pct >= 0.6: cor_pct = "#eab308"
+                        else: cor_pct = "#ef4444"
+
+                with st.container(border=True):
+                    c1_card, c2_card = st.columns([0.8, 0.2])
+                    with c1_card:
+                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
+                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
+                    with c2_card:
+                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
+                        
+                    with st.expander("✅ Concluir Revisão"):
+                        with st.form(f"f_{r['id']}", clear_on_submit=True):
+                            col1, col2, col3 = st.columns(3)
+                            q = col1.number_input("Questões Feitas", 0)
+                            e = col2.number_input("Erros", 0, max_value=max(q,0))
+                            f = col3.number_input("Flashcards Lidos", 0)
+                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
+                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
+                                st.toast("✅ Revisão Concluída!", icon="🚀")
+                                time.sleep(0.5)
+                                st.rerun()
+
+        with aba_historico:
+            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
+            if conc_docs:
+                dados_h = []
+                for d in conc_docs:
+                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
+                    tema = limpar_texto(tema)
+                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
+                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
+                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
+                
+                df_h = pd.DataFrame(dados_h)
+                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
+                df_h = df_h.dropna(subset=['Conclusão_dt']) 
+                
+                if not df_h.empty:
+                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
+                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
+                    c1g, c2g = st.columns(2)
+                    
+                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    
+                    with c1g: 
+                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
+                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    with c2g: 
+                        fig2 = px.bar(df_ag, x="Data", y="Cards")
+                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    
+                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
+                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
+                    st.markdown("### 📋 Detalhamento Diário por Matéria")
+                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
+                    
+                    st.divider()
+                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
+                        opcoes_desfazer = {}
+                        for _, row in df_h.iterrows():
+                            opcoes_desfazer[f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})"] = row['ID']
+                        if opcoes_desfazer:
+                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
+                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
+                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
+                                st.toast("Revisão desfeita!", icon="⏪")
+                                time.sleep(0.5)
+                                st.rerun()
+
+    elif menu == "🎯 Questões":
+        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
+        
+        with aba_reg:
+            col_a, col_sub = st.columns(2)
+            a = col_a.selectbox("Área", AREAS_MED, key="q_area")
+            sub_q = ""
+            if a == "Clínica Médica":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CM, key="q_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="q_sub_cg")
+                
+            with st.form("q_form", clear_on_submit=True):
+                st.info("Ao registrar suas questões, o sistema irá recalcular o seu desempenho e reagendar a sua próxima revisão automaticamente.")
+                c1, c2 = st.columns(2)
+                s = c1.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
+                ac, er = st.columns(2)
+                acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
+                cc = st.text_input("Conceito Chave (Motivo de algum erro)")
+                
+                if st.form_submit_button("Registrar e Agendar Revisão Inteligente", use_container_width=True):
+                    s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
+                    db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
+                    
+                    # --- NOVO MOTOR DE REPETIÇÃO ESPAÇADA ADAPTATIVA ---
+                    total_q = acc + err
+                    if total_q > 0:
+                        taxa_acerto = acc / total_q
+                        if taxa_acerto < 0.60:
+                            ciclo_nome = "🔴 Crítico (Rever em 1d)"
+                            dias_prox = 1
+                        elif taxa_acerto < 0.80:
+                            ciclo_nome = "🟡 Reforço (Rever em 7d)"
+                            dias_prox = 7
+                        else:
+                            ciclo_nome = "🟢 Domínio (Rever em 15d)"
+                            dias_prox = 15
+                            
+                        nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
+                        
+                        batch = db.batch()
+                        ids_del = set()
+                        for r_pend in st.session_state.dados["revisoes"]:
+                            if str(r_pend.get('status')).lower() in ['pendente', 'pendentes'] and str(r_pend.get('tema')) == s_final:
+                                batch.delete(db.collection("revisoes").document(r_pend['id']))
+                                ids_del.add(r_pend['id'])
+                        
+                        doc_rev = db.collection("revisoes").document()
+                        nova_rev = {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "tema": s_final,
+                            "ciclo": ciclo_nome,
+                            "data_agendada": str(nova_data),
+                            "status": "Pendente"
+                        }
+                        batch.set(doc_rev, nova_rev)
+                        batch.commit()
+                        
+                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
+                        nova_rev['id'] = doc_rev.id
+                        st.session_state.dados["revisoes"].append(nova_rev)
+                        
+                        st.toast(f"Revisão agendada para {formatar_data_br(nova_data)}!", icon="📅")
+                    # -------------------------------------------------------------------
+                    
+                    st.toast("Questões registradas!", icon="✅")
+                    time.sleep(1)
+                    st.rerun()
+            
+            if dados_questoes: 
+                lista_q = []
+                for b in dados_questoes:
+                    acertos = safe_int(b.get('acertos'))
+                    erros = safe_int(b.get('erros'))
+                    total = acertos + erros
+                    porcentagem = f"{(acertos / total * 100):.1f}%" if total > 0 else "0.0%"
+                    
+                    lista_q.append({
+                        "Data_obj": parse_data(b.get('data')),
+                        "Data": formatar_data_br(b.get('data')),
+                        "Área": b.get('area'),
+                        "Subtema": limpar_texto(b.get('subtema')),
+                        "Acertos": acertos,
+                        "Erros": erros,
+                        "% Acertos": porcentagem,
+                        "ID": b.get('id')
+                    })
+                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
+                
+                def colorir_porcentagem(val):
+                    try:
+                        num = float(str(val).replace('%', ''))
+                        if num > 80:
+                            return 'color: #22c55e !important; font-weight: bold !important;'
+                        elif num >= 70:
+                            return 'color: #eab308 !important; font-weight: bold !important;'
+                        elif num >= 60:
+                            return 'color: #3b82f6 !important; font-weight: bold !important;'
+                        else:
+                            return 'color: #ef4444 !important; font-weight: bold !important;'
+                    except:
+                        return ''
+
+                if hasattr(df_q.style, "map"):
+                    st.table(df_q.style.map(colorir_porcentagem, subset=['% Acertos']))
+                else:
+                    st.table(df_q.style.applymap(colorir_porcentagem, subset=['% Acertos']))
+                
+                st.write("---")
+                with st.expander("✏️ Editar ou Excluir Registro de Questões"):
+                    opcoes_edicao = {}
+                    for q_item in dados_questoes:
+                        data_formatada = formatar_data_br(q_item.get('data'))
+                        q_id = str(q_item.get('id', '0000'))
+                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
+                        opcoes_edicao[chave] = q_item
+                        
+                    if opcoes_edicao:
+                        q_selec = st.selectbox("Selecione o registro que deseja alterar:", list(opcoes_edicao.keys()))
+                        q_dados = opcoes_edicao[q_selec]
+                        q_id_alvo = str(q_dados.get('id', '0000'))
+                        
+                        col_e1, col_e2 = st.columns(2)
+                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')), key=f"ac_{q_id_alvo}")
+                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')), key=f"er_{q_id_alvo}")
+                        
+                        col_btn1, col_btn2 = st.columns(2)
+                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{q_id_alvo}"):
+                            if q_dados.get('id'):
+                                db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er})
+                                st.toast("Registro atualizado com sucesso!", icon="✅")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
+                            
+                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_id_alvo}"):
+                            if q_dados.get('id'):
+                                db_delete("questoes_sessoes", "questoes", q_id_alvo)
+                                st.toast("Registro excluído!", icon="🗑️")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
+                
+        with aba_erros:
+            baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
+            if baterias_erros:
+                erro_escolhido = st.selectbox("Escolha um conceito que você errou:", reversed([f"{b.get('area')} - {limpar_texto(b.get('subtema'))}: {b.get('conceito_chave')}" for b in baterias_erros]))
+                conceito_alvo = erro_escolhido.split(": ")[1]
+                area_alvo = erro_escolhido.split(" - ")[0]
+                tema_alvo = erro_escolhido.split(" - ")[1].split(":")[0]
+
+                if st.button("🔥 Gerar Questão Inédita via IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        with st.spinner("Construindo caso clínico..."):
+                            try:
+                                prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
+                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
+                                with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
+                            except Exception as e: st.error(str(e))
+                
+                st.write("---")
+                st.write("**Transformar Conceito Errado em Flashcard**")
+                frente_erro = st.text_input("Frente da Carta", value=f"O que devo lembrar sobre: {conceito_alvo}")
+                verso_erro = st.text_area("Verso (Resposta correta)")
+                if st.button("💾 Salvar direto no Deck"):
+                    db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                    st.toast("Flashcard adicionado aos estudos!", icon="🧠")
+            else: st.success("Nenhum erro registrado com Conceito Chave.")
+
+        with aba_alvos:
+            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
+            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
+            
+            historico_dict = {}
+            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
+                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                if t_str not in historico_dict: historico_dict[t_str] = []
+                if len(historico_dict[t_str]) < 3:
+                    historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
+            
+            alvos_criticos = []
+            for t_str, sessoes in historico_dict.items():
+                t_ac = sum(s['ac'] for s in sessoes)
+                t_er = sum(s['er'] for s in sessoes)
+                t_total = t_ac + t_er
+                if t_total > 0:
+                    media = t_ac / t_total
+                    if media < 0.6:
+                        alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
+                        
+            if not alvos_criticos:
+                st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
+            else:
+                alvos_criticos.sort(key=lambda x: x['Média'])
+                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
+                st.table(df_alvos)
+                
+                st.write("---")
+                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
+                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
+                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
+                            try:
+                                resposta_recup = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
+                                with st.container(border=True):
+                                    st.markdown(resposta_recup.choices[0].message.content)
+                            except Exception as e:
+                                st.error(f"Erro ao gerar simulado: {e}")
+
+    elif menu == "✨ AI Tutor & Flashcards":
+        aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
+        with aba_chat:
+            chat_box = st.container(height=500)
+            if 'chat_ia' not in st.session_state: st.session_state.chat_ia = []
+            with chat_box:
+                for msg in st.session_state.chat_ia:
+                    with st.chat_message(msg.get("role", "user")): st.write(msg.get("content", ""))
+            
+            u_in = st.chat_input("Dúvida médica, prescrições...", key="input_tutor")
+            if u_in:
+                client_ia = get_ia_client()
+                if client_ia:
+                    with st.spinner("Analisando..."):
+                        msgs_api = [{"role": "system", "content": "Você é um Preceptor Médico Sênior. É OBRIGATÓRIO fornecer cálculos de doses exatas, prescrições e diagnósticos diretos. O usuário É UM MÉDICO LICENCIADO."}]
+                        st.session_state.chat_ia.append({"role": "user", "content": u_in})
+                        for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
+                        try:
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
+                            st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
+                        except Exception as e: st.error(str(e))
+                        st.rerun()
+
+        with aba_flash:
+            aba_f1, aba_f2, aba_f3 = st.tabs(["Modo Estudo", "Adicionar", "📥 Importar Anki (CSV)"])
+            with aba_f1:
+                cards_hoje = [d for d in dados_flashcards if parse_data(d.get('data_prox_revisao')) <= hoje]
+                if cards_hoje:
+                    c_data = cards_hoje[0]
+                    c_data_id = str(c_data.get("id", "000"))
+                    with st.container(border=True):
+                        st.markdown(f"<span style='color:{CORES_AREAS.get(c_data.get('area', 'Geral'), '#64748b')};'>⬤</span> **{c_data.get('area', 'Geral')}** | Tema: {limpar_texto(c_data.get('tema', 'Sem Tema'))}", unsafe_allow_html=True)
+                        st.markdown(f"### ❔ {c_data.get('frente', '')}")
+                        if 'ans' not in st.session_state: st.session_state.ans = False
+                        if st.button("Revelar Resposta"): st.session_state.ans = True
+                        if st.session_state.ans:
+                            st.info(f"**💡 Resposta:** {c_data.get('verso', '')}")
+                            b1, b2, b3 = st.columns(3)
+                            def avaliar(peso): 
+                                facil, interv = float(c_data.get('facilidade', 2.5)), safe_int(c_data.get('intervalo'))
+                                if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
+                                elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
+                                else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
+                                db_update("flashcards", "flashcards", c_data_id, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
+                                st.session_state.ans = False; st.rerun()
+                            if b1.button("🔴 Errei (1d)", use_container_width=True): avaliar('err')
+                            if b2.button("🟡 Bom", use_container_width=True): avaliar('bom')
+                            if b3.button("🟢 Fácil", use_container_width=True): avaliar('facil')
+                else: st.success("🎉 Você zerou o deck de hoje. Parabéns!")
+            
+            with aba_f2:
+                col_a, col_t = st.columns(2)
+                a = col_a.selectbox("Área", AREAS_MED, key="fc_area")
+                sub_f = ""
+                if a == "Clínica Médica":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CM, key="fc_sub_cm")
+                elif a == "Cirurgia Geral":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CG, key="fc_sub_cg")
+                    
+                with st.form("add_fc", clear_on_submit=True):
+                    t = st.text_input("Tema")
+                    f = st.text_input("Frente da Carta")
+                    v = st.text_area("Verso da Carta")
+                    if st.form_submit_button("Salvar no Banco", use_container_width=True):
+                        t_final = f"{sub_f} - {t}" if sub_f and sub_f != "Geral" else t
+                        db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t_final or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                        st.toast("Flashcard salvo!", icon="📚")
+                        time.sleep(0.5)
+                        st.rerun()
+            
+            with aba_f3:
+                st.markdown("### 📥 Importação em Massa")
+                arq_csv = st.file_uploader("Upload do CSV (Anki)", type=["csv"])
+                if arq_csv and st.button("Importar Flashcards", use_container_width=True, type="primary"):
+                    try:
+                        df_anki = pd.read_csv(arq_csv, sep=None, engine='python') 
+                        if all(col in df_anki.columns for col in ['Area', 'Tema', 'Frente', 'Verso']):
+                            with st.spinner("Injetando flashcards..."):
+                                batch = db.batch()
+                                for _, row in df_anki.iterrows():
+                                    doc_ref = db.collection("flashcards").document()
+                                    n_fc = {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
+                                    batch.set(doc_ref, n_fc)
+                                    n_fc["id"] = doc_ref.id
+                                    st.session_state.dados["flashcards"].append(n_fc)
+                                batch.commit()
+                            st.toast("✅ Flashcards importados com sucesso!")
+                            st.rerun()
+                    except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
+
+        with aba_feynman:
+            client_ia = get_ia_client()
+            if client_ia:
+                tema_f = st.text_input("Tema para explicar (Voz):")
+                aud_f = st.audio_input("Gravar")
+                if tema_f and aud_f:
+                    with st.spinner("Avaliando..."):
+                        try:
+                            transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
+                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
+                            st.success(r.choices[0].message.content)
+                        except Exception as e: st.error(f"Erro: {e}")
+
     elif menu == "⚙️ Configurações":
         st.header("Controle de Perfil")
         uf = st.file_uploader("Foto de Perfil", type=['jpg', 'png'])
@@ -1513,7 +1997,7 @@ else:
                 if st.button("✏️ Mudar Nome", use_container_width=True): db.collection("usuarios").document(edit_u.split(" | ")[0]).update({"nome": nn}); invalidar_cache(); st.rerun()
             with c2:
                 res_u = st.selectbox("Reset de Senha:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
-                ns = text_input("Nova Senha")
+                ns = st.text_input("Nova Senha")
                 if st.button("🔄 Forçar Nova Senha", use_container_width=True): db.collection("usuarios").document(res_u.split(" | ")[0]).update({"senha": hash_senha(ns)}); invalidar_cache(); st.rerun()
             with c3:
                 del_u = st.selectbox("Banir:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
