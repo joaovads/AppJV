@@ -255,7 +255,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=720):
+def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -284,7 +284,7 @@ def otimizar_imagem_para_api(img_data, max_size=720):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=75)
+        img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         # Fallback de sobrevivência final
@@ -548,17 +548,66 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
-def inserir_formatacao(chave_estado, formato):
-    if chave_estado not in st.session_state:
-        st.session_state[chave_estado] = ""
-    if formato == "bold":
-        st.session_state[chave_estado] += " **Texto_aqui** "
-    elif formato == "underline":
-        st.session_state[chave_estado] += " <u>Texto_aqui</u> "
-    elif formato == "mark":
-        st.session_state[chave_estado] += " <mark>Texto_aqui</mark> "
-    elif formato == "topic":
-        st.session_state[chave_estado] += "\n- "
+def render_toolbar():
+    """
+    Componente seguro em JS que permite formatar o texto SELECIONADO
+    dentro de qualquer Text Area do Streamlit sem recarregar a tela.
+    """
+    toolbar_html = """
+    <div style="display: flex; gap: 8px; margin-bottom: 0px; align-items: center;">
+        <span style="color: #94a3b8; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador Rápido:</span>
+        <button class="fmt-btn" onclick="formatText('**', '**')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif;">B</button>
+        <button class="fmt-btn" onclick="formatText('<u>', '</u>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif;">U</button>
+        <button class="fmt-btn" onclick="formatText('<mark>', '</mark>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">🖍️ Grifar</button>
+        <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">📋 Tópico</button>
+    </div>
+    <script>
+    document.querySelectorAll('.fmt-btn').forEach(btn => {
+        btn.addEventListener('mousedown', function(e) {
+            e.preventDefault(); 
+        });
+    });
+    
+    function formatText(tagStart, tagEnd) {
+        const parentDoc = window.parent.document;
+        const textareas = parentDoc.querySelectorAll('textarea');
+        if (textareas.length === 0) return;
+        
+        let ta = null;
+        if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') {
+            ta = parentDoc.activeElement;
+        } else {
+            for(let i=textareas.length-1; i>=0; i--){
+                let label = textareas[i].getAttribute('aria-label');
+                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo'))) {
+                    ta = textareas[i];
+                    break;
+                }
+            }
+            if(!ta) ta = textareas[textareas.length - 1];
+        }
+
+        if(ta) {
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            const text = ta.value;
+            const selectedText = text.substring(start, end);
+            
+            const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
+            
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+            nativeInputValueSetter.call(ta, newText);
+            
+            const event = new Event('input', { bubbles: true });
+            ta.dispatchEvent(event);
+            
+            ta.focus();
+            ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+        }
+    }
+    </script>
+    """
+    components.html(toolbar_html, height=35)
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -743,15 +792,70 @@ else:
     # ==========================================
     # TELAS
     # ==========================================
-    if menu == "📱 Instalar App":
-        st.header("Transforme o sistema em um Aplicativo Nativo")
-        col1, col2 = st.columns(2)
-        with col1: 
-            with st.container(border=True):
-                st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
-        with col2: 
-            with st.container(border=True):
-                st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
+    if menu == "🏠 Dashboard":
+        st.header("Painel de Desempenho Global")
+        
+        # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
+        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
+        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
+        
+        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
+        if revs_hoje_lista:
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
+        else:
+            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
+        st.divider()
+        # --------------------------------------------------------
+        
+        qs_sess_all = [dict(q) for q in dados_questoes]
+        qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
+        
+        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
+        with aba_geral:
+            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all)
+            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all)
+            t_questoes_g = t_acertos_g + t_erros_g
+            
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Questões Totais", t_questoes_g)
+            c2.metric("🟢 Acertos", t_acertos_g)
+            c3.metric("🔴 Erros", t_erros_g)
+            c4.metric("🎯 Taxa de Acerto", f"{(t_acertos_g / t_questoes_g * 100) if t_questoes_g > 0 else 0:.1f}%")
+            
+            st.divider()
+            col_g1, col_g2 = st.columns([1, 1.5])
+            
+            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+            
+            with col_g1:
+                if t_questoes_g > 0: 
+                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
+                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+            with col_g2:
+                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
+                df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
+                if not df_r.empty:
+                    df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
+                    df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
+                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
+                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+
+        with aba_detalhada:
+            filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
+            qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
+            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula') == filtro_dash]
+            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f)
+            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f)
+            t_questoes_f = t_acertos_f + t_erros_f
+            
+            c1_f, c2_f, c3_f = st.columns(3)
+            c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
+            c2_f.metric("🟢 Acertos", t_acertos_f)
+            c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
 
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
@@ -1104,7 +1208,19 @@ else:
                         "% Acertos": porcentagem
                     })
                 df_h = pd.DataFrame(lista_hiit).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj"], errors='ignore')
-                st.dataframe(df_h, use_container_width=True)
+                
+                def colorir_porcentagem_hiit(val):
+                    try:
+                        num = float(str(val).replace('%', ''))
+                        if num > 80: return 'color: #22c55e !important; font-weight: bold !important;'
+                        elif num >= 60: return 'color: #eab308 !important; font-weight: bold !important;'
+                        else: return 'color: #ef4444 !important; font-weight: bold !important;'
+                    except: return ''
+
+                if hasattr(df_h.style, "map"):
+                    st.table(df_h.style.map(colorir_porcentagem_hiit, subset=['% Acertos']))
+                else:
+                    st.table(df_h.style.applymap(colorir_porcentagem_hiit, subset=['% Acertos']))
 
         with aba_cal_hiit:
             todas_pendentes_hiit_cru = [r for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
@@ -1189,7 +1305,7 @@ else:
                 st.session_state.hiit_nota_imgs_temp = []
                 st.session_state.limpar_nova_nota_hiit = False
                 
-            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo", "📖 Cadernos HIIT"])
+            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
             with aba_hn1:
                 col_b, col_i = st.columns([1, 2])
                 with col_b:
@@ -1218,14 +1334,23 @@ else:
                                     st.rerun()
                 
                 st.markdown("### ✍️ Escrever Resumo")
-                area_h = st.selectbox("Grande Bloco", ["Cirurgia", "Clínica Médica", "GO", "Pediatria", "Preventiva"], key="sel_bloco_hiit")
+                col_ah, col_sh = st.columns(2)
+                area_h = col_ah.selectbox("Grande Área", AREAS_MED, key="sel_bloco_hiit")
+                sub_ah = ""
+                if area_h == "Clínica Médica":
+                    sub_ah = col_sh.selectbox("Subespecialidade", SUB_CM, key="hiit_sub_cm_nota")
+                elif area_h == "Cirurgia Geral":
+                    sub_ah = col_sh.selectbox("Subespecialidade", SUB_CG, key="hiit_sub_cg_nota")
+
                 with st.form("form_hiit_nota", clear_on_submit=True):
                     sub_h = st.text_input("Tema / Assunto")
+                    render_toolbar()
                     txt_h = st.text_area("Anotação / Tópicos Chaves", height=200)
                     if st.form_submit_button("💾 Salvar Resumo HIIT", use_container_width=True):
                         if sub_h and txt_h:
+                            s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
                             db_add("anotacoes_hiit", "anotacoes_hiit", {
-                                "usuario_id": u_id, "area": area_h, "subtema": sub_h, "pontos_chave": txt_h,
+                                "usuario_id": u_id, "area": area_h, "subtema": s_final_h, "pontos_chave": txt_h,
                                 "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
                             })
                             st.session_state.limpar_nova_nota_hiit = True
@@ -1263,16 +1388,92 @@ else:
                                                 st.toast("Anotação excluída!", icon="🗑️")
                                                 time.sleep(0.5)
                                                 st.rerun()
+                                                
                                         st.markdown(f"<div style='border-left: 3px solid #2563eb; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
                                         
                                         imgs_exibir = list(nh.get('imagens_b64', []))
                                         if imgs_exibir:
+                                            st.write("") 
                                             cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
                                             for idx_v, img_b64_v in enumerate(imgs_exibir):
                                                 with cols_view[idx_v % 4]:
                                                     if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
                                                         try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
                                                         except: pass
+
+                                        st.divider()
+                                        
+                                        # --- BOTÃO DE EDITAR INDIVIDUAL (HIIT) ---
+                                        if st.session_state.get('nota_hiit_em_edicao') != id_nh:
+                                            if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_h_{id_nh}"):
+                                                st.session_state.nota_hiit_em_edicao = id_nh
+                                                st.rerun()
+                                        else:
+                                            if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_h_{id_nh}"):
+                                                st.session_state.nota_hiit_em_edicao = None
+                                                st.rerun()
+                                                
+                                            st.markdown("#### 🖼️ Imagens da Anotação")
+                                            col_ebtn, col_eimg = st.columns([1, 2])
+                                            with col_ebtn:
+                                                st.markdown("➕ **Adicionar Mais Imagens:**")
+                                                if paste_image_button is not None:
+                                                    res_paste_edit = paste_image_button(
+                                                        label="Colar Imagem (Ctrl+V)",
+                                                        background_color="#2563eb",
+                                                        hover_background_color="#1d4ed8",
+                                                        key=f"paste_edit_h_{id_nh}" 
+                                                    )
+                                                    if res_paste_edit.image_data is not None:
+                                                        img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                        if img_eb64 and img_eb64 not in imgs_exibir:
+                                                            imgs_exibir.append(img_eb64)
+                                                            db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
+                                                            st.rerun()
+                                            with col_eimg:
+                                                if imgs_exibir:
+                                                    cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                                    for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                                        with cols_e[idx_e % 3]:
+                                                            if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
+                                                                try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                                except: pass
+                                                            if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}"):
+                                                                imgs_exibir.pop(idx_e)
+                                                                db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
+                                                                st.rerun()
+
+                                            st.markdown("#### ✍️ Editar Texto")
+                                            
+                                            col_eah, col_esh = st.columns(2)
+                                            edit_ah = col_eah.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nh.get('area')) if nh.get('area') in AREAS_MED else 0, key=f"ea_h_{id_nh}")
+                                            sub_eah = ""
+                                            if edit_ah == "Clínica Médica":
+                                                sub_eah = col_esh.selectbox("Subespecialidade", SUB_CM, key=f"sub_eah_cm_{id_nh}")
+                                            elif edit_ah == "Cirurgia Geral":
+                                                sub_eah = col_esh.selectbox("Subespecialidade", SUB_CG, key=f"sub_eah_cg_{id_nh}")
+
+                                            s_puro_h = nh.get('subtema', '')
+                                            if " - " in s_puro_h and s_puro_h.split(" - ")[0] in SUB_CM:
+                                                s_puro_h = " - ".join(s_puro_h.split(" - ")[1:])
+                                            elif " - " in s_puro_h and s_puro_h.split(" - ")[0] in SUB_CG:
+                                                s_puro_h = " - ".join(s_puro_h.split(" - ")[1:])
+                                                
+                                            with st.form(f"form_edicao_h_{id_nh}", clear_on_submit=False):
+                                                edit_sh = st.text_input("Subtema", value=s_puro_h)
+                                                render_toolbar()
+                                                edit_ph = st.text_area("Anotação / Tópicos Chaves", value=nh.get('pontos_chave', ''), height=200)
+                                                
+                                                if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                                                    if edit_sh and edit_ph:
+                                                        edit_sh_final = f"{sub_eah} - {edit_sh}" if sub_eah and sub_eah != "Geral" else edit_sh
+                                                        db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"area": edit_ah, "subtema": edit_sh_final, "pontos_chave": edit_ph})
+                                                        st.session_state.nota_hiit_em_edicao = None
+                                                        st.toast("✅ Anotação atualizada!", icon="📝")
+                                                        time.sleep(0.5)
+                                                        st.rerun()
+                                                    else:
+                                                        st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
@@ -1490,462 +1691,6 @@ else:
                             except Exception as e:
                                 st.error(f"Erro ao gerar simulado: {e}")
 
-    elif menu == "📚 Registro de Aulas":
-        st.header("Biblioteca Pessoal de Conteúdo")
-        col_form, col_lista = st.columns([1, 2.5])
-        with col_form:
-            st.subheader("➕ Adicionar Aula")
-            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
-            c_area, c_sub = st.columns(2)
-            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
-            sub_al = ""
-            if a == "Clínica Médica":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
-                
-            with st.form("n_aula", clear_on_submit=True):
-                t = st.text_input("Assunto da Aula (Tema)")
-                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
-                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
-                    doc_a = db.collection("aulas").document()
-                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
-                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
-                    doc_a.set(n_aula)
-                    n_aula["id"] = doc_a.id
-                    st.session_state.dados["aulas"].append(n_aula)
-                    st.toast("Aula registrada com sucesso!", icon="📚")
-                    time.sleep(0.5)
-                    st.rerun()
-                    
-            with st.expander("🗑️ Excluir Aula do Banco"):
-                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
-                if opcoes_del_dict:
-                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
-                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
-                        id_del = str(opcoes_del_dict[op_del_chave])
-                        db.collection("aulas").document(id_del).delete()
-                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
-                        st.toast("Aula apagada.", icon="🗑️")
-                        time.sleep(0.5)
-                        st.rerun()
-
-        with col_lista:
-            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
-            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
-            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
-            with nav_a1:
-                if st.button("⬅️ Mês Anterior", key="prev_aula"):
-                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
-                    else: st.session_state.cal_mes_aulas -= 1
-                    st.rerun()
-            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
-            with nav_a3:
-                if st.button("Próximo Mês ➡️", key="next_aula"):
-                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
-                    else: st.session_state.cal_mes_aulas += 1
-                    st.rerun()
-            
-            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
-            
-            col_f1, col_f2 = st.columns([3, 2])
-            with col_f1: st.subheader("Linha do Tempo")
-            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
-            
-            aulas_exibir = list(dados_aulas)
-            if filtrar_data_aula:
-                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
-                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
-
-            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
-            for al in aulas_exibir:
-                with st.container(border=True):
-                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
-                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
-
-    elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        
-        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
-            
-        if st.session_state.get('limpar_nova_nota', False):
-            st.session_state.nota_imgs_temp = []
-            st.session_state.limpar_nova_nota = False
-            st.toast("✅ Anotação salva com sucesso!", icon="📝")
-            
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        
-        with aba_nova:
-            col_btn, col_img = st.columns([1, 2])
-            with col_btn:
-                st.markdown("### 🖼️ Colar Imagem (Opcional)")
-                if paste_image_button is not None:
-                    res_paste_nota = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8",
-                        key="paste_nota_nova"
-                    )
-                    if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                        if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                            st.session_state.nota_imgs_temp.append(img_b64)
-                            st.rerun()
-                else:
-                    st.warning("Biblioteca de colar imagem não detectada.")
-                    
-            with col_img:
-                if st.session_state.nota_imgs_temp:
-                    st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
-                    cols = st.columns(3)
-                    for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
-                        with cols[idx % 3]:
-                            if isinstance(img_b64, str) and len(img_b64) > 50:
-                                try:
-                                    st.image(base64.b64decode(img_b64), use_container_width=True)
-                                except: pass
-                            if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
-                                st.session_state.nota_imgs_temp.pop(idx)
-                                st.rerun()
-
-            st.divider()
-            st.markdown("### ✍️ Escrever Resumo")
-            
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            sub_a = ""
-            if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
-                
-            with st.form("form_nova_nota", clear_on_submit=True):
-                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                
-                with st.container(border=True):
-                    st.markdown("""
-                    **⌨️ Comandos de Formatação Rápida (Markdown & HTML):**
-                    * 📌 **Títulos em Destaque:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                    * 𝗕 **Negrito:** Use asteriscos duplos envolta do texto `**texto**`.
-                    * 𝐼 *Itálico:* Use asterisco simples envolta do texto `*texto*`.
-                    * 📋 **Tópicos:** Inicie a linha com `- ` (hífen e espaço).
-                    * U̲ <u>Sublinhado:</u> Digite a tag HTML `<u>texto</u>`.
-                    * 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> Digite a tag HTML `<mark>texto</mark>`.
-                    """, unsafe_allow_html=True)
-                
-                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s_final,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota = True
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes:
-                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
-                
-                if not notas_exibir:
-                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
-                else:
-                    abas_areas = st.tabs(areas_presentes)
-                    for i, area_tab in enumerate(areas_presentes):
-                        with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
-                            
-                            for nota in notas_area:
-                                nota_id = str(nota.get('id', '0000'))
-                                subtema_str = limpar_texto(nota.get('subtema'))
-                                data_str = formatar_data_br(nota.get('data_criacao'))
-                                
-                                with st.expander(f"📝 {subtema_str} - {data_str}"):
-                                    c_del1, c_del2 = st.columns([0.85, 0.15])
-                                    with c_del2:
-                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
-                                            db_delete("anotacoes", "anotacoes", nota_id)
-                                            st.toast("Anotação excluída!", icon="🗑️")
-                                            st.rerun()
-                                    
-                                    conteudo_nota = nota.get('pontos_chave', '')
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
-                                    
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
-                                        imgs_exibir.insert(0, nota['imagem_b64'])
-                                        
-                                    if imgs_exibir:
-                                        st.write("") 
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                    except: pass
-                                    
-                                    st.divider()
-                                    
-                                    if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = nota_id
-                                            st.rerun()
-                                    else:
-                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = None
-                                            st.rerun()
-                                            
-                                        st.markdown("#### 🖼️ Imagens da Anotação")
-                                        col_ebtn, col_eimg = st.columns([1, 2])
-                                        with col_ebtn:
-                                            st.markdown("➕ **Adicionar Mais Imagens:**")
-                                            if paste_image_button is not None:
-                                                res_paste_edit = paste_image_button(
-                                                    label="Colar Imagem (Ctrl+V)",
-                                                    background_color="#2563eb",
-                                                    hover_background_color="#1d4ed8",
-                                                    key=f"paste_edit_{nota_id}" 
-                                                )
-                                                if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        st.rerun()
-                                        with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                    with cols_e[idx_e % 3]:
-                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                            except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                            st.rerun()
-
-                                        st.markdown("#### ✍️ Editar Texto")
-                                        
-                                        col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
-                                        sub_ea = ""
-                                        if edit_a == "Clínica Médica":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
-                                        elif edit_a == "Cirurgia Geral":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
-                                        
-                                        s_puro = nota.get('subtema', '')
-                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            edit_s = st.text_input("Subtema", value=s_puro)
-                                            
-                                            with st.container(border=True):
-                                                st.markdown("""
-                                                **⌨️ Comandos de Formatação Rápida:**
-                                                * 📌 **Títulos:** Inicie a linha com `# ` (Título 1) ou `## ` (Título 2).
-                                                * 𝗕 **Negrito:** `**texto**` | 𝐼 *Itálico:* `*texto*` | 📋 **Tópicos:** `- `
-                                                * U̲ <u>Sublinhado:</u> `<u>texto</u>` | 🖍️ <mark style="background-color: #fef08a; padding: 0 4px; color: black;">Grifar:</mark> `<mark>texto</mark>`
-                                                """, unsafe_allow_html=True)
-
-                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
-                                            
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Preencha o subtema e a anotação para salvar.")
-
-    elif menu == "📅 Agenda de Revisões":
-        st.header("Organizador Adaptativo de Ciclos")
-        
-        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
-        qtd_hoje = len(hoje_revs)
-        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
-
-        st.markdown("### 🎯 Seu Painel de Missões")
-        col_st1, col_st2 = st.columns(2)
-        with col_st1:
-            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
-        with col_st2:
-            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
-        st.divider()
-        
-        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
-        
-        with aba_pendentes:
-            c_v, c_o = st.columns(2)
-            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
-            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
-            
-            data_filtro_exata = None
-            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
-            
-            desempenho_por_tema = {}
-            for q in dados_questoes:
-                t_str = limpar_texto(q.get('subtema', ''))
-                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
-                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
-                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
-            
-            todas_pendentes = []
-            for r_orig in dados_revisoes:
-                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                r = dict(r_orig)
-                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
-                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
-                todas_pendentes.append(r)
-            
-            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
-            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
-            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
-            with nav_r1:
-                if st.button("⬅️ Mês Anterior", key="prev_rev"):
-                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
-                    else: st.session_state.cal_mes_revs -= 1
-                    st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
-            with nav_r3:
-                if st.button("Próximo Mês ➡️", key="next_rev"):
-                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
-                    else: st.session_state.cal_mes_revs += 1
-                    st.rerun()
-
-            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
-            st.divider()
-
-            if visao == "🔎 Data Específica" and data_filtro_exata:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
-            elif visao == "📆 Para Hoje":
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
-            elif visao == "🗓️ Próximos 7 Dias":
-                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
-            else:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
-            
-            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
-            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
-            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
-
-            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
-            
-            for r in lista_pendentes:
-                tema_card = limpar_texto(r['tema'])
-                pct_str = "--"
-                cor_pct = "#94a3b8"
-                if tema_card in desempenho_por_tema:
-                    ac = desempenho_por_tema[tema_card]['ac']
-                    er = desempenho_por_tema[tema_card]['er']
-                    tot = ac + er
-                    if tot > 0:
-                        pct = ac / tot
-                        pct_str = f"{pct*100:.0f}%"
-                        if pct >= 0.8: cor_pct = "#22c55e"
-                        elif pct >= 0.6: cor_pct = "#eab308"
-                        else: cor_pct = "#ef4444"
-
-                with st.container(border=True):
-                    c1_card, c2_card = st.columns([0.8, 0.2])
-                    with c1_card:
-                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
-                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
-                    with c2_card:
-                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
-                        
-                    with st.expander("✅ Concluir Revisão"):
-                        with st.form(f"f_{r['id']}", clear_on_submit=True):
-                            col1, col2, col3 = st.columns(3)
-                            q = col1.number_input("Questões Feitas", 0)
-                            e = col2.number_input("Erros", 0, max_value=max(q,0))
-                            f = col3.number_input("Flashcards Lidos", 0)
-                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
-                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                st.toast("✅ Revisão Concluída!", icon="🚀")
-                                time.sleep(0.5)
-                                st.rerun()
-
-        with aba_historico:
-            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
-            if conc_docs:
-                dados_h = []
-                for d in conc_docs:
-                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                    tema = limpar_texto(tema)
-                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
-                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
-                
-                df_h = pd.DataFrame(dados_h)
-                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
-                df_h = df_h.dropna(subset=['Conclusão_dt']) 
-                
-                if not df_h.empty:
-                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
-                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    c1g, c2g = st.columns(2)
-                    
-                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-                    
-                    with c1g: 
-                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    with c2g: 
-                        fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    
-                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
-                    st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
-                    
-                    st.divider()
-                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
-                        opcoes_desfazer = {}
-                        for _, row in df_h.iterrows():
-                            opcoes_desfazer[f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})"] = row['ID']
-                        if opcoes_desfazer:
-                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
-                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
-                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                st.toast("Revisão desfeita!", icon="⏪")
-                                time.sleep(0.5)
-                                st.rerun()
-
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
         with aba_chat:
@@ -2048,6 +1793,102 @@ else:
                             r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
+
+    elif menu == "📚 Registro de Aulas":
+        st.header("Biblioteca Pessoal de Conteúdo")
+        col_form, col_lista = st.columns([1, 2.5])
+        with col_form:
+            st.subheader("➕ Adicionar Aula")
+            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
+            c_area, c_sub = st.columns(2)
+            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
+            sub_al = ""
+            if a == "Clínica Médica":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
+                
+            with st.form("n_aula", clear_on_submit=True):
+                t = st.text_input("Assunto da Aula (Tema)")
+                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
+                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
+                    doc_a = db.collection("aulas").document()
+                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
+                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
+                    doc_a.set(n_aula)
+                    n_aula["id"] = doc_a.id
+                    st.session_state.dados["aulas"].append(n_aula)
+                    st.toast("Aula registrada com sucesso!", icon="📚")
+                    time.sleep(0.5)
+                    st.rerun()
+                    
+            with st.expander("🗑️ Excluir Aula do Banco"):
+                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
+                if opcoes_del_dict:
+                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
+                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
+                        id_del = str(opcoes_del_dict[op_del_chave])
+                        db.collection("aulas").document(id_del).delete()
+                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
+                        st.toast("Aula apagada.", icon="🗑️")
+                        time.sleep(0.5)
+                        st.rerun()
+
+        with col_lista:
+            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
+            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
+            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
+            with nav_a1:
+                if st.button("⬅️ Mês Anterior", key="prev_aula"):
+                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
+                    else: st.session_state.cal_mes_aulas -= 1
+                    st.rerun()
+            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
+            with nav_a3:
+                if st.button("Próximo Mês ➡️", key="next_aula"):
+                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
+                    else: st.session_state.cal_mes_aulas += 1
+                    st.rerun()
+            
+            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
+            
+            col_f1, col_f2 = st.columns([3, 2])
+            with col_f1: st.subheader("Linha do Tempo")
+            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
+            
+            aulas_exibir = list(dados_aulas)
+            if filtrar_data_aula:
+                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
+                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
+
+            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
+            for al in aulas_exibir:
+                with st.container(border=True):
+                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
+                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
+
+    elif menu == "⏱️ Modo Foco":
+        st.header("Concentração Pomodoro")
+        sessoes_hoje = [s for s in dados_focus if parse_data(s.get('data_sessao')) == hoje]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Ciclos Hoje", len(sessoes_hoje)); c2.metric("Minutos Focados", sum(safe_int(s.get('minutos_foco')) for s in sessoes_hoje)); c3.metric("Questões no Foco", sum(safe_int(s.get('questoes_feitas')) for s in sessoes_hoje))
+        st.divider()
+        tf = st.selectbox("Duração do Foco (Minutos)", [25, 30, 45, 50, 60, 90], index=3)
+        if 'foco_iniciado' not in st.session_state: st.session_state.foco_iniciado = False
+        
+        if not st.session_state.foco_iniciado:
+            if st.button("🚀 Ativar Módulo de Isolamento", use_container_width=True):
+                st.session_state.foco_iniciado, st.session_state.foco_min, st.session_state.foco_fim = True, tf, get_agora() + timedelta(minutes=tf); st.rerun()
+        else:
+            t_seg = int((st.session_state.foco_fim - get_agora()).total_seconds())
+            if t_seg > 0:
+                components.html(f"""<div style="text-align:center;"><h1 id="tmr" style="font-size:80px;color:#2563eb;">--:--</h1></div><script>var d={t_seg}*1000,el=document.getElementById("tmr");function upd(){{if(d<=0){{el.innerHTML="00:00";return;}}var m=Math.floor(d/60000),s=Math.floor((d%60000)/1000);el.innerHTML=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);d-=1000;}}upd();setInterval(upd,1000);</script>""", height=120)
+                if st.button("❌ Cancelar"): st.session_state.foco_iniciado = False; st.rerun()
+            else:
+                st.success("✅ Concluído!")
+                if st.button("Gravar Sessão"): 
+                    db_add("focus_sessoes", "focus", {"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min})
+                    st.session_state.foco_iniciado = False; st.rerun()
 
     elif menu == "📁 Materiais e Simulados":
         st.header("Gerenciador de PDFs")
