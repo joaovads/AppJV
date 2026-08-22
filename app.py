@@ -796,14 +796,14 @@ else:
         st.header("Painel de Desempenho Global")
         
         # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
-        revs_pendentes_dash = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+        revs_pendentes_dash = [r for r in dados_revisoes + dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
         revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
         prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
         data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
         
         st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
         if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba 'Agenda de Revisões'.")
+            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba de Revisões.")
         else:
             st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
         st.divider()
@@ -812,10 +812,13 @@ else:
         qs_sess_all = [dict(q) for q in dados_questoes]
         qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
-        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
+        qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
+        revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
+        
+        aba_geral, aba_detalhada, aba_hiit = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria", "⚡ Dashboard HIIT"])
         with aba_geral:
-            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all)
-            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all)
+            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
+            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
             t_questoes_g = t_acertos_g + t_erros_g
             
             c1, c2, c3, c4 = st.columns(4)
@@ -835,7 +838,7 @@ else:
                     fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
                     st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
             with col_g2:
-                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all]
+                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula', r.get('area')), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all] + [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
                 if not df_r.empty:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
@@ -847,15 +850,58 @@ else:
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
             qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
-            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula') == filtro_dash]
-            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f)
-            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f)
+            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula', r.get('area')) == filtro_dash]
+            qs_hiit_f = [q for q in qs_hiit_all if q.get('area') == filtro_dash]
+            revs_hiit_f = [r for r in revs_hiit_all if r.get('area') == filtro_dash]
+            
+            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f) + sum(safe_int(q.get('acertos')) for q in qs_hiit_f) + sum(safe_int(r.get('acertos')) for r in revs_hiit_f)
+            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f) + sum(safe_int(q.get('erros')) for q in qs_hiit_f) + sum(safe_int(r.get('erros')) for r in revs_hiit_f)
             t_questoes_f = t_acertos_f + t_erros_f
             
             c1_f, c2_f, c3_f = st.columns(3)
             c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
             c2_f.metric("🟢 Acertos", t_acertos_f)
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
+
+        with aba_hiit:
+            st.markdown("### ⚡ Desempenho Exclusivo HIIT")
+            t_acertos_h = sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
+            t_erros_h = sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
+            t_questoes_h = t_acertos_h + t_erros_h
+            
+            c1_h, c2_h, c3_h, c4_h = st.columns(4)
+            c1_h.metric("Questões HIIT", t_questoes_h)
+            c2_h.metric("🟢 Acertos", t_acertos_h)
+            c3_h.metric("🔴 Erros", t_erros_h)
+            c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
+            
+            st.divider()
+            col_gh1, col_gh2 = st.columns([1, 1.5])
+            
+            with col_gh1:
+                if t_questoes_h > 0: 
+                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
+                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+            with col_gh2:
+                todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
+                df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
+                if not df_rh.empty:
+                    df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
+                    df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
+                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
+                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+
+    elif menu == "📱 Instalar App":
+        st.header("Transforme o sistema em um Aplicativo Nativo")
+        col1, col2 = st.columns(2)
+        with col1: 
+            with st.container(border=True):
+                st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
+        with col2: 
+            with st.container(border=True):
+                st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
