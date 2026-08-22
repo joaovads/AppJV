@@ -815,7 +815,7 @@ else:
         qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
         revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
-        aba_geral, aba_detalhada, aba_hiit = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria", "⚡ Dashboard HIIT"])
+        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
         with aba_geral:
             t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
             t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
@@ -862,36 +862,6 @@ else:
             c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
             c2_f.metric("🟢 Acertos", t_acertos_f)
             c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
-
-        with aba_hiit:
-            st.markdown("### ⚡ Desempenho Exclusivo HIIT")
-            t_acertos_h = sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
-            t_erros_h = sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
-            t_questoes_h = t_acertos_h + t_erros_h
-            
-            c1_h, c2_h, c3_h, c4_h = st.columns(4)
-            c1_h.metric("Questões HIIT", t_questoes_h)
-            c2_h.metric("🟢 Acertos", t_acertos_h)
-            c3_h.metric("🔴 Erros", t_erros_h)
-            c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
-            
-            st.divider()
-            col_gh1, col_gh2 = st.columns([1, 1.5])
-            
-            with col_gh1:
-                if t_questoes_h > 0: 
-                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
-            with col_gh2:
-                todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
-                df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
-                if not df_rh.empty:
-                    df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
-                    df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
-                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
 
     elif menu == "📱 Instalar App":
         st.header("Transforme o sistema em um Aplicativo Nativo")
@@ -1171,7 +1141,43 @@ else:
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
-        aba_reg_hiit, aba_cal_hiit, aba_notas_hiit = st.tabs(["📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT"])
+        aba_dash_hiit, aba_reg_hiit, aba_cal_hiit, aba_notas_hiit = st.tabs(["⚡ Dashboard HIIT", "📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT"])
+
+        with aba_dash_hiit:
+            st.markdown("### ⚡ Desempenho Exclusivo HIIT")
+            
+            qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
+            revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
+            
+            t_acertos_h = sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
+            t_erros_h = sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
+            t_questoes_h = t_acertos_h + t_erros_h
+            
+            c1_h, c2_h, c3_h, c4_h = st.columns(4)
+            c1_h.metric("Questões HIIT", t_questoes_h)
+            c2_h.metric("🟢 Acertos", t_acertos_h)
+            c3_h.metric("🔴 Erros", t_erros_h)
+            c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
+            
+            st.divider()
+            col_gh1, col_gh2 = st.columns([1, 1.5])
+            
+            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+            
+            with col_gh1:
+                if t_questoes_h > 0: 
+                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
+                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+            with col_gh2:
+                todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
+                df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
+                if not df_rh.empty:
+                    df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
+                    df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
+                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
+                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
 
         with aba_reg_hiit:
             col_a, col_sub = st.columns(2)
