@@ -53,9 +53,9 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-# Modelos atualizados de produção (Correção de compatibilidade da Groq)
-MODELO_VISAO = "qwen/qwen3.6-27b"
-MODELO_TEXTO = "llama-3.1-70b-versatile"
+# Modelos atualizados de produção (Usando Aliases Permanentes da Groq para evitar erros de decomissionamento)
+MODELO_VISAO = "llama-3.2-11b-vision-preview"
+MODELO_TEXTO = "llama3-70b-8192"
 
 def ativar_pwa():
     pwa_html = """
@@ -579,7 +579,7 @@ def render_toolbar():
         } else {
             for(let i=textareas.length-1; i>=0; i--){
                 let label = textareas[i].getAttribute('aria-label');
-                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo'))) {
+                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
                     ta = textareas[i];
                     break;
                 }
@@ -662,6 +662,7 @@ if not st.session_state.logado:
                                     novo_token = str(uuid.uuid4())
                                     db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
                                     cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
+                                    time.sleep(1) # Sincronização do Websocket para gravar o cookie
                                 st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
@@ -760,6 +761,7 @@ else:
     if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
         db.collection("usuarios").document(u_id).update({"token_sessao": None})
         if cookie_controller: cookie_controller.remove('mr_token')
+        time.sleep(0.5)
         st.session_state.clear()
         st.rerun()
     st.sidebar.markdown("---")
