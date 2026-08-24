@@ -53,9 +53,9 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-# Modelos atualizados de produção (Usando Aliases Permanentes da Groq para evitar erros de decomissionamento)
+# Modelos atualizados de produção (Blindado contra decomissionamento da Groq)
 MODELO_VISAO = "llama-3.2-11b-vision-preview"
-MODELO_TEXTO = "llama3-70b-8192"
+MODELO_TEXTO = "mixtral-8x7b-32768"
 
 def ativar_pwa():
     pwa_html = """
@@ -662,7 +662,7 @@ if not st.session_state.logado:
                                     novo_token = str(uuid.uuid4())
                                     db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
                                     cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                                    time.sleep(1) # Sincronização do Websocket para gravar o cookie
+                                    time.sleep(1) # Sincronização do Websocket para gravar o cookie com segurança
                                 st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
@@ -718,7 +718,7 @@ else:
                     "materiais": get_user_docs("materiais", u_id),
                     "cronogramas": get_user_docs("cronogramas", u_id),
                     "anotacoes": get_user_docs("anotacoes", u_id),
-                    "questoes_hiit": questoes_hiit_recuperadas,
+                    "questoes_hiit": questo_hiit_recuperadas,
                     "revisoes_hiit": revisoes_hiit_recuperadas,
                     "anotacoes_hiit": anotacoes_hiit_recuperadas
                 }
