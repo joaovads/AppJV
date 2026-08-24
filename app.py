@@ -69,7 +69,6 @@ MODELOS_VISAO_FALLBACK = [
     "qwen/qwen3.6-27b",
 ]
 
-
 def ativar_pwa():
     pwa_html = """
     <script>
@@ -268,7 +267,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=500):
+def otimizar_imagem_para_api(img_data, max_size=720):
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -297,7 +296,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=65)
+        img.save(buf, format="JPEG", quality=75)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         # Fallback de sobrevivência final
@@ -1508,7 +1507,7 @@ else:
                                                                 prompt_fc = f"""[SISTEMA NÍVEL 5] Extraia estritamente os fatos atômicos, decorebas e critérios diagnósticos deste resumo. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
                                                                 Retorne APENAS o JSON puro. Não explique.
                                                                 Resumo: {nh.get('pontos_chave', '')}"""
-                                                                r_fc = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], temperature=0.1, max_tokens=1500)
+                                                                r_fc = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], temperature=0.1, max_tokens=1500, response_format={"type": "json_object"})
                                                                 fcs = extrair_json_seguro(r_fc.choices[0].message.content).get("flashcards", [])
                                                                 if fcs:
                                                                     batch = db.batch()
