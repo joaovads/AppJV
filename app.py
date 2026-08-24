@@ -53,9 +53,9 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
 
-# Modelos atualizados de produção (Blindado contra decomissionamento da Groq)
+# Modelos atualizados de produção (Blindado: usando o modelo instantâneo mais estável da Groq)
 MODELO_VISAO = "llama-3.2-11b-vision-preview"
-MODELO_TEXTO = "mixtral-8x7b-32768"
+MODELO_TEXTO = "llama-3.1-8b-instant"
 
 def ativar_pwa():
     pwa_html = """
