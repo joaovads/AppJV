@@ -718,7 +718,7 @@ else:
                     "materiais": get_user_docs("materiais", u_id),
                     "cronogramas": get_user_docs("cronogramas", u_id),
                     "anotacoes": get_user_docs("anotacoes", u_id),
-                    "questoes_hiit": questo_hiit_recuperadas,
+                    "questoes_hiit": questoes_hiit_recuperadas,
                     "revisoes_hiit": revisoes_hiit_recuperadas,
                     "anotacoes_hiit": anotacoes_hiit_recuperadas
                 }
