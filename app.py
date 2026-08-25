@@ -343,8 +343,21 @@ def chamar_ia(client, *, modelo, **kwargs):
         except Exception as exc:
             ultimo_erro = exc
             erro = str(exc).lower()
+
+            # Alguns modelos de raciocínio exigem reasoning_format quando JSON mode está ativo.
+            # Se a API rejeitar a validação do JSON, repita uma vez com JSON mode + reasoning oculto.
+            if "json_validate_failed" in erro or "failed to validate json" in erro:
+                if kwargs.get("response_format", {}).get("type") == "json_object" and kwargs.get("reasoning_format") != "hidden":
+                    retry_kwargs = dict(kwargs)
+                    retry_kwargs["reasoning_format"] = "hidden"
+                    try:
+                        return client.chat.completions.create(model=modelo_tentativa, **retry_kwargs)
+                    except Exception as retry_exc:
+                        ultimo_erro = retry_exc
+                        erro = str(retry_exc).lower()
+
             # Só troca de modelo quando o problema indica modelo indisponível/permissão.
-            # Rate limit/tamanho continuam seguindo o tratamento específico do chamador.
+            # Rate limit/tamanho/validação continuam seguindo o tratamento específico do chamador.
             if any(token in erro for token in ("model_not_found", "does not exist", "do not have access", "404", "403")):
                 continue
             raise
@@ -996,7 +1009,9 @@ else:
                                             modelo=MODELO_VISAO, 
                                             messages=[{"role": "user", "content": conteudo_api}], 
                                             temperature=0.1,
-                                            max_tokens=2500
+                                            max_completion_tokens=2500,
+                                            response_format={"type": "json_object"},
+                                            reasoning_format="hidden"
                                         )
                                     except Exception as e_api:
                                         if "rate" in str(e_api).lower() or "429" in str(e_api) or "413" in str(e_api):
@@ -1511,7 +1526,7 @@ else:
                                                                 prompt_fc = f"""[SISTEMA NÍVEL 5] Transforme TODA a anotação abaixo em flashcards. Crie um flashcard para CADA tópico, conceito ou detalhe presente no texto, garantindo que absolutamente NADA fique de fora. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
                                                                 Retorne APENAS o JSON puro. Não explique.
                                                                 Resumo: {nh.get('pontos_chave', '')}"""
-                                                                r_fc = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], temperature=0.1, max_tokens=1500, response_format={"type": "json_object"})
+                                                                r_fc = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], temperature=0.1, max_completion_tokens=1500, response_format={"type": "json_object"}, reasoning_format="hidden")
                                                                 fcs = extrair_json_seguro(r_fc.choices[0].message.content).get("flashcards", [])
                                                                 if fcs:
                                                                     batch = db.batch()
