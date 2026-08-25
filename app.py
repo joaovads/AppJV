@@ -69,6 +69,7 @@ MODELOS_VISAO_FALLBACK = [
     "qwen/qwen3.6-27b",
 ]
 
+
 def ativar_pwa():
     pwa_html = """
     <script>
@@ -267,7 +268,7 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-def otimizar_imagem_para_api(img_data, max_size=720):
+def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
             if isinstance(img_data, bytes): return base64.b64encode(img_data).decode('utf-8')
@@ -296,7 +297,7 @@ def otimizar_imagem_para_api(img_data, max_size=720):
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=75)
+        img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
         # Fallback de sobrevivência final
@@ -731,7 +732,7 @@ else:
             "aulas": [], "revisoes": [], "flashcards": [], 
             "questoes": [], "simulados": [], "focus": [], 
             "materiais": [], "cronogramas": [], "anotacoes": [],
-            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": []
+            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": [], "flashcards_hiit": []
         }
 
     if st.session_state.get('user_data_loaded') is not True:
@@ -745,6 +746,7 @@ else:
                 questoes_hiit_recuperadas = get_user_docs("questoes_hiit", u_id)
                 revisoes_hiit_recuperadas = get_user_docs("revisoes_hiit", u_id)
                 anotacoes_hiit_recuperadas = get_user_docs("anotacoes_hiit", u_id)
+                flashcards_hiit_recuperadas = get_user_docs("flashcards_hiit", u_id)
 
                 st.session_state.dados = {
                     "aulas": aulas_recuperadas,
@@ -758,7 +760,8 @@ else:
                     "anotacoes": get_user_docs("anotacoes", u_id),
                     "questoes_hiit": questoes_hiit_recuperadas,
                     "revisoes_hiit": revisoes_hiit_recuperadas,
-                    "anotacoes_hiit": anotacoes_hiit_recuperadas
+                    "anotacoes_hiit": anotacoes_hiit_recuperadas,
+                    "flashcards_hiit": flashcards_hiit_recuperadas
                 }
                 
                 if 'model_ia' not in st.session_state: 
@@ -785,6 +788,7 @@ else:
     dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
     dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
     dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
+    dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
 
     # APLICA O TEMA DO USUARIO LOGADO
     modo_atual = user_settings.get("tema_modo", "Escuro")
@@ -1181,7 +1185,7 @@ else:
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
-        aba_dash_hiit, aba_reg_hiit, aba_cal_hiit, aba_notas_hiit = st.tabs(["⚡ Dashboard HIIT", "📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT"])
+        aba_dash_hiit, aba_reg_hiit, aba_cal_hiit, aba_notas_hiit, aba_fc_hiit = st.tabs(["⚡ Dashboard HIIT", "📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT", "📚 Flashcards HIIT"])
 
         with aba_dash_hiit:
             st.markdown("### ⚡ Desempenho Exclusivo HIIT")
@@ -1504,7 +1508,7 @@ else:
                                                     if client_ia:
                                                         with st.spinner("Gerando flashcards atômicos..."):
                                                             try:
-                                                                prompt_fc = f"""[SISTEMA NÍVEL 5] Extraia estritamente os fatos atômicos, decorebas e critérios diagnósticos deste resumo. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
+                                                                prompt_fc = f"""[SISTEMA NÍVEL 5] Transforme TODA a anotação abaixo em flashcards. Crie um flashcard para CADA tópico, conceito ou detalhe presente no texto, garantindo que absolutamente NADA fique de fora. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
                                                                 Retorne APENAS o JSON puro. Não explique.
                                                                 Resumo: {nh.get('pontos_chave', '')}"""
                                                                 r_fc = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], temperature=0.1, max_tokens=1500, response_format={"type": "json_object"})
@@ -1512,13 +1516,13 @@ else:
                                                                 if fcs:
                                                                     batch = db.batch()
                                                                     for fc in fcs:
-                                                                        doc_ref = db.collection("flashcards").document()
+                                                                        doc_ref = db.collection("flashcards_hiit").document()
                                                                         n_fc = {"usuario_id": u_id, "area": nh.get('area'), "tema": limpar_texto(nh.get('subtema')), "frente": fc.get('frente'), "verso": fc.get('verso'), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
                                                                         batch.set(doc_ref, n_fc)
                                                                         n_fc["id"] = doc_ref.id
-                                                                        st.session_state.dados["flashcards"].append(n_fc)
+                                                                        st.session_state.dados["flashcards_hiit"].append(n_fc)
                                                                     batch.commit()
-                                                                    st.success(f"✅ {len(fcs)} Flashcards gerados e adicionados ao deck!")
+                                                                    st.success(f"✅ {len(fcs)} Flashcards HIIT gerados e adicionados ao deck HIIT!")
                                                                 else:
                                                                     st.warning("IA não conseguiu extrair cartões válidos.")
                                                             except Exception as e: st.error(f"Erro IA: {e}")
@@ -1608,6 +1612,45 @@ else:
                                                         st.rerun()
                                                     else:
                                                         st.error("Preencha o subtema e a anotação para salvar.")
+
+        with aba_fc_hiit:
+            st.markdown("### 📚 Modo Estudo - Flashcards HIIT")
+            cards_hoje_h = [d for d in dados_flashcards_hiit if parse_data(d.get('data_prox_revisao')) <= hoje]
+            if cards_hoje_h:
+                c_data_h = cards_hoje_h[0]
+                c_data_id_h = str(c_data_h.get("id", "000"))
+                with st.container(border=True):
+                    st.markdown(f"<span style='color:{CORES_AREAS.get(c_data_h.get('area', 'Geral'), '#64748b')};'>⬤</span> **{c_data_h.get('area', 'Geral')}** | Tema: {limpar_texto(c_data_h.get('tema', 'Sem Tema'))}", unsafe_allow_html=True)
+                    st.markdown(f"### ❔ {c_data_h.get('frente', '')}")
+                    if 'ans_hiit' not in st.session_state: st.session_state.ans_hiit = False
+                    if st.button("Revelar Resposta", key="rev_ans_hiit"): st.session_state.ans_hiit = True
+                    if st.session_state.ans_hiit:
+                        st.info(f"**💡 Resposta:** {c_data_h.get('verso', '')}")
+                        b1_h, b2_h, b3_h = st.columns(3)
+                        def avaliar_hiit(peso): 
+                            facil, interv = float(c_data_h.get('facilidade', 2.5)), safe_int(c_data_h.get('intervalo'))
+                            if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
+                            elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
+                            else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
+                            db_update("flashcards_hiit", "flashcards_hiit", c_data_id_h, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
+                            st.session_state.ans_hiit = False; st.rerun()
+                        if b1_h.button("🔴 Errei (1d)", use_container_width=True, key="btn_err_h"): avaliar_hiit('err')
+                        if b2_h.button("🟡 Bom", use_container_width=True, key="btn_bom_h"): avaliar_hiit('bom')
+                        if b3_h.button("🟢 Fácil", use_container_width=True, key="btn_facil_h"): avaliar_hiit('facil')
+            else: 
+                st.success("🎉 Você zerou o deck HIIT de hoje. Parabéns!")
+            
+            st.divider()
+            with st.expander("Gerenciar Flashcards HIIT"):
+                if dados_flashcards_hiit:
+                    df_fcs_h = pd.DataFrame(dados_flashcards_hiit)
+                    st.dataframe(df_fcs_h[['area', 'tema', 'frente', 'data_prox_revisao']], use_container_width=True)
+                    del_fc_h = st.selectbox("Selecione para excluir:", [f"{f.get('id')} | {f.get('frente')[:30]}..." for f in dados_flashcards_hiit], key="del_fc_hiit_sel")
+                    if st.button("🗑️ Excluir Flashcard", key="btn_del_fc_h"):
+                        db_delete("flashcards_hiit", "flashcards_hiit", del_fc_h.split(" | ")[0])
+                        st.toast("Excluído!", icon="🗑️")
+                        time.sleep(0.5)
+                        st.rerun()
 
     elif menu == "🎯 Questões":
         aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
@@ -1928,344 +1971,6 @@ else:
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
-    elif menu == "📚 Registro de Aulas":
-        st.header("Biblioteca Pessoal de Conteúdo")
-        col_form, col_lista = st.columns([1, 2.5])
-        with col_form:
-            st.subheader("➕ Adicionar Aula")
-            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
-            c_area, c_sub = st.columns(2)
-            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
-            sub_al = ""
-            if a == "Clínica Médica":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
-                
-            with st.form("n_aula", clear_on_submit=True):
-                t = st.text_input("Assunto da Aula (Tema)")
-                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
-                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
-                    doc_a = db.collection("aulas").document()
-                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
-                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
-                    doc_a.set(n_aula)
-                    n_aula["id"] = doc_a.id
-                    st.session_state.dados["aulas"].append(n_aula)
-                    st.toast("Aula registrada com sucesso!", icon="📚")
-                    time.sleep(0.5)
-                    st.rerun()
-                    
-            with st.expander("🗑️ Excluir Aula do Banco"):
-                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
-                if opcoes_del_dict:
-                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
-                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
-                        id_del = str(opcoes_del_dict[op_del_chave])
-                        db.collection("aulas").document(id_del).delete()
-                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
-                        st.toast("Aula apagada.", icon="🗑️")
-                        time.sleep(0.5)
-                        st.rerun()
-
-        with col_lista:
-            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
-            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
-            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
-            with nav_a1:
-                if st.button("⬅️ Mês Anterior", key="prev_aula"):
-                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
-                    else: st.session_state.cal_mes_aulas -= 1
-                    st.rerun()
-            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
-            with nav_a3:
-                if st.button("Próximo Mês ➡️", key="next_aula"):
-                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
-                    else: st.session_state.cal_mes_aulas += 1
-                    st.rerun()
-            
-            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
-            
-            col_f1, col_f2 = st.columns([3, 2])
-            with col_f1: st.subheader("Linha do Tempo")
-            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
-            
-            aulas_exibir = list(dados_aulas)
-            if filtrar_data_aula:
-                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
-                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
-
-            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
-            for al in aulas_exibir:
-                with st.container(border=True):
-                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
-                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
-
-    elif menu == "⏱️ Modo Foco":
-        st.header("Concentração Pomodoro")
-        sessoes_hoje = [s for s in dados_focus if parse_data(s.get('data_sessao')) == hoje]
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Ciclos Hoje", len(sessoes_hoje)); c2.metric("Minutos Focados", sum(safe_int(s.get('minutos_foco')) for s in sessoes_hoje)); c3.metric("Questões no Foco", sum(safe_int(s.get('questoes_feitas')) for s in sessoes_hoje))
-        st.divider()
-        tf = st.selectbox("Duração do Foco (Minutos)", [25, 30, 45, 50, 60, 90], index=3)
-        if 'foco_iniciado' not in st.session_state: st.session_state.foco_iniciado = False
-        
-        if not st.session_state.foco_iniciado:
-            if st.button("🚀 Ativar Módulo de Isolamento", use_container_width=True):
-                st.session_state.foco_iniciado, st.session_state.foco_min, st.session_state.foco_fim = True, tf, get_agora() + timedelta(minutes=tf); st.rerun()
-        else:
-            t_seg = int((st.session_state.foco_fim - get_agora()).total_seconds())
-            if t_seg > 0:
-                components.html(f"""<div style="text-align:center;"><h1 id="tmr" style="font-size:80px;color:#2563eb;">--:--</h1></div><script>var d={t_seg}*1000,el=document.getElementById("tmr");function upd(){{if(d<=0){{el.innerHTML="00:00";return;}}var m=Math.floor(d/60000),s=Math.floor((d%60000)/1000);el.innerHTML=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);d-=1000;}}upd();setInterval(upd,1000);</script>""", height=120)
-                if st.button("❌ Cancelar"): st.session_state.foco_iniciado = False; st.rerun()
-            else:
-                st.success("✅ Concluído!")
-                if st.button("Gravar Sessão"): 
-                    db_add("focus_sessoes", "focus", {"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min})
-                    st.session_state.foco_iniciado = False; st.rerun()
-
-    elif menu == "📁 Materiais e Simulados":
-        st.header("Gerenciador de PDFs")
-        arq = st.file_uploader("Upload PDF de Estudo", type=['pdf'])
-        if arq and st.button("Salvar na Nuvem", use_container_width=True):
-            caminho = os.path.join("materiais_estudo", arq.name)
-            with open(caminho, "wb") as f: f.write(arq.getbuffer())
-            db_add("materiais", "materiais", {"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
-            st.toast("Salvo com sucesso!", icon="📄")
-            
-        if dados_materiais: 
-            st.write("---")
-            st.subheader("Meus Arquivos")
-            for mat in dados_materiais:
-                mat_id = str(mat.get('id', '0000'))
-                with st.container(border=True):
-                    col_t, col_d, col_v, col_del = st.columns([4, 1, 1, 1])
-                    col_t.markdown(f"**{mat.get('titulo')}**")
-                    col_d.caption(f"Data: {formatar_data_br(mat.get('data_upload'))}")
-                    
-                    if os.path.exists(mat.get('path', '')):
-                        with open(mat['path'], "rb") as pdf_file:
-                            pdf_bytes = pdf_file.read()
-                            col_v.download_button("📥 Baixar", data=pdf_bytes, file_name=mat.get('titulo'), key=f"dl_{mat_id}")
-                    else:
-                        col_v.warning("Arquivo perdido.")
-                        
-                    if col_del.button("🗑️ Excluir", key=f"del_{mat_id}"):
-                        db_delete("materiais", "materiais", mat_id)
-                        if os.path.exists(mat.get('path', '')): os.remove(mat['path'])
-                        st.rerun()
-
-    elif menu == "🏥 Simulados & OSCE":
-        st.header("Simulador Interativo")
-        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
-        
-        with aba_p:
-            with st.form("sim_f", clear_on_submit=True):
-                c1, c2, c3 = st.columns(3)
-                ins, an, dt = c1.selectbox("Instituição", INSTITUICOES), c2.text_input("Ano da Prova"), c3.date_input("Data de Resolução", hoje, format="DD/MM/YYYY")
-                co, no = st.columns(2)
-                cor, notl = co.number_input("Nota de Corte (Alvo)", min_value=0.0), no.number_input("Sua Nota Líquida", min_value=0.0)
-                if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
-                    db_add("simulados", "simulados", {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
-                    st.rerun()
-            if len(dados_simulados) >= 3:
-                dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
-                dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
-                if len(dfs['DU'].unique()) > 1:
-                    x_vals = dfs['DU'].values
-                    y_vals = dfs['N'].values
-                    coefs = np.polyfit(x_vals, y_vals, 1)
-                    poly_func = np.poly1d(coefs)
-                    
-                    fut = [dfs['D'].max() + timedelta(days=30*i) for i in range(1, 4)]
-                    fut_x = pd.to_numeric(pd.to_datetime(fut)).values
-                    p = poly_func(fut_x)
-                    
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#2563eb", width=3)))
-                    fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
-                    
-                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, theme=None)
-
-        with aba_simulado:
-            col_sim1, col_sim2 = st.columns(2)
-            colagem_img_sim = None
-            with col_sim1:
-                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-                if paste_image_button is not None:
-                    paste_result_sim = paste_image_button(label="Colar print de questão (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_sim")
-                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
-            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
-            
-            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
-                client_ia = get_ia_client()
-                if client_ia:
-                    todas_imagens_b64 = []
-                    with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                from pdf2image import convert_from_bytes
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
-                        if imgs_prova:
-                            for img in imgs_prova: 
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
-                        if colagem_img_sim:
-                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
-
-                    if todas_imagens_b64:
-                        st.session_state.prova_ativa = []
-                        st.session_state.respostas_usuario = {}
-                        barra_progresso = st.progress(0)
-                        
-                        for i in range(len(todas_imagens_b64)):
-                            img_b64 = todas_imagens_b64[i]
-                            prompt = """Extraia as questões da imagem e retorne um JSON no formato {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]}
-                            Retorne apenas o JSON. Não pense, não explique e não use tags markdown."""
-                            try:
-                                msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                                resposta = chamar_ia(client_ia, modelo=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
-                                questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
-                                for q in questoes_lote: q['imagem_fonte'] = img_b64
-                                st.session_state.prova_ativa.extend(questoes_lote)
-                            except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
-                            barra_progresso.progress((i + 1) / len(todas_imagens_b64))
-                        st.toast("🎉 Extração concluída!")
-                        st.rerun()
-
-            if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
-                st.divider(); st.subheader("📝 Resolvendo Simulado")
-                for i, q in enumerate(st.session_state.prova_ativa):
-                    with st.container(border=True):
-                        st.markdown(f"**Questão {q.get('num', i+1)}**")
-                        if q.get('imagem_fonte'):
-                            with st.expander("🖼️ Ver Imagem"): st.image(base64.b64decode(q['imagem_fonte']), use_container_width=True)
-                        st.write(q.get('texto', ''))
-                        opcoes_dict = q.get('opcoes', {})
-                        if opcoes_dict: st.session_state.respostas_usuario[i] = st.radio("Selecione:", options=list(opcoes_dict.keys()), format_func=lambda x: f"{x}) {opcoes_dict.get(x, '')}", key=f"q_radio_{i}", index=None)
-
-                if st.button("🏁 Finalizar e Ver Gabarito", use_container_width=True):
-                    acertos = 0
-                    for idx, questao in enumerate(st.session_state.prova_ativa):
-                        resp_user = st.session_state.respostas_usuario.get(idx)
-                        correta = questao.get('correta', '')
-                        st.write("---")
-                        if resp_user == correta and correta != '': st.success(f"Questão {questao.get('num', idx+1)}: ACERTOU! ({resp_user})"); acertos += 1
-                        else: st.error(f"Questão {questao.get('num', idx+1)}: ERROU. (Sua resposta: {resp_user} | Correta: {correta})")
-                        with st.expander("Comentário"): st.write(questao.get('comentario', 'Sem comentário.'))
-                    
-                    nota_final = (acertos / len(st.session_state.prova_ativa)) * 100 if len(st.session_state.prova_ativa) > 0 else 0
-                    st.balloons(); st.metric("Nota Líquida", f"{nota_final:.1f}%")
-                    db_add("simulados", "simulados", {"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
-                    
-                if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
-
-        with aba_sim_pdf:
-            st.subheader("Gerar Simulado baseado em seus Materiais (PDF)")
-            if not dados_materiais:
-                st.warning("Você não tem PDFs salvos na aba 'Materiais e Simulados'.")
-            else:
-                mat_escolhido = st.selectbox("Escolha o PDF de Estudo:", [m['titulo'] for m in dados_materiais])
-                qtd_q = st.slider("Quantidade de Questões", 5, 100, 10)
-                st.caption("Atenção: PDFs muito extensos podem ser cortados pela IA devido ao limite de leitura.")
-                
-                if st.button("Gerar Simulado Exclusivo", use_container_width=True):
-                    client_ia = get_ia_client()
-                    if client_ia and PyPDF2:
-                        caminho_pdf = next(m['path'] for m in dados_materiais if m['titulo'] == mat_escolhido)
-                        if os.path.exists(caminho_pdf):
-                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questões..."):
-                                try:
-                                    reader = PyPDF2.PdfReader(caminho_pdf)
-                                    texto_pdf = ""
-                                    for page in reader.pages: texto_pdf += page.extract_text() + "\n"
-                                    texto_pdf = texto_pdf[:20000] # Limite de segurança de tokens da IA
-                                    
-                                    prompt = f"""Baseado no material fornecido, crie um simulado de {qtd_q} questões. Retorne um JSON no formato: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
-                                    Material: {texto_pdf}"""
-                                    
-                                    resposta = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
-                                    questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
-                                    
-                                    if questoes_pdf:
-                                        st.session_state.prova_ativa = questoes_pdf
-                                        st.session_state.respostas_usuario = {}
-                                        st.toast("Simulado gerado! Acesse a aba 'Simulado IA'", icon="🎉")
-                                    else:
-                                        pass # O erro já foi mostrado na função extrair_json_seguro
-                                except Exception as e:
-                                    st.error(f"Erro ao analisar PDF: {e}")
-                        else:
-                            st.error("Arquivo PDF não encontrado no servidor físico.")
-
-        with aba_osce:
-            client_ia = get_ia_client()
-            if client_ia:
-                modo_osce = st.radio("Cenário", ["🎯 Doença Específica", "🎲 Surpresa"])
-                if modo_osce == "🎯 Doença Específica": doenca_alvo = st.text_input("Doença (Ex: Infarto com supra)")
-                else:
-                    col_m, col_t = st.columns(2)
-                    mat_alvo = col_m.selectbox("Área", AREAS_MED, key="osce_mat")
-                    sub_o = ""
-                    if mat_alvo == "Clínica Médica":
-                        sub_o = col_t.selectbox("Subespecialidade", SUB_CM, key="osce_sub_cm")
-                    elif mat_alvo == "Cirurgia Geral":
-                        sub_o = col_t.selectbox("Subespecialidade", SUB_CG, key="osce_sub_cg")
-                    tema_alvo = st.text_input("Tema", key="osce_tema")
-
-                if st.button("▶️ Abrir Consultório"):
-                    st.session_state.osce_hist, st.session_state.osce_active, st.session_state.osce_finished = [], True, False
-                    base_p = f"""Você é paciente num OSCE de Medicina. Não diga o diagnóstico de cara. Fale os sintomas. Se o médico pedir um exame dessa lista [{", ".join(BANCO_IMAGENS_OSCE.keys())}], responda com a tag [EXAME: nome_do_exame]."""
-                    tema_final = f"{sub_o} - {tema_alvo}" if modo_osce == "🎲 Surpresa" and sub_o and sub_o != "Geral" else (tema_alvo if modo_osce == "🎲 Surpresa" else "")
-                    st.session_state.osce_sys_prompt = f"{base_p}\nDoença: {doenca_alvo}." if modo_osce == "🎯 Doença Específica" else f"{base_p}\nSorteie para: {mat_alvo} - {tema_final}."
-                    st.rerun()
-
-                if getattr(st.session_state, 'osce_active', False):
-                    chat_box = st.container(height=450)
-                    with chat_box:
-                        for msg in st.session_state.osce_hist:
-                            with st.chat_message(msg["role"]):
-                                if msg["role"] == "assistant": renderizar_mensagem_osce(msg["content"])
-                                else: st.write(msg["content"])
-                    
-                    if not getattr(st.session_state, 'osce_finished', False):
-                        col_t, col_a = st.columns([4, 1])
-                        texto_medico = col_t.chat_input("Fale ou prescreva...", key="input_osce")
-                        audio_medico = col_a.audio_input("Voz", label_visibility="collapsed")
-                        prescricao_final = st.text_area("📝 Receituário Final:")
-
-                        if st.button("🛑 Chamar Preceptor", use_container_width=True):
-                            st.session_state.osce_finished = True
-                            with st.spinner("Corrigindo conduta..."):
-                                try:
-                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
-                                    st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
-                                except Exception as e: st.error(str(e))
-                        
-                        entrada_final = texto_medico
-                        if audio_medico:
-                            with st.spinner("Transcrevendo..."):
-                                try: entrada_final = client_ia.audio.transcriptions.create(file=("audio.wav", audio_medico.getvalue()), model="whisper-large-v3").text
-                                except Exception as e: st.error(f"Erro no áudio: {e}")
-                        
-                        if entrada_final:
-                            st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
-                            with st.spinner("Paciente respondendo..."):
-                                try:
-                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
-                                    st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
-                                except Exception as e: st.error(f"Erro IA: {e}")
-                                st.rerun()
-
-                    if getattr(st.session_state, 'osce_finished', False):
-                        st.divider(); st.markdown("### 📋 Avaliação"); st.info(st.session_state.osce_eval)
-
     elif menu == "⚙️ Configurações":
         st.header("Controle de Perfil")
         uf = st.file_uploader("Foto de Perfil", type=['jpg', 'png'])
@@ -2304,7 +2009,7 @@ else:
                 if st.button("🚫 Apagar Conta", use_container_width=True):
                     uid = del_u.split(" | ")[0]
                     if uid != u_id:
-                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit"]:
+                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit"]:
                             for doc in db.collection(col).where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection(col).document(doc.id).delete()
                         db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
                     else: st.warning("Você não pode banir a si mesmo.")
@@ -2313,7 +2018,7 @@ else:
             st.subheader("📦 Exportação de Backup em Nuvem")
             if st.button("Baixar Dados (JSON)"):
                 with st.spinner("Coletando tudo..."):
-                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit"]}
+                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit"]}
                     st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
         except Exception as e:
             st.error(f"Erro Admin: {e}")
