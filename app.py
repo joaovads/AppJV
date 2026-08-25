@@ -56,13 +56,13 @@ st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide"
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
 # Visão: substitui llama-3.2-11b-vision-preview, desligado em 14/04/2025.
-MODELO_TEXTO = "openai/gpt-oss-20b"
+MODELO_TEXTO = "qwen/qwen3.6-27b"
 MODELO_VISAO = "qwen/qwen3.6-27b"
 
 # Fallbacks para evitar que uma descontinuação/restrição de modelo derrube a função inteira.
 MODELOS_TEXTO_FALLBACK = [
+    "qwen/qwen3.6-27b",
     "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b",
 ]
 # Ambos são multimodais; não use um modelo somente-texto como fallback de visão.
 MODELOS_VISAO_FALLBACK = [
@@ -268,6 +268,8 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
+# IMPORTANTE: não usamos response_format/json_schema nas chamadas;
+# todo JSON é validado localmente para evitar HTTP 400 json_validate_failed.
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
@@ -339,7 +341,14 @@ def chamar_ia(client, *, modelo, **kwargs):
 
     for modelo_tentativa in candidatos:
         try:
-            return client.chat.completions.create(model=modelo_tentativa, **kwargs)
+            call_kwargs = dict(kwargs)
+            if modelo_tentativa == "qwen/qwen3.6-27b":
+                call_kwargs.setdefault("reasoning_effort", "none")
+                call_kwargs.setdefault("include_reasoning", False)
+            elif modelo_tentativa in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
+                call_kwargs.setdefault("include_reasoning", False)
+            call_kwargs.pop("response_format", None)
+            return client.chat.completions.create(model=modelo_tentativa, **call_kwargs)
         except Exception as exc:
             ultimo_erro = exc
             erro = str(exc).lower()
@@ -352,44 +361,22 @@ def chamar_ia(client, *, modelo, **kwargs):
     raise RuntimeError(f"Nenhum modelo Groq disponível para esta operação. Último erro: {ultimo_erro}")
 
 
-def chamar_ia_json_estrito(client, *, modelo, messages, schema_name, schema, max_completion_tokens=2000):
+def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema=None, max_completion_tokens=2000):
     """
-    Geração JSON de produção usando Structured Outputs strict=true.
-    Disponível nos modelos GPT-OSS da Groq e evita json_validate_failed.
+    Chamada de IA sem response_format/json_schema.
+    O JSON é validado e extraído localmente por extrair_json_seguro().
+    Isso evita completamente o erro HTTP 400 json_validate_failed da Groq.
     """
-    if client is None:
-        raise RuntimeError("Cliente Groq não está conectado.")
-
-    candidatos = MODELOS_TEXTO_FALLBACK
-    ultimo_erro = None
-
-    payload = {
-        "messages": messages,
-        "temperature": 0.1,
-        "max_completion_tokens": max_completion_tokens,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": schema_name,
-                "strict": True,
-                "schema": schema,
-            },
-        },
-    }
-
-    for modelo_tentativa in candidatos:
-        try:
-            return client.chat.completions.create(model=modelo_tentativa, **payload)
-        except Exception as exc:
-            ultimo_erro = exc
-            erro = str(exc).lower()
-            if any(token in erro for token in (
-                "model_not_found", "does not exist", "do not have access", "404", "403"
-            )):
-                continue
-            raise
-
-    raise RuntimeError(f"Nenhum modelo GPT-OSS disponível para Structured Outputs. Último erro: {ultimo_erro}")
+    payload = dict(
+        messages=messages,
+        temperature=0.1,
+        max_completion_tokens=max_completion_tokens,
+    )
+    # Qwen 3.6 permite desligar o raciocínio para respostas estruturadas simples.
+    if modelo == MODELO_VISAO or modelo == MODELO_TEXTO:
+        payload["reasoning_effort"] = "none"
+        payload["include_reasoning"] = False
+    return chamar_ia(client, modelo=modelo, **payload)
 
 
 def extrair_json_seguro(texto):
@@ -1555,26 +1542,6 @@ else:
                                                                     client_ia,
                                                                     modelo=MODELO_TEXTO,
                                                                     messages=[{"role": "user", "content": prompt_fc}],
-                                                                    schema_name="flashcards_hiit",
-                                                                    schema={
-                                                                        "type": "object",
-                                                                        "properties": {
-                                                                            "flashcards": {
-                                                                                "type": "array",
-                                                                                "items": {
-                                                                                    "type": "object",
-                                                                                    "properties": {
-                                                                                        "frente": {"type": "string"},
-                                                                                        "verso": {"type": "string"}
-                                                                                    },
-                                                                                    "required": ["frente", "verso"],
-                                                                                    "additionalProperties": False
-                                                                                }
-                                                                            }
-                                                                        },
-                                                                        "required": ["flashcards"],
-                                                                        "additionalProperties": False
-                                                                    },
                                                                     max_completion_tokens=2000
                                                                 )
                                                                 fcs = extrair_json_seguro(r_fc.choices[0].message.content).get("flashcards", [])
