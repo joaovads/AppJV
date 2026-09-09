@@ -618,103 +618,96 @@ def render_toolbar():
     """
     Componente seguro em JS que permite formatar o texto SELECIONADO
     dentro de qualquer Text Area do Streamlit sem recarregar a tela.
-    Agora com injeção para tornar os botões VERDADEIRAMENTE flutuantes na tela pai.
+    Agora fornece a barra FIXA (original) e a FLUTUANTE simultaneamente.
     """
     toolbar_html = """
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: center; background: #1e293b; padding: 10px 15px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: max-content; margin: 0;">
-        <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
-        <button class="fmt-btn" onclick="formatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif; transition: transform 0.1s;">B</button>
-        <button class="fmt-btn" onclick="formatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif; transition: transform 0.1s;">U</button>
-        <button class="fmt-btn" onclick="formatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">🖍️ Grifar</button>
-        <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">📋 Tópico</button>
+    <div style="display: flex; gap: 8px; margin-bottom: 0px; align-items: center;">
+        <span style="color: #94a3b8; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador Rápido:</span>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('**', '**')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif;">B</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif;">U</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">🖍️ Grifar</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">📋 Tópico</button>
     </div>
     <script>
-    // 1. Torna a barra de formatação flutuante (Centralizada na parte inferior)
-    const frame = window.frameElement;
-    if (frame) {
-        const container = frame.closest('div[data-testid="stElementContainer"]');
-        if (container) {
-            container.style.position = 'fixed';
-            container.style.bottom = '30px';
-            container.style.left = '50%';
-            container.style.right = 'auto';
-            container.style.transform = 'translateX(-50%)';
-            container.style.zIndex = '999999';
-            container.style.width = 'max-content';
-            container.style.transition = 'all 0.3s ease';
-        }
-    }
+    const parentDoc = window.parent.document;
     
-    // 2. Caça TODOS os botões de "Colar Imagem" do sistema e os torna flutuantes logo acima do formatador
-    setInterval(() => {
-        const parentDoc = window.parent.document;
-        const pasteIframes = parentDoc.querySelectorAll('iframe[title*="paste"]');
-        pasteIframes.forEach((iframe, index) => {
-            const pasteContainer = iframe.closest('div[data-testid="stElementContainer"]');
-            if (pasteContainer && pasteContainer.style.position !== 'fixed') {
-                pasteContainer.style.position = 'fixed';
-                pasteContainer.style.bottom = (100 + (index * 55)) + 'px'; 
-                pasteContainer.style.left = '50%';
-                pasteContainer.style.right = 'auto';
-                pasteContainer.style.transform = 'translateX(-50%)';
-                pasteContainer.style.zIndex = '999999';
-                pasteContainer.style.width = 'max-content';
-                pasteContainer.style.transition = 'all 0.3s ease';
-                pasteContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
-                pasteContainer.style.borderRadius = '8px';
-            }
-        });
-    }, 500);
-
+    // Evitar perda de foco ao clicar nos botões inline
     document.querySelectorAll('.fmt-btn').forEach(btn => {
         btn.addEventListener('mousedown', function(e) {
             e.preventDefault(); 
         });
-        btn.addEventListener('active', function(e) {
-            btn.style.transform = 'scale(0.95)';
-        });
     });
-    
-    function formatText(tagStart, tagEnd) {
-        const parentDoc = window.parent.document;
-        const textareas = parentDoc.querySelectorAll('textarea');
-        if (textareas.length === 0) return;
-        
-        let ta = null;
-        if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') {
-            ta = parentDoc.activeElement;
-        } else {
-            for(let i=textareas.length-1; i>=0; i--){
-                let label = textareas[i].getAttribute('aria-label');
-                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
-                    ta = textareas[i];
-                    break;
-                }
-            }
-            if(!ta) ta = textareas[textareas.length - 1];
-        }
 
-        if(ta) {
-            const start = ta.selectionStart;
-            const end = ta.selectionEnd;
-            const text = ta.value;
-            const selectedText = text.substring(start, end);
+    // Registrar função global no window do pai para ser acessada tanto pela barra fixa quanto flutuante
+    if (!window.parent.doFormatText) {
+        window.parent.doFormatText = function(tagStart, tagEnd) {
+            const textareas = window.parent.document.querySelectorAll('textarea');
+            if (textareas.length === 0) return;
             
-            const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
-            
-            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-            nativeInputValueSetter.call(ta, newText);
-            
-            const event = new Event('input', { bubbles: true });
-            ta.dispatchEvent(event);
-            
-            ta.focus();
-            ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
-        }
+            let ta = null;
+            if (window.parent.document.activeElement && window.parent.document.activeElement.tagName === 'TEXTAREA') {
+                ta = window.parent.document.activeElement;
+            } else {
+                for(let i=textareas.length-1; i>=0; i--){
+                    let label = textareas[i].getAttribute('aria-label');
+                    if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
+                        ta = textareas[i];
+                        break;
+                    }
+                }
+                if(!ta) ta = textareas[textareas.length - 1];
+            }
+
+            if(ta) {
+                const start = ta.selectionStart;
+                const end = ta.selectionEnd;
+                const text = ta.value;
+                const selectedText = text.substring(start, end);
+                
+                const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
+                
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                nativeInputValueSetter.call(ta, newText);
+                
+                const event = new Event('input', { bubbles: true });
+                ta.dispatchEvent(event);
+                
+                ta.focus();
+                ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+            }
+        };
+    }
+
+    // Injetar a Barra Flutuante Globalmente (se ainda não existir)
+    if (!parentDoc.getElementById('global-floating-toolbar')) {
+        const floatBar = parentDoc.createElement('div');
+        floatBar.id = 'global-floating-toolbar';
+        floatBar.style.position = 'fixed';
+        floatBar.style.bottom = '30px';
+        floatBar.style.left = '50%';
+        floatBar.style.transform = 'translateX(-50%)';
+        floatBar.style.zIndex = '999999';
+        floatBar.style.backgroundColor = '#1e293b';
+        floatBar.style.padding = '10px 15px';
+        floatBar.style.borderRadius = '12px';
+        floatBar.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
+        floatBar.style.display = 'flex';
+        floatBar.style.gap = '8px';
+        floatBar.style.alignItems = 'center';
+        floatBar.style.width = 'max-content';
+
+        floatBar.innerHTML = `
+            <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
+            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif; transition: transform 0.1s;">B</button>
+            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif; transition: transform 0.1s;">U</button>
+            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">🖍️ Grifar</button>
+            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">📋 Tópico</button>
+        `;
+        parentDoc.body.appendChild(floatBar);
     }
     </script>
     """
-    components.html(toolbar_html, height=65)
+    components.html(toolbar_html, height=35)
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -2207,6 +2200,79 @@ else:
                             r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
+
+    elif menu == "📚 Registro de Aulas":
+        st.header("Biblioteca Pessoal de Conteúdo")
+        col_form, col_lista = st.columns([1, 2.5])
+        with col_form:
+            st.subheader("➕ Adicionar Aula")
+            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
+            c_area, c_sub = st.columns(2)
+            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
+            sub_al = ""
+            if a == "Clínica Médica":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
+                
+            with st.form("n_aula", clear_on_submit=True):
+                t = st.text_input("Assunto da Aula (Tema)")
+                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
+                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
+                    doc_a = db.collection("aulas").document()
+                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
+                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
+                    doc_a.set(n_aula)
+                    n_aula["id"] = doc_a.id
+                    st.session_state.dados["aulas"].append(n_aula)
+                    st.toast("Aula registrada com sucesso!", icon="📚")
+                    time.sleep(0.5)
+                    st.rerun()
+                    
+            with st.expander("🗑️ Excluir Aula do Banco"):
+                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
+                if opcoes_del_dict:
+                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
+                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
+                        id_del = str(opcoes_del_dict[op_del_chave])
+                        db.collection("aulas").document(id_del).delete()
+                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
+                        st.toast("Aula apagada.", icon="🗑️")
+                        time.sleep(0.5)
+                        st.rerun()
+
+        with col_lista:
+            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
+            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
+            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
+            with nav_a1:
+                if st.button("⬅️ Mês Anterior", key="prev_aula"):
+                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
+                    else: st.session_state.cal_mes_aulas -= 1
+                    st.rerun()
+            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
+            with nav_a3:
+                if st.button("Próximo Mês ➡️", key="next_aula"):
+                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
+                    else: st.session_state.cal_mes_aulas += 1
+                    st.rerun()
+            
+            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
+            
+            col_f1, col_f2 = st.columns([3, 2])
+            with col_f1: st.subheader("Linha do Tempo")
+            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
+            
+            aulas_exibir = list(dados_aulas)
+            if filtrar_data_aula:
+                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
+                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
+
+            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
+            for al in aulas_exibir:
+                with st.container(border=True):
+                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
+                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
 
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
