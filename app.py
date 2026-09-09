@@ -268,8 +268,6 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-# IMPORTANTE: não usamos response_format/json_schema nas chamadas;
-# todo JSON é validado localmente para evitar HTTP 400 json_validate_failed.
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
@@ -353,7 +351,6 @@ def chamar_ia(client, *, modelo, **kwargs):
             ultimo_erro = exc
             erro = str(exc).lower()
             # Só troca de modelo quando o problema indica modelo indisponível/permissão.
-            # Rate limit/tamanho continuam seguindo o tratamento específico do chamador.
             if any(token in erro for token in ("model_not_found", "does not exist", "do not have access", "404", "403")):
                 continue
             raise
@@ -618,20 +615,56 @@ def render_toolbar():
     """
     Componente seguro em JS que permite formatar o texto SELECIONADO
     dentro de qualquer Text Area do Streamlit sem recarregar a tela.
-    Agora é flutuante (sticky) para não sumir durante a rolagem.
+    Agora com injeção para tornar os botões VERDADEIRAMENTE flutuantes na tela pai.
     """
     toolbar_html = """
-    <div style="display: flex; gap: 8px; margin-bottom: 0px; align-items: center; position: sticky; top: 0; background: transparent; padding: 10px 0; z-index: 999; backdrop-filter: blur(5px);">
-        <span style="color: #94a3b8; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador Rápido:</span>
-        <button class="fmt-btn" onclick="formatText('**', '**')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif;">B</button>
-        <button class="fmt-btn" onclick="formatText('<u>', '</u>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif;">U</button>
-        <button class="fmt-btn" onclick="formatText('<mark>', '</mark>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">🖍️ Grifar</button>
-        <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">📋 Tópico</button>
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: center; background: #1e293b; padding: 10px 15px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: max-content; margin: 0;">
+        <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
+        <button class="fmt-btn" onclick="formatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif; transition: transform 0.1s;">B</button>
+        <button class="fmt-btn" onclick="formatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif; transition: transform 0.1s;">U</button>
+        <button class="fmt-btn" onclick="formatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">🖍️ Grifar</button>
+        <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">📋 Tópico</button>
     </div>
     <script>
+    // 1. Torna a barra de formatação flutuante (Fixed Bottom Right)
+    const frame = window.frameElement;
+    if (frame) {
+        const container = frame.closest('div[data-testid="stElementContainer"]');
+        if (container) {
+            container.style.position = 'fixed';
+            container.style.bottom = '20px';
+            container.style.right = '20px';
+            container.style.zIndex = '999999';
+            container.style.width = 'auto';
+            container.style.transition = 'all 0.3s ease';
+        }
+    }
+    
+    // 2. Caça TODOS os botões de "Colar Imagem" do sistema e os torna flutuantes logo acima do formatador
+    setInterval(() => {
+        const parentDoc = window.parent.document;
+        const pasteIframes = parentDoc.querySelectorAll('iframe[title*="paste"]');
+        pasteIframes.forEach((iframe, index) => {
+            const pasteContainer = iframe.closest('div[data-testid="stElementContainer"]');
+            if (pasteContainer && pasteContainer.style.position !== 'fixed') {
+                pasteContainer.style.position = 'fixed';
+                pasteContainer.style.bottom = (85 + (index * 55)) + 'px'; 
+                pasteContainer.style.right = '20px';
+                pasteContainer.style.zIndex = '999999';
+                pasteContainer.style.width = 'auto';
+                pasteContainer.style.transition = 'all 0.3s ease';
+                pasteContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+                pasteContainer.style.borderRadius = '8px';
+            }
+        });
+    }, 500);
+
     document.querySelectorAll('.fmt-btn').forEach(btn => {
         btn.addEventListener('mousedown', function(e) {
             e.preventDefault(); 
+        });
+        btn.addEventListener('active', function(e) {
+            btn.style.transform = 'scale(0.95)';
         });
     });
     
@@ -646,7 +679,7 @@ def render_toolbar():
         } else {
             for(let i=textareas.length-1; i>=0; i--){
                 let label = textareas[i].getAttribute('aria-label');
-                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('O que devo'))) {
+                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
                     ta = textareas[i];
                     break;
                 }
@@ -674,7 +707,7 @@ def render_toolbar():
     }
     </script>
     """
-    components.html(toolbar_html, height=45)
+    components.html(toolbar_html, height=65)
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -1346,9 +1379,9 @@ else:
                     st.table(df_h.style.map(colorir_porcentagem_hiit, subset=['% Acertos']))
                 else:
                     st.table(df_h.style.applymap(colorir_porcentagem_hiit, subset=['% Acertos']))
-
+                    
                 st.write("---")
-                with st.expander("✏️ Editar ou Excluir Registro HIIT"):
+                with st.expander("✏️ Editar ou Excluir Histórico HIIT"):
                     opcoes_edicao_h = {}
                     for q_item in dados_questoes_hiit:
                         data_formatada = formatar_data_br(q_item.get('data'))
@@ -1357,32 +1390,28 @@ else:
                         opcoes_edicao_h[chave] = q_item
                         
                     if opcoes_edicao_h:
-                        q_selec_h = st.selectbox("Selecione o registro que deseja alterar:", list(opcoes_edicao_h.keys()))
-                        q_dados_h = opcoes_edicao_h[q_selec_h]
-                        q_id_alvo_h = str(q_dados_h.get('id', '0000'))
+                        qh_selec = st.selectbox("Selecione o registro HIIT que deseja alterar:", list(opcoes_edicao_h.keys()))
+                        qh_dados = opcoes_edicao_h[qh_selec]
+                        qh_id_alvo = str(qh_dados.get('id', '0000'))
                         
-                        col_e1, col_e2 = st.columns(2)
-                        novo_ac_h = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados_h.get('acertos')), key=f"ac_h_{q_id_alvo_h}")
-                        novo_er_h = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados_h.get('erros')), key=f"er_h_{q_id_alvo_h}")
+                        col_e1h, col_e2h = st.columns(2)
+                        novo_ac_h = col_e1h.number_input("Editar Acertos HIIT", min_value=0, value=safe_int(qh_dados.get('acertos')), key=f"ac_h_{qh_id_alvo}")
+                        novo_er_h = col_e2h.number_input("Editar Erros HIIT", min_value=0, value=safe_int(qh_dados.get('erros')), key=f"er_h_{qh_id_alvo}")
                         
-                        col_btn1, col_btn2 = st.columns(2)
-                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_h_{q_id_alvo_h}"):
-                            if q_dados_h.get('id'):
-                                db_update("questoes_hiit", "questoes_hiit", q_id_alvo_h, {"acertos": novo_ac_h, "erros": novo_er_h})
+                        col_btn1h, col_btn2h = st.columns(2)
+                        if col_btn1h.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_h_{qh_id_alvo}"):
+                            if qh_dados.get('id'):
+                                db_update("questoes_hiit", "questoes_hiit", qh_id_alvo, {"acertos": novo_ac_h, "erros": novo_er_h})
                                 st.toast("Registro HIIT atualizado com sucesso!", icon="✅")
                                 time.sleep(0.5)
                                 st.rerun()
-                            else:
-                                st.error("Erro: Registro sem ID.")
                             
-                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_h_{q_id_alvo_h}"):
-                            if q_dados_h.get('id'):
-                                db_delete("questoes_hiit", "questoes_hiit", q_id_alvo_h)
+                        if col_btn2h.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_h_{qh_id_alvo}"):
+                            if qh_dados.get('id'):
+                                db_delete("questoes_hiit", "questoes_hiit", qh_id_alvo)
                                 st.toast("Registro HIIT excluído!", icon="🗑️")
                                 time.sleep(0.5)
                                 st.rerun()
-                            else:
-                                st.error("Erro: Registro sem ID.")
 
         with aba_cal_hiit:
             todas_pendentes_hiit_cru = [r for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
@@ -1551,28 +1580,28 @@ else:
                 elif area_h == "Cirurgia Geral":
                     sub_ah = col_sh.selectbox("Subespecialidade", SUB_CG, key="hiit_sub_cg_nota")
 
-                with st.form("form_hiit_nota", clear_on_submit=True):
-                    sub_h = st.text_input("Tema / Assunto")
-                    render_toolbar()
-                    
-                    # Usa o Session State para o Auto-Save não perder o texto ao falhar a submissão
-                    if 'temp_txt_h' not in st.session_state: st.session_state.temp_txt_h = ""
-                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, key="temp_txt_h")
-                    
-                    if st.form_submit_button("💾 Salvar Resumo HIIT", use_container_width=True):
-                        if sub_h and txt_h:
-                            s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
-                            db_add("anotacoes_hiit", "anotacoes_hiit", {
-                                "usuario_id": u_id, "area": area_h, "subtema": s_final_h, "pontos_chave": txt_h,
-                                "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
-                            })
-                            st.session_state.limpar_nova_nota_hiit = True
-                            st.session_state.temp_txt_h = "" # Limpa o auto-save após salvar
-                            st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
-                            time.sleep(0.5)
-                            st.rerun()
-                        else:
-                            st.error("Preencha o tema e a anotação.")
+                sub_h = st.text_input("Tema / Assunto", key="hiit_input_tema")
+                render_toolbar()
+                
+                # O state temporário mantém o texto mesmo se cair a internet
+                if "draft_hiit_txt" not in st.session_state: st.session_state.draft_hiit_txt = ""
+                txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, value=st.session_state.draft_hiit_txt, key="draft_hiit_txt_key")
+                st.session_state.draft_hiit_txt = txt_h # Salva no state on the fly
+
+                if st.button("💾 Salvar Resumo HIIT", use_container_width=True):
+                    if sub_h and txt_h:
+                        s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
+                        db_add("anotacoes_hiit", "anotacoes_hiit", {
+                            "usuario_id": u_id, "area": area_h, "subtema": s_final_h, "pontos_chave": txt_h,
+                            "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
+                        })
+                        st.session_state.limpar_nova_nota_hiit = True
+                        st.session_state.draft_hiit_txt = "" # Limpa o rascunho apenas após o save final
+                        st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.error("Preencha o tema e a anotação.")
                             
             with aba_hn2:
                 if not dados_anotacoes_hiit:
@@ -1626,8 +1655,10 @@ else:
                                                     if client_ia:
                                                         with st.spinner("Gerando flashcards atômicos..."):
                                                             try:
-                                                                prompt_fc = f"""[SISTEMA NÍVEL 5] Transforme TODA a anotação abaixo em flashcards. Crie um flashcard para CADA tópico, conceito ou detalhe presente no texto, garantindo que absolutamente NADA fique de fora. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
-                                                                Retorne APENAS o JSON puro. Não explique.
+                                                                prompt_fc = f"""[SISTEMA NÍVEL 5] Transforme TODA a anotação abaixo em flashcards. Crie um flashcard para CADA tópico, conceito ou detalhe presente no texto, garantindo que absolutamente NADA fique de fora.
+                                                                Responda OBRIGATORIAMENTE com um objeto JSON válido, no formato:
+                                                                {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
+                                                                Não escreva absolutamente NENHUM texto antes ou depois do JSON.
                                                                 Resumo: {nh.get('pontos_chave', '')}"""
                                                                 r_fc = chamar_ia_json_estrito(
                                                                     client_ia,
