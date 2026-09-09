@@ -616,34 +616,31 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
 
 def render_toolbar():
     """
-    Componente seguro em JS que permite formatar o texto SELECIONADO
-    dentro de qualquer Text Area do Streamlit sem recarregar a tela.
-    Agora fornece a barra FIXA (original) e a FLUTUANTE simultaneamente.
+    Componente seguro em JS que permite formatar o texto SELECIONADO.
+    Agora conta com Barra Fixa (quebra de linha automática para não cortar) 
+    e Barra Flutuante Global centralizada (com botão de Colar sincronizado).
     """
     toolbar_html = """
-    <div style="display: flex; gap: 8px; margin-bottom: 0px; align-items: center;">
-        <span style="color: #94a3b8; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador Rápido:</span>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('**', '**')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif;">B</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif;">U</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">🖍️ Grifar</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 4px 10px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif;">📋 Tópico</button>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #1e293b; padding: 10px 15px; border-radius: 8px; border: 1px solid #334155; width: 100%; box-sizing: border-box;">
+        <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador:</span>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">B</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s;">U</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">🖍️ Grifar</button>
+        <button class="fmt-btn" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">📋 Tópico</button>
+        <button class="fmt-btn" onclick="window.parent.focusPaste()" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">📸 Colar Imagem</button>
     </div>
     <script>
     const parentDoc = window.parent.document;
     
-    // Evitar perda de foco ao clicar nos botões inline
     document.querySelectorAll('.fmt-btn').forEach(btn => {
-        btn.addEventListener('mousedown', function(e) {
-            e.preventDefault(); 
-        });
+        btn.addEventListener('mousedown', function(e) { e.preventDefault(); });
+        btn.addEventListener('active', function(e) { btn.style.transform = 'scale(0.95)'; });
     });
 
-    // Registrar função global no window do pai para ser acessada tanto pela barra fixa quanto flutuante
     if (!window.parent.doFormatText) {
         window.parent.doFormatText = function(tagStart, tagEnd) {
             const textareas = window.parent.document.querySelectorAll('textarea');
             if (textareas.length === 0) return;
-            
             let ta = null;
             if (window.parent.document.activeElement && window.parent.document.activeElement.tagName === 'TEXTAREA') {
                 ta = window.parent.document.activeElement;
@@ -651,8 +648,7 @@ def render_toolbar():
                 for(let i=textareas.length-1; i>=0; i--){
                     let label = textareas[i].getAttribute('aria-label');
                     if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
-                        ta = textareas[i];
-                        break;
+                        ta = textareas[i]; break;
                     }
                 }
                 if(!ta) ta = textareas[textareas.length - 1];
@@ -663,27 +659,43 @@ def render_toolbar():
                 const end = ta.selectionEnd;
                 const text = ta.value;
                 const selectedText = text.substring(start, end);
-                
                 const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
-                
                 const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
                 nativeInputValueSetter.call(ta, newText);
-                
-                const event = new Event('input', { bubbles: true });
-                ta.dispatchEvent(event);
-                
+                ta.dispatchEvent(new Event('input', { bubbles: true }));
                 ta.focus();
                 ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
             }
         };
     }
 
-    // Injetar a Barra Flutuante Globalmente (se ainda não existir)
+    if (!window.parent.focusPaste) {
+        window.parent.focusPaste = function() {
+            const pasteFrames = parentDoc.querySelectorAll('iframe[title*="paste"]');
+            if (pasteFrames.length > 0) {
+                const target = pasteFrames[pasteFrames.length - 1];
+                target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                const container = target.closest('div[data-testid="stElementContainer"]');
+                if (container) {
+                    container.style.transition = 'box-shadow 0.3s, transform 0.3s';
+                    container.style.boxShadow = '0 0 20px 5px #10b981';
+                    container.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        container.style.boxShadow = 'none';
+                        container.style.transform = 'scale(1)';
+                    }, 1200);
+                }
+            } else {
+                alert("Nenhuma área de colar imagem ativa encontrada nesta página.");
+            }
+        };
+    }
+
     if (!parentDoc.getElementById('global-floating-toolbar')) {
         const floatBar = parentDoc.createElement('div');
         floatBar.id = 'global-floating-toolbar';
         floatBar.style.position = 'fixed';
-        floatBar.style.bottom = '30px';
+        floatBar.style.bottom = '25px';
         floatBar.style.left = '50%';
         floatBar.style.transform = 'translateX(-50%)';
         floatBar.style.zIndex = '999999';
@@ -692,22 +704,26 @@ def render_toolbar():
         floatBar.style.borderRadius = '12px';
         floatBar.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
         floatBar.style.display = 'flex';
+        floatBar.style.flexWrap = 'wrap';
+        floatBar.style.justifyContent = 'center';
         floatBar.style.gap = '8px';
         floatBar.style.alignItems = 'center';
         floatBar.style.width = 'max-content';
+        floatBar.style.maxWidth = '90vw';
 
         floatBar.innerHTML = `
             <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
-            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; font-family: sans-serif; transition: transform 0.1s;">B</button>
-            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; font-family: sans-serif; transition: transform 0.1s;">U</button>
-            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">🖍️ Grifar</button>
-            <button onmousedown="event.preventDefault()" onclick="window.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">📋 Tópico</button>
+            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold;">B</button>
+            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline;">U</button>
+            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer;">🖍️ Grifar</button>
+            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer;">📋 Tópico</button>
+            <button onmousedown="event.preventDefault()" onclick="window.parent.focusPaste()" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold;">📸 Colar Imagem</button>
         `;
         parentDoc.body.appendChild(floatBar);
     }
     </script>
     """
-    components.html(toolbar_html, height=35)
+    components.html(toolbar_html, height=85)
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -2273,230 +2289,6 @@ else:
                 with st.container(border=True):
                     st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
                     st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
-
-    elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        
-        # INICIALIZAÇÃO DE ESTADOS
-        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
-            
-        # O GATILHO ANTI-CRASH (SEGURANÇA DO STREAMLIT)
-        if st.session_state.get('limpar_nova_nota', False):
-            st.session_state.nota_imgs_temp = []
-            st.session_state.limpar_nova_nota = False
-            st.toast("✅ Anotação salva com sucesso!", icon="📝")
-            
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        
-        with aba_nova:
-            col_btn, col_img = st.columns([1, 2])
-            with col_btn:
-                st.markdown("### 🖼️ Colar Imagem (Opcional)")
-                if paste_image_button is not None:
-                    res_paste_nota = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8",
-                        key="paste_nota_nova"
-                    )
-                    if res_paste_nota.image_data is not None:
-                        img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                        if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                            st.session_state.nota_imgs_temp.append(img_b64)
-                            st.rerun()
-                else:
-                    st.warning("Biblioteca de colar imagem não detectada.")
-                    
-            with col_img:
-                if st.session_state.nota_imgs_temp:
-                    st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
-                    cols = st.columns(3)
-                    for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
-                        with cols[idx % 3]:
-                            if isinstance(img_b64, str) and len(img_b64) > 50:
-                                try:
-                                    st.image(base64.b64decode(img_b64), use_container_width=True)
-                                except: pass
-                            if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
-                                st.session_state.nota_imgs_temp.pop(idx)
-                                st.rerun()
-
-            st.divider()
-            st.markdown("### ✍️ Escrever Resumo")
-            
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            sub_a = ""
-            if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
-                
-            with st.form("form_nova_nota", clear_on_submit=True):
-                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                
-                with st.container(border=True):
-                    render_toolbar()
-                
-                p = st.text_area("Pontos Chave / Resumo", height=200, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s_final,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota = True
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes:
-                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                
-                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
-                
-                if not notas_exibir:
-                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
-                else:
-                    abas_areas = st.tabs(areas_presentes)
-                    for i, area_tab in enumerate(areas_presentes):
-                        with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
-                            
-                            for nota in notas_area:
-                                nota_id = str(nota.get('id', '0000'))
-                                subtema_str = limpar_texto(nota.get('subtema'))
-                                data_str = formatar_data_br(nota.get('data_criacao'))
-                                
-                                # --- NOTA COMPACTA (EXPANDER) ---
-                                with st.expander(f"📝 {subtema_str} - {data_str}"):
-                                    c_del1, c_del2 = st.columns([0.85, 0.15])
-                                    with c_del2:
-                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
-                                            db_delete("anotacoes", "anotacoes", nota_id)
-                                            st.toast("Anotação excluída!", icon="🗑️")
-                                            st.rerun()
-                                    
-                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
-                                    conteudo_nota = nota.get('pontos_chave', '')
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
-                                    
-                                    # Exibindo as imagens de forma organizada (Grade)
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
-                                        imgs_exibir.insert(0, nota['imagem_b64'])
-                                        
-                                    if imgs_exibir:
-                                        st.write("") # Espaçamento
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                    except: pass
-                                    
-                                    st.divider()
-                                    
-                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
-                                    if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = nota_id
-                                            st.rerun()
-                                    else:
-                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = None
-                                            st.rerun()
-                                            
-                                        st.markdown("#### 🖼️ Imagens da Anotação")
-                                        col_ebtn, col_eimg = st.columns([1, 2])
-                                        with col_ebtn:
-                                            st.markdown("➕ **Adicionar Mais Imagens:**")
-                                            if paste_image_button is not None:
-                                                res_paste_edit = paste_image_button(
-                                                    label="Colar Imagem (Ctrl+V)",
-                                                    background_color="#2563eb",
-                                                    hover_background_color="#1d4ed8",
-                                                    key=f"paste_edit_{nota_id}" 
-                                                )
-                                                if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        st.rerun()
-                                        with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                    with cols_e[idx_e % 3]:
-                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                            except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                            st.rerun()
-
-                                        st.markdown("#### ✍️ Editar Texto")
-                                        
-                                        col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
-                                        sub_ea = ""
-                                        if edit_a == "Clínica Médica":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
-                                        elif edit_a == "Cirurgia Geral":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
-                                        
-                                        # Limpar a subespecialidade se já vier no texto
-                                        s_puro = nota.get('subtema', '')
-                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            edit_s = st.text_input("Subtema", value=s_puro)
-                                            
-                                            with st.container(border=True):
-                                                render_toolbar()
-
-                                            edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
-                                            
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Preencha o subtema e a anotação para salvar.")
-
-    elif menu == "📍 GPS da Aprovação":
-        st.header("GPS da Aprovação")
-        alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
-        if dados_simulados:
-            notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
-            st.metric("Sua Média Global", f"{sum(notas)/len(notas):.1f}%")
 
     elif menu == "📅 Agenda de Revisões":
         st.header("Organizador Adaptativo de Ciclos")
