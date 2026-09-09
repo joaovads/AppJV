@@ -616,86 +616,90 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
 
 def render_toolbar():
     """
-    Componente seguro em JS que permite formatar o texto SELECIONADO.
-    Agora conta com Barra Fixa (quebra de linha automática para não cortar) 
-    e Barra Flutuante Global centralizada (com botão de Colar sincronizado).
+    Componente seguro em JS que provê o melhor dos dois mundos:
+    1) A Barra Fixa original no topo (quebra de linha automática para não cortar).
+    2) Uma Barra Flutuante Global injetada na tela pai, sempre centralizada, indestrutível.
     """
     toolbar_html = """
-    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #1e293b; padding: 10px 15px; border-radius: 8px; border: 1px solid #334155; width: 100%; box-sizing: border-box;">
-        <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;">Formatador:</span>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">B</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s;">U</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">🖍️ Grifar</button>
-        <button class="fmt-btn" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">📋 Tópico</button>
-        <button class="fmt-btn" onclick="window.parent.focusPaste()" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">📸 Colar Imagem</button>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 5px 0;">
+        <span style="color: #94a3b8; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
+        <button class="fmt-btn" onclick="formatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">B</button>
+        <button class="fmt-btn" onclick="formatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s;">U</button>
+        <button class="fmt-btn" onclick="formatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">🖍️ Grifar</button>
+        <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">📋 Tópico</button>
+        <button class="fmt-btn" onclick="focusPasteLocal()" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">📸 Colar Imagem</button>
     </div>
-    <script>
-    const parentDoc = window.parent.document;
     
+    <script>
+    // --- 1. LÓGICA LOCAL (BARRA FIXA ORIGINAL) ---
+    function formatText(tagStart, tagEnd) {
+        const parentDoc = window.parent.document;
+        const textareas = parentDoc.querySelectorAll('textarea');
+        if (textareas.length === 0) return;
+        
+        let ta = null;
+        if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') {
+            ta = parentDoc.activeElement;
+        } else {
+            for(let i=textareas.length-1; i>=0; i--){
+                let label = textareas[i].getAttribute('aria-label');
+                if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
+                    ta = textareas[i];
+                    break;
+                }
+            }
+            if(!ta) ta = textareas[textareas.length - 1];
+        }
+
+        if(ta) {
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            const text = ta.value;
+            const selectedText = text.substring(start, end);
+            
+            const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
+            
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+            nativeInputValueSetter.call(ta, newText);
+            
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            ta.focus();
+            ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+        }
+    }
+
+    function focusPasteLocal() {
+        const pasteFrames = window.parent.document.querySelectorAll('iframe[title*="paste"]');
+        if (pasteFrames.length > 0) {
+            const target = pasteFrames[pasteFrames.length - 1];
+            target.scrollIntoView({behavior: 'smooth', block: 'center'});
+            const container = target.closest('div[data-testid="stElementContainer"]');
+            if (container) {
+                container.style.transition = 'box-shadow 0.3s, transform 0.3s';
+                container.style.boxShadow = '0 0 20px 5px #10b981';
+                container.style.transform = 'scale(1.02)';
+                setTimeout(() => {
+                    container.style.boxShadow = 'none';
+                    container.style.transform = 'scale(1)';
+                }, 1200);
+            }
+        }
+    }
+
     document.querySelectorAll('.fmt-btn').forEach(btn => {
         btn.addEventListener('mousedown', function(e) { e.preventDefault(); });
         btn.addEventListener('active', function(e) { btn.style.transform = 'scale(0.95)'; });
     });
 
-    if (!window.parent.doFormatText) {
-        window.parent.doFormatText = function(tagStart, tagEnd) {
-            const textareas = window.parent.document.querySelectorAll('textarea');
-            if (textareas.length === 0) return;
-            let ta = null;
-            if (window.parent.document.activeElement && window.parent.document.activeElement.tagName === 'TEXTAREA') {
-                ta = window.parent.document.activeElement;
-            } else {
-                for(let i=textareas.length-1; i>=0; i--){
-                    let label = textareas[i].getAttribute('aria-label');
-                    if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
-                        ta = textareas[i]; break;
-                    }
-                }
-                if(!ta) ta = textareas[textareas.length - 1];
-            }
 
-            if(ta) {
-                const start = ta.selectionStart;
-                const end = ta.selectionEnd;
-                const text = ta.value;
-                const selectedText = text.substring(start, end);
-                const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
-                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-                nativeInputValueSetter.call(ta, newText);
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-                ta.focus();
-                ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
-            }
-        };
-    }
-
-    if (!window.parent.focusPaste) {
-        window.parent.focusPaste = function() {
-            const pasteFrames = parentDoc.querySelectorAll('iframe[title*="paste"]');
-            if (pasteFrames.length > 0) {
-                const target = pasteFrames[pasteFrames.length - 1];
-                target.scrollIntoView({behavior: 'smooth', block: 'center'});
-                const container = target.closest('div[data-testid="stElementContainer"]');
-                if (container) {
-                    container.style.transition = 'box-shadow 0.3s, transform 0.3s';
-                    container.style.boxShadow = '0 0 20px 5px #10b981';
-                    container.style.transform = 'scale(1.02)';
-                    setTimeout(() => {
-                        container.style.boxShadow = 'none';
-                        container.style.transform = 'scale(1)';
-                    }, 1200);
-                }
-            } else {
-                alert("Nenhuma área de colar imagem ativa encontrada nesta página.");
-            }
-        };
-    }
-
+    // --- 2. LÓGICA DA BARRA FLUTUANTE (INJETADA E ISOLADA NO PAI) ---
+    const parentDoc = window.parent.document;
     if (!parentDoc.getElementById('global-floating-toolbar')) {
         const floatBar = parentDoc.createElement('div');
         floatBar.id = 'global-floating-toolbar';
         floatBar.style.position = 'fixed';
-        floatBar.style.bottom = '25px';
+        floatBar.style.bottom = '30px';
         floatBar.style.left = '50%';
         floatBar.style.transform = 'translateX(-50%)';
         floatBar.style.zIndex = '999999';
@@ -711,18 +715,95 @@ def render_toolbar():
         floatBar.style.width = 'max-content';
         floatBar.style.maxWidth = '90vw';
 
+        // Interface Injetada
         floatBar.innerHTML = `
             <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">Formatador:</span>
-            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('**', '**')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold;">B</button>
-            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('<u>', '</u>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline;">U</button>
-            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('<mark>', '</mark>')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer;">🖍️ Grifar</button>
-            <button onmousedown="event.preventDefault()" onclick="window.parent.doFormatText('\\\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer;">📋 Tópico</button>
-            <button onmousedown="event.preventDefault()" onclick="window.parent.focusPaste()" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold;">📸 Colar Imagem</button>
+            <button class="float-fmt-btn" data-tag1="**" data-tag2="**" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">B</button>
+            <button class="float-fmt-btn" data-tag1="<u>" data-tag2="</u>" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s;">U</button>
+            <button class="float-fmt-btn" data-tag1="<mark>" data-tag2="</mark>" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">🖍️ Grifar</button>
+            <button class="float-fmt-btn" data-tag1="NL" data-tag2="" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">📋 Tópico</button>
+            <button class="float-paste-btn" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">📸 Colar Imagem</button>
         `;
+        
+        // Comportamento Isolaod (Barra Flutuante)
+        floatBar.querySelectorAll('.float-fmt-btn').forEach(btn => {
+            btn.addEventListener('mousedown', e => e.preventDefault());
+            btn.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => this.style.transform = 'scale(1)', 100);
+                
+                let tagStart = this.getAttribute('data-tag1');
+                const tagEnd = this.getAttribute('data-tag2');
+                
+                // Conversão segura de Quebra de Linha
+                if (tagStart === "NL") {
+                    tagStart = "\\n- ";
+                }
+                
+                const textareas = parentDoc.querySelectorAll('textarea');
+                if (textareas.length === 0) return;
+                
+                let ta = null;
+                if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') {
+                    ta = parentDoc.activeElement;
+                } else {
+                    for(let i=textareas.length-1; i>=0; i--){
+                        let label = textareas[i].getAttribute('aria-label');
+                        if(label && (label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos'))) {
+                            ta = textareas[i]; break;
+                        }
+                    }
+                    if(!ta) ta = textareas[textareas.length - 1];
+                }
+
+                if(ta) {
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const text = ta.value;
+                    const selectedText = text.substring(start, end);
+                    
+                    const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
+                    
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                    nativeInputValueSetter.call(ta, newText);
+                    
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
+                    ta.focus();
+                    ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+                }
+            });
+        });
+
+        // Comportamento do Botão Flutuante de Colar Imagem
+        const pasteBtn = floatBar.querySelector('.float-paste-btn');
+        pasteBtn.addEventListener('mousedown', e => e.preventDefault());
+        pasteBtn.addEventListener('click', function() {
+            this.style.transform = 'scale(0.95)';
+            setTimeout(() => this.style.transform = 'scale(1)', 100);
+            
+            const pasteFrames = parentDoc.querySelectorAll('iframe[title*="paste"]');
+            if (pasteFrames.length > 0) {
+                const target = pasteFrames[pasteFrames.length - 1];
+                target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                const container = target.closest('div[data-testid="stElementContainer"]');
+                if (container) {
+                    container.style.transition = 'box-shadow 0.3s, transform 0.3s';
+                    container.style.boxShadow = '0 0 20px 5px #10b981';
+                    container.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        container.style.boxShadow = 'none';
+                        container.style.transform = 'scale(1)';
+                    }, 1200);
+                }
+            }
+        });
+
         parentDoc.body.appendChild(floatBar);
     }
     </script>
     """
+    # Aumentando a altura da "caixa" do iframe do Streamlit para 85px.
+    # Assim a barra Fixa tem espaço para quebrar de linha em telas pequenas sem ser cortada!
     components.html(toolbar_html, height=85)
 
 # ==========================================
@@ -2216,240 +2297,6 @@ else:
                             r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
-
-    elif menu == "📚 Registro de Aulas":
-        st.header("Biblioteca Pessoal de Conteúdo")
-        col_form, col_lista = st.columns([1, 2.5])
-        with col_form:
-            st.subheader("➕ Adicionar Aula")
-            st.caption("Aulas não geram mais revisões automáticas (Apenas questões). O registro aqui serve apenas para seu histórico.")
-            c_area, c_sub = st.columns(2)
-            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
-            sub_al = ""
-            if a == "Clínica Médica":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
-                
-            with st.form("n_aula", clear_on_submit=True):
-                t = st.text_input("Assunto da Aula (Tema)")
-                d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
-                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
-                    doc_a = db.collection("aulas").document()
-                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
-                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
-                    doc_a.set(n_aula)
-                    n_aula["id"] = doc_a.id
-                    st.session_state.dados["aulas"].append(n_aula)
-                    st.toast("Aula registrada com sucesso!", icon="📚")
-                    time.sleep(0.5)
-                    st.rerun()
-                    
-            with st.expander("🗑️ Excluir Aula do Banco"):
-                opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
-                if opcoes_del_dict:
-                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
-                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
-                        id_del = str(opcoes_del_dict[op_del_chave])
-                        db.collection("aulas").document(id_del).delete()
-                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
-                        st.toast("Aula apagada.", icon="🗑️")
-                        time.sleep(0.5)
-                        st.rerun()
-
-        with col_lista:
-            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
-            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
-            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
-            with nav_a1:
-                if st.button("⬅️ Mês Anterior", key="prev_aula"):
-                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
-                    else: st.session_state.cal_mes_aulas -= 1
-                    st.rerun()
-            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
-            with nav_a3:
-                if st.button("Próximo Mês ➡️", key="next_aula"):
-                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
-                    else: st.session_state.cal_mes_aulas += 1
-                    st.rerun()
-            
-            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
-            
-            col_f1, col_f2 = st.columns([3, 2])
-            with col_f1: st.subheader("Linha do Tempo")
-            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
-            
-            aulas_exibir = list(dados_aulas)
-            if filtrar_data_aula:
-                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
-                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
-
-            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
-            for al in aulas_exibir:
-                with st.container(border=True):
-                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
-                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
-
-    elif menu == "📅 Agenda de Revisões":
-        st.header("Organizador Adaptativo de Ciclos")
-        
-        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
-        qtd_hoje = len(hoje_revs)
-        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
-
-        st.markdown("### 🎯 Seu Painel de Missões")
-        col_st1, col_st2 = st.columns(2)
-        with col_st1:
-            st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
-        with col_st2:
-            st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
-        st.divider()
-        
-        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
-        
-        with aba_pendentes:
-            c_v, c_o = st.columns(2)
-            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
-            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
-            
-            data_filtro_exata = None
-            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
-            
-            desempenho_por_tema = {}
-            for q in dados_questoes:
-                t_str = limpar_texto(q.get('subtema', ''))
-                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
-                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
-                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
-            
-            todas_pendentes = []
-            for r_orig in dados_revisoes:
-                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                r = dict(r_orig)
-                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
-                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
-                todas_pendentes.append(r)
-            
-            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
-            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
-            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
-            with nav_r1:
-                if st.button("⬅️ Mês Anterior", key="prev_rev"):
-                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
-                    else: st.session_state.cal_mes_revs -= 1
-                    st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
-            with nav_r3:
-                if st.button("Próximo Mês ➡️", key="next_rev"):
-                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
-                    else: st.session_state.cal_mes_revs += 1
-                    st.rerun()
-
-            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
-            st.divider()
-
-            if visao == "🔎 Data Específica" and data_filtro_exata:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
-            elif visao == "📆 Para Hoje":
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
-            elif visao == "🗓️ Próximos 7 Dias":
-                lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
-            else:
-                lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
-            
-            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
-            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
-            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
-
-            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
-            
-            for r in lista_pendentes:
-                tema_card = limpar_texto(r['tema'])
-                pct_str = "--"
-                cor_pct = "#94a3b8"
-                if tema_card in desempenho_por_tema:
-                    ac = desempenho_por_tema[tema_card]['ac']
-                    er = desempenho_por_tema[tema_card]['er']
-                    tot = ac + er
-                    if tot > 0:
-                        pct = ac / tot
-                        pct_str = f"{pct*100:.0f}%"
-                        if pct >= 0.8: cor_pct = "#22c55e"
-                        elif pct >= 0.6: cor_pct = "#eab308"
-                        else: cor_pct = "#ef4444"
-
-                with st.container(border=True):
-                    c1_card, c2_card = st.columns([0.8, 0.2])
-                    with c1_card:
-                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
-                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
-                    with c2_card:
-                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
-                        
-                    with st.expander("✅ Concluir Revisão"):
-                        with st.form(f"f_{r['id']}", clear_on_submit=True):
-                            col1, col2, col3 = st.columns(3)
-                            q = col1.number_input("Questões Feitas", 0)
-                            e = col2.number_input("Erros", 0, max_value=max(q,0))
-                            f = col3.number_input("Flashcards Lidos", 0)
-                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
-                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                st.toast("✅ Revisão Concluída!", icon="🚀")
-                                time.sleep(0.5)
-                                st.rerun()
-
-        with aba_historico:
-            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
-            if conc_docs:
-                dados_h = []
-                for d in conc_docs:
-                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                    tema = limpar_texto(tema)
-                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
-                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
-                
-                df_h = pd.DataFrame(dados_h)
-                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
-                df_h = df_h.dropna(subset=['Conclusão_dt']) 
-                
-                if not df_h.empty:
-                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
-                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    c1g, c2g = st.columns(2)
-                    
-                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-                    
-                    with c1g: 
-                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    with c2g: 
-                        fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    
-                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
-                    st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
-                    
-                    st.divider()
-                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
-                        opcoes_desfazer = {}
-                        for _, row in df_h.iterrows():
-                            opcoes_desfazer[f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})"] = row['ID']
-                        if opcoes_desfazer:
-                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
-                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
-                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                st.toast("Revisão desfeita!", icon="⏪")
-                                time.sleep(0.5)
-                                st.rerun()
 
     elif menu == "⚙️ Configurações":
         st.header("Controle de Perfil")
