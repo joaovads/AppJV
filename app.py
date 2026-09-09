@@ -626,7 +626,7 @@ def render_toolbar():
         <button class="fmt-btn" onclick="formatText('\\n- ', '')" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-family: sans-serif; transition: transform 0.1s;">📋 Tópico</button>
     </div>
     <script>
-    // 1. Torna a barra de formatação flutuante (Fixed Bottom Right)
+    // 1. Torna a barra de formatação flutuante (Fixed Bottom center)
     const frame = window.frameElement;
     if (frame) {
         const container = frame.closest('div[data-testid="stElementContainer"]');
