@@ -53,17 +53,11 @@ except ImportError:
 # ==========================================
 st.set_page_config(page_title="Residência PRO 2.0", page_icon="🏥", layout="wide")
 
-# Modelos atuais da Groq
 MODELO_TEXTO = "qwen/qwen3.6-27b"
 MODELO_VISAO = "qwen/qwen3.6-27b"
 
-MODELOS_TEXTO_FALLBACK = [
-    "qwen/qwen3.6-27b",
-    "openai/gpt-oss-20b",
-]
-MODELOS_VISAO_FALLBACK = [
-    "qwen/qwen3.6-27b",
-]
+MODELOS_TEXTO_FALLBACK = ["qwen/qwen3.6-27b", "openai/gpt-oss-20b"]
+MODELOS_VISAO_FALLBACK = ["qwen/qwen3.6-27b"]
 
 def ativar_pwa():
     pwa_html = """
@@ -99,7 +93,7 @@ def ativar_pwa():
 ativar_pwa()
 
 # ==========================================
-# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS (V 2.0 PREMIUM)
+# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS (V 2.0 PREMIUM - SEGURO)
 # ==========================================
 def aplicar_css_tema(modo):
     if modo == "Escuro":
@@ -107,16 +101,12 @@ def aplicar_css_tema(modo):
         text_color = "#f8fafc"        # Slate 50
         metric_bg = "#1e293b"         # Slate 800
         metric_border = "#334155"     # Slate 700
-        sidebar_bg = "#0f172a"
+        sidebar_bg = "#0b1121"        # Slate 950
         input_bg = "#1e293b"
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
         menu_hover = "#1e293b"
-        bg_tabela = "#1e293b"
-        th_bg = "#0f172a"
-        cor_texto_tabela = "#e2e8f0"
-        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)"
-        shadow_hover = "0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4)"
+        shadow = "0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3)"
         blue_accent = "#4f46e5"       # Indigo 600
         blue_hover = "#4338ca"
     else:
@@ -125,134 +115,86 @@ def aplicar_css_tema(modo):
         metric_bg = "#ffffff"         # White
         metric_border = "#e2e8f0"     # Slate 200
         sidebar_bg = "#ffffff"
-        input_bg = "#f1f5f9"          # Slate 100
+        input_bg = "#ffffff"
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
-        bg_tabela = "#ffffff"
-        th_bg = "#f8fafc"
-        cor_texto_tabela = "#334155"
         shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)"
-        shadow_hover = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
         blue_accent = "#4f46e5"       # Indigo 600
         blue_hover = "#4338ca"
 
     css_str = f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    /* Global Font & Animations */
+    /* Remoção de poluição visual do Streamlit */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    
+    /* Global Font */
     html, body, [class*="css"], .stApp, .main, p, h1, h2, h3, h4, h5, h6, span, label {{ 
         font-family: 'Inter', sans-serif !important; 
     }}
     
-    @keyframes fadeUp {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-    .main {{ animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }}
-    
     .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; }}
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; }}
     
-    /* Scrollbar Premium macOS style */
-    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-    ::-webkit-scrollbar-track {{ background: transparent; }}
-    ::-webkit-scrollbar-thumb {{ background: {metric_border}; border-radius: 10px; }}
-    ::-webkit-scrollbar-thumb:hover {{ background: #94a3b8; }}
-    
-    /* Inputs & Selectboxes */
-    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
-        background-color: {input_bg} !important; 
-        border: 1px solid {metric_border} !important;
-        border-radius: 12px !important;
-        transition: all 0.3s ease;
-    }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within, [data-baseweb="select"] > div:focus-within {{
-        border-color: {blue_accent} !important;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2) !important;
-    }}
-    input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
-    
-    /* Buttons */
-    button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], div[data-testid="stFormSubmitButton"] > button {{
-        background-color: {blue_accent} !important; 
-        border: none !important; 
-        border-radius: 10px !important;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 4px 6px rgba(79, 70, 229, 0.25) !important;
-    }}
-    button[kind="primary"]:hover, button[kind="secondary"]:hover, button[kind="formSubmit"]:hover {{
-        background-color: {blue_hover} !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(79, 70, 229, 0.35) !important;
-    }}
-    .stButton > button {{ border-radius: 10px !important; background-color: {blue_accent} !important; color: white !important; border: none !important; transition: all 0.2s ease !important; }}
-    .stButton > button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3) !important; }}
-    button p, button span, button div {{ color: white !important; font-weight: 600 !important; letter-spacing: 0.3px; }}
-    
-    /* Segmented Tabs (iOS Style) */
-    [data-baseweb="tab-list"] {{
-        background-color: {input_bg} !important;
-        border-radius: 14px;
-        padding: 6px;
-        border: 1px solid {metric_border};
-        gap: 6px;
-    }}
-    button[data-baseweb="tab"] {{
-        border-radius: 10px !important;
-        border: none !important;
-        background: transparent !important;
-        padding-top: 8px !important; padding-bottom: 8px !important;
-    }}
-    button[data-baseweb="tab"][aria-selected="true"] {{
-        background: {metric_bg} !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-    }}
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {menu_text} !important; font-weight: 600 !important; transition: color 0.3s; }}
-    button[data-baseweb="tab"][aria-selected="true"] p, button[data-baseweb="tab"][aria-selected="true"] span {{ color: {text_color} !important; }}
-    
-    /* Elevated Containers & Expanders */
+    /* Containers Premium */
     [data-testid="stVerticalBlockBorderWrapper"] {{
         border-radius: 16px !important;
         border: 1px solid {metric_border} !important;
         background-color: {metric_bg} !important;
         box-shadow: {shadow} !important;
+        padding: 1rem !important;
         transition: transform 0.2s ease, box-shadow 0.2s ease !important;
     }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        transform: translateY(-2px);
-        box-shadow: {shadow_hover} !important;
-    }}
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: all 0.3s ease; }}
-    div[data-testid='stExpander']:hover {{ border-color: {blue_accent} !important; }}
     
-    /* Premium Metrics */
-    [data-testid="stMetric"] {{
-        background-color: {metric_bg} !important;
+    /* Inputs */
+    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div {{
+        background-color: {input_bg} !important; 
         border: 1px solid {metric_border} !important;
-        padding: 20px !important;
-        border-radius: 16px !important;
-        box-shadow: {shadow} !important;
-        transition: transform 0.2s ease !important;
+        border-radius: 10px !important;
     }}
-    [data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: {shadow_hover} !important; }}
-    [data-testid="stMetricValue"] {{ font-weight: 800 !important; font-size: 2.2rem !important; color: {blue_accent} !important; }}
-    [data-testid="stMetricLabel"] {{ font-weight: 500 !important; color: {menu_text} !important; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.85rem; }}
-
-    /* Dataframes/Tables */
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 12px; overflow: hidden; border: 1px solid {metric_border}; }}
-    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 14px !important; border-bottom: 2px solid {metric_border} !important; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
-    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 14px !important; border-bottom: 1px solid {metric_border} !important; font-size: 14px; border-right: none !important; border-left: none !important; }}
+    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within, [data-baseweb="select"] > div:focus-within {{
+        border-color: {blue_accent} !important;
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2) !important;
+    }}
+    input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; }}
     
-    /* Sidebar styling */
+    /* Botões Modernos */
+    button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"] {{
+        background-color: {blue_accent} !important; 
+        border: none !important; 
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }}
+    button[kind="primary"]:hover, button[kind="secondary"]:hover, button[kind="formSubmit"]:hover {{
+        background-color: {blue_hover} !important;
+        transform: translateY(-2px);
+    }}
+    button p, button span, button div {{ color: white !important; letter-spacing: 0.3px; }}
+    
+    /* Sidebar Limpa e Responsiva */
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; transform: translateX(4px); border-color: {metric_border}; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 600; font-size: 15px; letter-spacing: 0.2px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: {blue_accent} !important; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); border-color: {blue_accent}; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 700 !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ 
+        padding: 10px 15px; border-radius: 10px; margin-bottom: 5px; 
+        background-color: transparent; transition: all 0.2s ease; cursor: pointer; 
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 15px; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] {{ background-color: {blue_accent} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] p {{ color: white !important; font-weight: 600 !important; }}
     
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 140px; height: 140px; display: block; margin: 0 auto; box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }}
-    .profile-img:hover {{ transform: scale(1.05) rotate(-2deg); }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 3px solid {blue_accent}; width: 120px; height: 120px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.3s; }}
+    .profile-img:hover {{ transform: scale(1.05); }}
+    
+    /* Expander e Metrics */
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; }}
+    [data-testid="stMetric"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px !important; border-radius: 16px !important; box-shadow: {shadow} !important; }}
+    [data-testid="stMetricValue"] {{ font-weight: 700 !important; color: {blue_accent} !important; }}
+    
     </style>
     """
     st.markdown(css_str, unsafe_allow_html=True)
@@ -302,10 +244,7 @@ def db_add(col_name, state_key, data):
     return doc_ref
 
 def db_update(col_name, state_key, doc_id, updates):
-    # Cópia enviada para o Firebase Cloud
     db.collection(col_name).document(doc_id).update(updates)
-    
-    # Sincroniza a memória local blindada contra objetos Sentinel do Google
     if state_key in st.session_state.dados:
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
@@ -381,8 +320,7 @@ def get_ia_client():
             except Exception as e:
                 st.session_state.model_ia = None
                 st.error(f"Erro ao conectar IA: {e}")
-        else:
-            st.session_state.model_ia = None
+        else: st.session_state.model_ia = None
     return st.session_state.model_ia
 
 def chamar_ia(client, *, modelo, **kwargs):
@@ -405,7 +343,7 @@ def chamar_ia(client, *, modelo, **kwargs):
             if any(token in erro for token in ("model_not_found", "does not exist", "do not have access", "404", "403")):
                 continue
             raise
-    raise RuntimeError(f"Nenhum modelo Groq disponível para esta operação. Último erro: {ultimo_erro}")
+    raise RuntimeError(f"Nenhum modelo Groq disponível. Erro: {ultimo_erro}")
 
 def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema=None, max_completion_tokens=2000):
     payload = dict(messages=messages, temperature=0.1, max_completion_tokens=max_completion_tokens)
@@ -561,7 +499,7 @@ def get_user_docs(collection_name, user_id):
     try:
         todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
         return [{"id": d.id, **d.to_dict()} for d in todos_docs]
-    except Exception: return []
+    except Exception as e: return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
@@ -713,31 +651,6 @@ def render_toolbar():
         btn.addEventListener('mousedown', action);
         btn.addEventListener('touchstart', action, {passive: false});
     });
-
-    // --- AUTO-SAVE REAL TIME NO NAVEGADOR ---
-    function initAutoSave() {
-        const parentDoc = window.parent.document;
-        const textareas = parentDoc.querySelectorAll('textarea');
-        
-        textareas.forEach((ta, index) => {
-            const label = ta.getAttribute('aria-label') || '';
-            if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('Chaves')) {
-                const storageKey = 'autosave_nota_' + label.replace(/\\s+/g, '_') + '_' + index;
-                
-                const savedText = window.parent.localStorage.getItem(storageKey);
-                if (savedText && ta.value === "") {
-                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
-                    nativeInputValueSetter.call(ta, savedText);
-                    ta.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                ta.addEventListener('input', function() {
-                    window.parent.localStorage.setItem(storageKey, ta.value);
-                });
-            }
-        });
-    }
-    setTimeout(initAutoSave, 1000);
     </script>
     """
     # Aumentando a altura da "caixa" do iframe do Streamlit para 100px.
@@ -1592,11 +1505,11 @@ else:
         with aba_notas_hiit:
             if 'hiit_nota_imgs_temp' not in st.session_state: st.session_state.hiit_nota_imgs_temp = []
             
-            # GATILHO PARA LIMPAR O CACHE DO NAVEGADOR
+            # GATILHO PARA LIMPAR O CACHE NATIVO DO STREAMLIT APÓS SALVAR
             if st.session_state.get('limpar_nova_nota_hiit', False):
                 st.session_state.hiit_nota_imgs_temp = []
+                if "draft_hiit_txt_key" in st.session_state: st.session_state["draft_hiit_txt_key"] = ""
                 st.session_state.limpar_nova_nota_hiit = False
-                components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
                 st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
                 
             aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
@@ -1645,10 +1558,8 @@ else:
                 
                 with st.container(border=True):
                     render_toolbar()
-                    # O state temporário mantém o texto mesmo se cair a internet
-                    if "draft_hiit_txt" not in st.session_state: st.session_state.draft_hiit_txt = ""
-                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, value=st.session_state.draft_hiit_txt, key="draft_hiit_txt_key")
-                    st.session_state.draft_hiit_txt = txt_h # Salva no state on the fly
+                    # O state 'draft_hiit_txt_key' salva nativamente sem quebrar o Streamlit
+                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, key="draft_hiit_txt_key")
 
                 if st.button("💾 Salvar Resumo HIIT", use_container_width=True, type="primary"):
                     if sub_h and txt_h:
@@ -1658,7 +1569,6 @@ else:
                             "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
                         })
                         st.session_state.limpar_nova_nota_hiit = True
-                        st.session_state.draft_hiit_txt = "" # Limpa o rascunho apenas após o save final
                         time.sleep(0.5)
                         st.rerun()
                     else:
@@ -1693,7 +1603,7 @@ else:
                                                 time.sleep(0.5)
                                                 st.rerun()
                                                 
-                                        st.markdown(f"<div style='border-left: 3px solid #2563eb; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='border-left: 3px solid #4f46e5; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
                                         
                                         imgs_exibir = list(nh.get('imagens_b64', []))
                                         if imgs_exibir:
@@ -1812,10 +1722,8 @@ else:
                                                 
                                             with st.form(f"form_edicao_h_{id_nh}", clear_on_submit=False):
                                                 edit_sh = st.text_input("Subtema", value=s_puro_h)
-                                                
-                                                with st.container(border=True):
-                                                    render_toolbar()
-                                                    edit_ph = st.text_area("Anotação / Tópicos Chaves", value=nh.get('pontos_chave', ''), height=200)
+                                                render_toolbar()
+                                                edit_ph = st.text_area("Anotação / Tópicos Chaves", value=nh.get('pontos_chave', ''), height=200)
                                                 
                                                 if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
                                                     if edit_sh and edit_ph:
@@ -1997,25 +1905,7 @@ else:
                         "ID": b.get('id')
                     })
                 df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
-                
-                def colorir_porcentagem(val):
-                    try:
-                        num = float(str(val).replace('%', ''))
-                        if num > 80:
-                            return 'color: #22c55e !important; font-weight: bold !important;'
-                        elif num >= 70:
-                            return 'color: #eab308 !important; font-weight: bold !important;'
-                        elif num >= 60:
-                            return 'color: #3b82f6 !important; font-weight: bold !important;'
-                        else:
-                            return 'color: #ef4444 !important; font-weight: bold !important;'
-                    except:
-                        return ''
-
-                if hasattr(df_q.style, "map"):
-                    st.table(df_q.style.map(colorir_porcentagem, subset=['% Acertos']))
-                else:
-                    st.table(df_q.style.applymap(colorir_porcentagem, subset=['% Acertos']))
+                st.dataframe(df_q, use_container_width=True, hide_index=True)
                 
                 st.write("---")
                 with st.expander("✏️ Editar ou Excluir Registro de Questões"):
@@ -2107,7 +1997,7 @@ else:
             else:
                 alvos_criticos.sort(key=lambda x: x['Média'])
                 df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
-                st.table(df_alvos)
+                st.dataframe(df_alvos, use_container_width=True, hide_index=True)
                 
                 st.write("---")
                 if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
@@ -2122,6 +2012,224 @@ else:
                                     st.markdown(resposta_recup.choices[0].message.content)
                             except Exception as e:
                                 st.error(f"Erro ao gerar simulado: {e}")
+
+    elif menu == "📝 Anotações Rápidas":
+        st.header("Caderno de Resumos e Anotações")
+        
+        # INICIALIZAÇÃO DE ESTADOS
+        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
+            
+        if st.session_state.get('limpar_nova_nota', False):
+            st.session_state.nota_imgs_temp = []
+            if "draft_nota_txt_key" in st.session_state: st.session_state["draft_nota_txt_key"] = ""
+            st.session_state.limpar_nova_nota = False
+            st.toast("✅ Anotação salva com sucesso!", icon="📝")
+            
+        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
+        
+        with aba_nova:
+            st.markdown("### ⚡ Laboratório de Resumos")
+            st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
+            
+            with st.container(border=True):
+                col_btn, col_img = st.columns([1, 2])
+                with col_btn:
+                    st.markdown("#### 📸 1. Anexos Visuais")
+                    st.caption("Tabelas, fluxogramas ou o print do seu erro.")
+                    if paste_image_button is not None:
+                        res_paste_nota = paste_image_button(
+                            label="Colar Imagem (Ctrl+V)",
+                            background_color="#4f46e5", hover_background_color="#4338ca",
+                            key="paste_nota_nova"
+                        )
+                        if res_paste_nota.image_data is not None:
+                            img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
+                            if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
+                                st.session_state.nota_imgs_temp.append(img_b64)
+                                st.rerun()
+                    else:
+                        st.warning("Biblioteca de colar imagem não detectada.")
+                        
+                with col_img:
+                    if st.session_state.nota_imgs_temp:
+                        st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
+                        cols = st.columns(3)
+                        for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
+                            with cols[idx % 3]:
+                                if isinstance(img_b64, str) and len(img_b64) > 50:
+                                    try:
+                                        st.image(base64.b64decode(img_b64), use_container_width=True)
+                                    except: pass
+                                if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
+                                    st.session_state.nota_imgs_temp.pop(idx)
+                                    st.rerun()
+
+            st.markdown("#### ✍️ 2. Estruturar o Resumo")
+            
+            col_a, col_s = st.columns(2)
+            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
+            sub_a = ""
+            if a == "Clínica Médica":
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
+                
+            with st.form("form_nova_nota", clear_on_submit=True):
+                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                
+                with st.container(border=True):
+                    render_toolbar()
+                    p = st.text_area("Pontos Chave / Resumo", height=200, key="draft_nota_txt_key")
+                
+                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True, type="primary"):
+                    if s and p:
+                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
+                        db_add("anotacoes", "anotacoes", {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "subtema": s_final,
+                            "pontos_chave": p,
+                            "imagens_b64": st.session_state.nota_imgs_temp,
+                            "data_criacao": str(hoje)
+                        })
+                        st.session_state.limpar_nova_nota = True
+                        st.rerun()
+                    else:
+                        st.error("Preencha o subtema e a anotação para salvar.")
+
+        with aba_lista:
+            minhas_anotacoes = dados_anotacoes
+            if not minhas_anotacoes:
+                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
+            else:
+                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
+                
+                notas_exibir = list(minhas_anotacoes)
+                if pesquisa_nota:
+                    termo = pesquisa_nota.lower()
+                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
+                
+                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                
+                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
+                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
+                
+                if not notas_exibir:
+                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
+                else:
+                    abas_areas = st.tabs(areas_presentes)
+                    for i, area_tab in enumerate(areas_presentes):
+                        with abas_areas[i]:
+                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
+                            
+                            for nota in notas_area:
+                                nota_id = str(nota.get('id', '0000'))
+                                subtema_str = limpar_texto(nota.get('subtema'))
+                                data_str = formatar_data_br(nota.get('data_criacao'))
+                                
+                                # --- NOTA COMPACTA (EXPANDER) ---
+                                with st.expander(f"📝 {subtema_str} - {data_str}"):
+                                    c_del1, c_del2 = st.columns([0.85, 0.15])
+                                    with c_del2:
+                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
+                                            db_delete("anotacoes", "anotacoes", nota_id)
+                                            st.toast("Anotação excluída!", icon="🗑️")
+                                            st.rerun()
+                                    
+                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
+                                    conteudo_nota = nota.get('pontos_chave', '')
+                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
+                                    
+                                    # Exibindo as imagens de forma organizada (Grade)
+                                    imgs_exibir = list(nota.get('imagens_b64', []))
+                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
+                                        imgs_exibir.insert(0, nota['imagem_b64'])
+                                        
+                                    if imgs_exibir:
+                                        st.write("") # Espaçamento
+                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
+                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                            with cols_view[idx_v % 4]:
+                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
+                                                    except: pass
+                                    
+                                    st.divider()
+                                    
+                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
+                                    if st.session_state.get('nota_em_edicao') != nota_id:
+                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
+                                            st.session_state.nota_em_edicao = nota_id
+                                            st.rerun()
+                                    else:
+                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
+                                            st.session_state.nota_em_edicao = None
+                                            st.rerun()
+                                            
+                                        st.markdown("#### 🖼️ Imagens da Anotação")
+                                        col_ebtn, col_eimg = st.columns([1, 2])
+                                        with col_ebtn:
+                                            st.markdown("➕ **Adicionar Mais Imagens:**")
+                                            if paste_image_button is not None:
+                                                res_paste_edit = paste_image_button(
+                                                    label="Colar Imagem (Ctrl+V)",
+                                                    background_color="#4f46e5",
+                                                    hover_background_color="#4338ca",
+                                                    key=f"paste_edit_{nota_id}" 
+                                                )
+                                                if res_paste_edit.image_data is not None:
+                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                    if img_eb64 and img_eb64 not in imgs_exibir:
+                                                        imgs_exibir.append(img_eb64)
+                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
+                                                        st.rerun()
+                                        with col_eimg:
+                                            if imgs_exibir:
+                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                                    with cols_e[idx_e % 3]:
+                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
+                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
+                                                            except: pass
+                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
+                                                            imgs_exibir.pop(idx_e)
+                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
+                                                            st.rerun()
+
+                                        st.markdown("#### ✍️ Editar Texto")
+                                        
+                                        col_ea, col_es = st.columns(2)
+                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
+                                        sub_ea = ""
+                                        if edit_a == "Clínica Médica":
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
+                                        elif edit_ah == "Cirurgia Geral":
+                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
+                                        
+                                        # Limpar a subespecialidade se já vier no texto
+                                        s_puro = nota.get('subtema', '')
+                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
+                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
+                                            
+                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
+                                            edit_s = st.text_input("Subtema", value=s_puro)
+                                            
+                                            with st.container(border=True):
+                                                render_toolbar()
+                                                edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
+                                            
+                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                                                if edit_s and edit_p:
+                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
+                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
+                                                    st.session_state.nota_em_edicao = None
+                                                    st.toast("✅ Anotação atualizada!", icon="📝")
+                                                    time.sleep(0.5)
+                                                    st.rerun()
+                                                else:
+                                                    st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "✨ AI Tutor & Flashcards":
         aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
@@ -2263,231 +2371,6 @@ else:
                             r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
-
-    elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        
-        # INICIALIZAÇÃO DE ESTADOS
-        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
-            
-        # GATILHO PARA LIMPAR O CACHE DO NAVEGADOR
-        if st.session_state.get('limpar_nova_nota', False):
-            st.session_state.nota_imgs_temp = []
-            st.session_state.limpar_nova_nota = False
-            components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
-            st.toast("✅ Anotação salva com sucesso!", icon="📝")
-            
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        
-        with aba_nova:
-            st.markdown("### ⚡ Laboratório de Resumos")
-            st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
-            
-            with st.container(border=True):
-                col_btn, col_img = st.columns([1, 2])
-                with col_btn:
-                    st.markdown("#### 📸 1. Anexos Visuais")
-                    st.caption("Tabelas, fluxogramas ou o print do seu erro.")
-                    if paste_image_button is not None:
-                        res_paste_nota = paste_image_button(
-                            label="Colar Imagem (Ctrl+V)",
-                            background_color="#4f46e5",
-                            hover_background_color="#4338ca",
-                            key="paste_nota_nova"
-                        )
-                        if res_paste_nota.image_data is not None:
-                            img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                            if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                                st.session_state.nota_imgs_temp.append(img_b64)
-                                st.rerun()
-                    else:
-                        st.warning("Biblioteca de colar imagem não detectada.")
-                        
-                with col_img:
-                    if st.session_state.nota_imgs_temp:
-                        st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
-                        cols = st.columns(3)
-                        for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
-                            with cols[idx % 3]:
-                                if isinstance(img_b64, str) and len(img_b64) > 50:
-                                    try:
-                                        st.image(base64.b64decode(img_b64), use_container_width=True)
-                                    except: pass
-                                if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
-                                    st.session_state.nota_imgs_temp.pop(idx)
-                                    st.rerun()
-
-            st.markdown("#### ✍️ 2. Estruturar o Resumo")
-            
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            sub_a = ""
-            if a == "Clínica Médica":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
-            elif a == "Cirurgia Geral":
-                sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
-                
-            with st.form("form_nova_nota", clear_on_submit=True):
-                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                
-                with st.container(border=True):
-                    render_toolbar()
-                    # O state temporário mantém o texto mesmo se cair a internet
-                    if "draft_nota_txt" not in st.session_state: st.session_state.draft_nota_txt = ""
-                    p = st.text_area("Pontos Chave / Resumo", height=200, value=st.session_state.draft_nota_txt, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                    st.session_state.draft_nota_txt = p # Salva no state on the fly
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True, type="primary"):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
-                            "usuario_id": u_id,
-                            "area": a,
-                            "subtema": s_final,
-                            "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
-                            "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota = True
-                        st.session_state.draft_nota_txt = "" # Limpa o rascunho apenas após o save final
-                        time.sleep(0.5)
-                        st.rerun()
-                    else:
-                        st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes:
-                st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                
-                # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
-                
-                if not notas_exibir:
-                    st.warning("Nenhuma anotação encontrada para esta pesquisa.")
-                else:
-                    abas_areas = st.tabs(areas_presentes)
-                    for i, area_tab in enumerate(areas_presentes):
-                        with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
-                            
-                            for nota in notas_area:
-                                nota_id = str(nota.get('id', '0000'))
-                                subtema_str = limpar_texto(nota.get('subtema'))
-                                data_str = formatar_data_br(nota.get('data_criacao'))
-                                
-                                # --- NOTA COMPACTA (EXPANDER) ---
-                                with st.expander(f"📝 {subtema_str} - {data_str}"):
-                                    c_del1, c_del2 = st.columns([0.85, 0.15])
-                                    with c_del2:
-                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
-                                            db_delete("anotacoes", "anotacoes", nota_id)
-                                            st.toast("Anotação excluída!", icon="🗑️")
-                                            st.rerun()
-                                    
-                                    # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
-                                    conteudo_nota = nota.get('pontos_chave', '')
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
-                                    
-                                    # Exibindo as imagens de forma organizada (Grade)
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
-                                        imgs_exibir.insert(0, nota['imagem_b64'])
-                                        
-                                    if imgs_exibir:
-                                        st.write("") # Espaçamento
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                    except: pass
-                                    
-                                    st.divider()
-                                    
-                                    # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
-                                    if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = nota_id
-                                            st.rerun()
-                                    else:
-                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
-                                            st.session_state.nota_em_edicao = None
-                                            st.rerun()
-                                            
-                                        st.markdown("#### 🖼️ Imagens da Anotação")
-                                        col_ebtn, col_eimg = st.columns([1, 2])
-                                        with col_ebtn:
-                                            st.markdown("➕ **Adicionar Mais Imagens:**")
-                                            if paste_image_button is not None:
-                                                res_paste_edit = paste_image_button(
-                                                    label="Colar Imagem (Ctrl+V)",
-                                                    background_color="#4f46e5",
-                                                    hover_background_color="#4338ca",
-                                                    key=f"paste_edit_{nota_id}" 
-                                                )
-                                                if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        st.rerun()
-                                        with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                    with cols_e[idx_e % 3]:
-                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                            except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                            st.rerun()
-
-                                        st.markdown("#### ✍️ Editar Texto")
-                                        
-                                        col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
-                                        sub_ea = ""
-                                        if edit_a == "Clínica Médica":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
-                                        elif edit_a == "Cirurgia Geral":
-                                            sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
-                                        
-                                        # Limpar a subespecialidade se já vier no texto
-                                        s_puro = nota.get('subtema', '')
-                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG:
-                                            s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            edit_s = st.text_input("Subtema", value=s_puro)
-                                            
-                                            with st.container(border=True):
-                                                render_toolbar()
-                                                edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
-                                            
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
-                                                    st.rerun()
-                                                else:
-                                                    st.error("Preencha o subtema e a anotação para salvar.")
 
     elif menu == "📍 GPS da Aprovação":
         st.header("GPS da Aprovação")
@@ -2633,11 +2516,11 @@ else:
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
                         fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
                         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
