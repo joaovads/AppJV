@@ -51,24 +51,19 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="Residência PRO 2.0", page_icon="🏥", layout="wide")
 
-# Modelos atuais da Groq (2026-08)
-# Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
-# Visão: substitui llama-3.2-11b-vision-preview, desligado em 14/04/2025.
+# Modelos atuais da Groq
 MODELO_TEXTO = "qwen/qwen3.6-27b"
 MODELO_VISAO = "qwen/qwen3.6-27b"
 
-# Fallbacks para evitar que uma descontinuação/restrição de modelo derrube a função inteira.
 MODELOS_TEXTO_FALLBACK = [
     "qwen/qwen3.6-27b",
     "openai/gpt-oss-20b",
 ]
-# Ambos são multimodais; não use um modelo somente-texto como fallback de visão.
 MODELOS_VISAO_FALLBACK = [
     "qwen/qwen3.6-27b",
 ]
-
 
 def ativar_pwa():
     pwa_html = """
@@ -77,8 +72,8 @@ def ativar_pwa():
             const manifest = {
                 "name": "Residência PRO",
                 "short_name": "Residência",
-                "theme_color": "#2563eb",
-                "background_color": "#0e1117",
+                "theme_color": "#4f46e5",
+                "background_color": "#0f172a",
                 "display": "standalone",
                 "orientation": "portrait",
                 "start_url": "/",
@@ -104,93 +99,166 @@ def ativar_pwa():
 ativar_pwa()
 
 # ==========================================
-# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS
+# FUNÇÃO MESTRE DE ESTILIZAÇÃO CSS (V 2.0 PREMIUM)
 # ==========================================
 def aplicar_css_tema(modo):
     if modo == "Escuro":
-        bg_color = "#0e1117"
-        text_color = "#f8fafc"
-        metric_bg = "#1e293b"
-        metric_border = "#334155"
-        sidebar_bg = "#11151c"
+        bg_color = "#0f172a"          # Slate 900
+        text_color = "#f8fafc"        # Slate 50
+        metric_bg = "#1e293b"         # Slate 800
+        metric_border = "#334155"     # Slate 700
+        sidebar_bg = "#0f172a"
         input_bg = "#1e293b"
         input_text = "#f8fafc"
         menu_text = "#94a3b8"
-        menu_hover = "#334155"
-        bg_tabela = "#334155"
-        th_bg = "#1e293b"
-        cor_texto_tabela = "#f8fafc"
-        shadow = "0 4px 6px rgba(0, 0, 0, 0.3)"
-        blue_accent = "#3b82f6"
+        menu_hover = "#1e293b"
+        bg_tabela = "#1e293b"
+        th_bg = "#0f172a"
+        cor_texto_tabela = "#e2e8f0"
+        shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)"
+        shadow_hover = "0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4)"
+        blue_accent = "#4f46e5"       # Indigo 600
+        blue_hover = "#4338ca"
     else:
-        bg_color = "#f8f9fa"
-        text_color = "#0f172a"
-        metric_bg = "#ffffff"
-        metric_border = "#cbd5e1"
+        bg_color = "#f8fafc"          # Slate 50
+        text_color = "#0f172a"        # Slate 900
+        metric_bg = "#ffffff"         # White
+        metric_border = "#e2e8f0"     # Slate 200
         sidebar_bg = "#ffffff"
-        input_bg = "#ffffff"
+        input_bg = "#f1f5f9"          # Slate 100
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
         bg_tabela = "#ffffff"
-        th_bg = "#f1f5f9"
-        cor_texto_tabela = "#0f172a"
-        shadow = "0 4px 12px rgba(0, 0, 0, 0.05)"
-        blue_accent = "#2563eb"
+        th_bg = "#f8fafc"
+        cor_texto_tabela = "#334155"
+        shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)"
+        shadow_hover = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
+        blue_accent = "#4f46e5"       # Indigo 600
+        blue_hover = "#4338ca"
 
     css_str = f"""
     <style>
-    @keyframes fadein {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-    .main {{ animation: fadein 0.4s ease-out; }}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global Font & Animations */
+    html, body, [class*="css"], .stApp, .main, p, h1, h2, h3, h4, h5, h6, span, label {{ 
+        font-family: 'Inter', sans-serif !important; 
+    }}
+    
+    @keyframes fadeUp {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+    .main {{ animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }}
     
     .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; font-family: 'Inter', sans-serif; }}
+    h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; }}
     
+    /* Scrollbar Premium macOS style */
+    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+    ::-webkit-scrollbar-track {{ background: transparent; }}
+    ::-webkit-scrollbar-thumb {{ background: {metric_border}; border-radius: 10px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: #94a3b8; }}
+    
+    /* Inputs & Selectboxes */
     [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{
         background-color: {input_bg} !important; 
         border: 1px solid {metric_border} !important;
-        border-radius: 8px !important;
+        border-radius: 12px !important;
+        transition: all 0.3s ease;
+    }}
+    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within, [data-baseweb="select"] > div:focus-within {{
+        border-color: {blue_accent} !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2) !important;
     }}
     input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
     
-    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 8px; box-shadow: {shadow}; }}
-    ul[data-baseweb="menu"] li {{ background-color: transparent !important; color: {input_text} !important; padding: 10px; transition: background 0.2s; }}
-    ul[data-baseweb="menu"] li:hover {{ background-color: {menu_hover} !important; }}
-    ul[data-baseweb="menu"] span {{ color: {input_text} !important; }}
-    
-    [data-testid="stChatInput"] {{ background-color: {bg_color} !important; padding-bottom: 20px; }}
-    [data-testid="stChatInput"] > div {{ background-color: {input_bg} !important; border: 1px solid {metric_border} !important; border-radius: 20px !important; }}
-    
+    /* Buttons */
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], button[data-testid="baseButton-secondary"], button[data-testid="baseButton-primary"], button[data-testid="baseButton-formSubmit"], div[data-testid="stFormSubmitButton"] > button {{
         background-color: {blue_accent} !important; 
         border: none !important; 
-        border-radius: 8px !important;
-        transition: transform 0.1s ease, box-shadow 0.2s ease !important;
+        border-radius: 10px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 6px rgba(79, 70, 229, 0.25) !important;
     }}
-    .stButton > button {{ border-radius: 8px !important; background-color: {blue_accent} !important; color: white !important; border: none !important; }}
+    button[kind="primary"]:hover, button[kind="secondary"]:hover, button[kind="formSubmit"]:hover {{
+        background-color: {blue_hover} !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(79, 70, 229, 0.35) !important;
+    }}
+    .stButton > button {{ border-radius: 10px !important; background-color: {blue_accent} !important; color: white !important; border: none !important; transition: all 0.2s ease !important; }}
+    .stButton > button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3) !important; }}
     button p, button span, button div {{ color: white !important; font-weight: 600 !important; letter-spacing: 0.3px; }}
     
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {text_color} !important; font-weight: 500 !important; transition: color 0.3s; }}
+    /* Segmented Tabs (iOS Style) */
+    [data-baseweb="tab-list"] {{
+        background-color: {input_bg} !important;
+        border-radius: 14px;
+        padding: 6px;
+        border: 1px solid {metric_border};
+        gap: 6px;
+    }}
+    button[data-baseweb="tab"] {{
+        border-radius: 10px !important;
+        border: none !important;
+        background: transparent !important;
+        padding-top: 8px !important; padding-bottom: 8px !important;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background: {metric_bg} !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }}
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {menu_text} !important; font-weight: 600 !important; transition: color 0.3s; }}
+    button[data-baseweb="tab"][aria-selected="true"] p, button[data-baseweb="tab"][aria-selected="true"] span {{ color: {text_color} !important; }}
     
-    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 10px; overflow: hidden; box-shadow: {shadow}; }}
-    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 2px solid {metric_border} !important; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; text-align: left; }}
-    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 12px !important; border-bottom: 1px solid {metric_border} !important; border-right: none !important; border-left: none !important; }}
+    /* Elevated Containers & Expanders */
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        border-radius: 16px !important;
+        border: 1px solid {metric_border} !important;
+        background-color: {metric_bg} !important;
+        box-shadow: {shadow} !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        transform: translateY(-2px);
+        box-shadow: {shadow_hover} !important;
+    }}
+    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: all 0.3s ease; }}
+    div[data-testid='stExpander']:hover {{ border-color: {blue_accent} !important; }}
     
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: box-shadow 0.3s ease; }}
-    div[data-testid="metric-container"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px; border-radius: 12px; box-shadow: {shadow}; transition: transform 0.2s ease; }}
+    /* Premium Metrics */
+    [data-testid="stMetric"] {{
+        background-color: {metric_bg} !important;
+        border: 1px solid {metric_border} !important;
+        padding: 20px !important;
+        border-radius: 16px !important;
+        box-shadow: {shadow} !important;
+        transition: transform 0.2s ease !important;
+    }}
+    [data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: {shadow_hover} !important; }}
+    [data-testid="stMetricValue"] {{ font-weight: 800 !important; font-size: 2.2rem !important; color: {blue_accent} !important; }}
+    [data-testid="stMetricLabel"] {{ font-weight: 500 !important; color: {menu_text} !important; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.85rem; }}
+
+    /* Dataframes/Tables */
+    [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ background-color: {bg_tabela} !important; border-radius: 12px; overflow: hidden; border: 1px solid {metric_border}; }}
+    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ background-color: {th_bg} !important; color: {cor_texto_tabela} !important; padding: 14px !important; border-bottom: 2px solid {metric_border} !important; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
+    [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ background-color: {bg_tabela} !important; color: {cor_texto_tabela} !important; padding: 14px !important; border-bottom: 1px solid {metric_border} !important; font-size: 14px; border-right: none !important; border-left: none !important; }}
     
+    /* Sidebar styling */
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 10px 14px; border-radius: 10px; margin-bottom: 6px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; padding-left: 20px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 500; font-size: 15px; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: {blue_accent} !important; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 600 !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; transform: translateX(4px); border-color: {metric_border}; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 600; font-size: 15px; letter-spacing: 0.2px; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: {blue_accent} !important; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); border-color: {blue_accent}; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 700 !important; }}
     
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 130px; height: 130px; display: block; margin: 0 auto; box-shadow: 0 4px 10px rgba(0,0,0,0.15); transition: transform 0.3s ease; }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 140px; height: 140px; display: block; margin: 0 auto; box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }}
+    .profile-img:hover {{ transform: scale(1.05) rotate(-2deg); }}
     </style>
     """
     st.markdown(css_str, unsafe_allow_html=True)
+    st.session_state["graph_bg"] = bg_color
+    st.session_state["graph_font"] = text_color
+    st.session_state["graph_paper"] = metric_bg
 
 
 # ==========================================
@@ -268,8 +336,6 @@ def invalidar_cache(colecoes=None):
 # ==========================================
 # COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
 # ==========================================
-# IMPORTANTE: não usamos response_format/json_schema nas chamadas;
-# todo JSON é validado localmente para evitar HTTP 400 json_validate_failed.
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
@@ -280,29 +346,21 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
         
     try:
-        # Processamento inteligente detectando a verdadeira classe do objeto
-        if isinstance(img_data, Image.Image):
-            img = img_data.copy()
-        elif isinstance(img_data, bytes):
-            img = Image.open(io.BytesIO(img_data))
-        elif hasattr(img_data, 'getvalue'):
-            img = Image.open(io.BytesIO(img_data.getvalue()))
+        if isinstance(img_data, Image.Image): img = img_data.copy()
+        elif isinstance(img_data, bytes): img = Image.open(io.BytesIO(img_data))
+        elif hasattr(img_data, 'getvalue'): img = Image.open(io.BytesIO(img_data.getvalue()))
         elif hasattr(img_data, 'read'):
             img_data.seek(0)
             img = Image.open(io.BytesIO(img_data.read()))
-        else:
-            img = Image.open(img_data)
+        else: img = Image.open(img_data)
             
-        if img.mode != 'RGB': 
-            img = img.convert('RGB')
-            
+        if img.mode != 'RGB': img = img.convert('RGB')
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
     except Exception:
-        # Fallback de sobrevivência final
         try:
             if isinstance(img_data, Image.Image):
                 buf = io.BytesIO()
@@ -319,8 +377,7 @@ def otimizar_imagem_para_api(img_data, max_size=500):
 def get_ia_client():
     if "model_ia" not in st.session_state:
         if Groq and CHAVE_GROQ_FIXA:
-            try:
-                st.session_state.model_ia = Groq(api_key=CHAVE_GROQ_FIXA)
+            try: st.session_state.model_ia = Groq(api_key=CHAVE_GROQ_FIXA)
             except Exception as e:
                 st.session_state.model_ia = None
                 st.error(f"Erro ao conectar IA: {e}")
@@ -329,16 +386,9 @@ def get_ia_client():
     return st.session_state.model_ia
 
 def chamar_ia(client, *, modelo, **kwargs):
-    """
-    Faz a chamada Chat Completions com fallback automático de modelo.
-    Mantém a mesma resposta compatível com client.chat.completions.create().
-    """
-    if client is None:
-        raise RuntimeError("Cliente Groq não está conectado.")
-
+    if client is None: raise RuntimeError("Cliente Groq não está conectado.")
     candidatos = MODELOS_VISAO_FALLBACK if modelo == MODELO_VISAO else MODELOS_TEXTO_FALLBACK
     ultimo_erro = None
-
     for modelo_tentativa in candidatos:
         try:
             call_kwargs = dict(kwargs)
@@ -352,49 +402,29 @@ def chamar_ia(client, *, modelo, **kwargs):
         except Exception as exc:
             ultimo_erro = exc
             erro = str(exc).lower()
-            # Só troca de modelo quando o problema indica modelo indisponível/permissão.
             if any(token in erro for token in ("model_not_found", "does not exist", "do not have access", "404", "403")):
                 continue
             raise
-
     raise RuntimeError(f"Nenhum modelo Groq disponível para esta operação. Último erro: {ultimo_erro}")
 
-
 def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema=None, max_completion_tokens=2000):
-    """
-    Chamada de IA sem response_format/json_schema.
-    O JSON é validado e extraído localmente por extrair_json_seguro().
-    Isso evita completamente o erro HTTP 400 json_validate_failed da Groq.
-    """
-    payload = dict(
-        messages=messages,
-        temperature=0.1,
-        max_completion_tokens=max_completion_tokens,
-    )
-    # Qwen 3.6 permite desligar o raciocínio para respostas estruturadas simples.
+    payload = dict(messages=messages, temperature=0.1, max_completion_tokens=max_completion_tokens)
     if modelo == MODELO_VISAO or modelo == MODELO_TEXTO:
         payload["reasoning_effort"] = "none"
         payload["include_reasoning"] = False
     return chamar_ia(client, modelo=modelo, **payload)
 
-
 def extrair_json_seguro(texto):
     if not texto: return {}
     t = str(texto)
-    # Limpeza nuclear de pensamento da IA
     t = re.sub(r'<think>.*?</think>', '', t, flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
-    
-    # Remoção de crases de markdown
     crases = chr(96) * 3
     t = t.replace(crases + "json", "").replace(crases, "").strip()
     
-    # Isolar escopo JSON e ignorar textos inúteis que a IA fala antes ou depois
     start_obj = t.find('{')
     start_arr = t.find('[')
-    
-    if start_obj == -1 and start_arr == -1:
-        return {}
+    if start_obj == -1 and start_arr == -1: return {}
         
     is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
     t = t[start_obj:] if is_obj else t[start_arr:]
@@ -405,7 +435,6 @@ def extrair_json_seguro(texto):
         return parsed
     except: pass
     
-    # Isolar do lado direito se houver lixo
     end_idx = t.rfind('}') if is_obj else t.rfind(']')
     if end_idx != -1:
         try:
@@ -414,7 +443,6 @@ def extrair_json_seguro(texto):
             return parsed
         except: pass
         
-    # Auto-Reparo: Fechar chaves pendentes caso a Groq API decepe a string por tokens
     fix = t
     if fix.count('"') % 2 != 0: fix += '"'
     fix = fix.strip()
@@ -422,7 +450,6 @@ def extrair_json_seguro(texto):
     
     faltando_chaves = fix.count('{') - fix.count('}')
     faltando_colchetes = fix.count('[') - fix.count(']')
-    
     if faltando_colchetes > 0: fix += ']' * faltando_colchetes
     if faltando_chaves > 0: fix += '}' * faltando_chaves
     
@@ -441,8 +468,7 @@ def extrair_json_seguro(texto):
             parsed = json.loads(fix_alt)
             if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
             return parsed
-        except Exception:
-            return {}
+        except Exception: return {}
 
 # ==========================================
 # CONSTANTES E CORES
@@ -452,7 +478,7 @@ SUB_CM = ["Geral", "Cardiologia", "Nefrologia", "Endocrinologia", "Pneumologia",
 SUB_CG = ["Geral", "Cirurgia do Trauma", "Cirurgia Vascular", "Cirurgia Plástica", "Cirurgia Torácica", "Cirurgia Pediátrica", "Urologia", "Neurocirurgia", "Ortopedia", "Cirurgia Oncológica", "Cirurgia Cabeça e Pescoço"]
 INSTITUICOES = ["USP-SP", "SUS-SP", "UNICAMP", "UNIFESP", "SCMSP", "IAMSPE", "UFRJ", "Hospital Albert Einstein", "Sírio-Libanês", "Outra"]
 MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#a855f7", "Medicina Preventiva": "#22c55e", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
+CORES_AREAS = {"Clínica Médica": "#4f46e5", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#8b5cf6", "Medicina Preventiva": "#10b981", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
 PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Vermelho", 5: "🟪 Roxo"}
 
 BANCO_IMAGENS_OSCE = {
@@ -478,9 +504,9 @@ def renderizar_mensagem_osce(texto):
             if chave in BANCO_IMAGENS_OSCE:
                 img_url = BANCO_IMAGENS_OSCE[chave]
                 st.markdown(f"""
-                <div style="border: 1px solid {bd_osce}; border-radius: 12px; padding: 15px; margin: 15px 0; background-color: {bg_osce}; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                    <p style="color: #2563eb; font-weight: bold; margin-bottom: 10px; font-size: 16px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
-                    <img src="{img_url}" style="width: 100%; border-radius: 8px;">
+                <div style="border: 1px solid {bd_osce}; border-radius: 16px; padding: 20px; margin: 15px 0; background-color: {bg_osce}; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <p style="color: #4f46e5; font-weight: 700; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">📎 Laudo Anexo: {chave.replace('_', ' ').title()}</p>
+                    <img src="{img_url}" style="width: 100%; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -489,9 +515,7 @@ def renderizar_mensagem_osce(texto):
 # ==========================================
 # FUNÇÕES GERAIS E DATA
 # ==========================================
-def get_agora(): 
-    return datetime.now(timezone.utc) - timedelta(hours=3)
-
+def get_agora(): return datetime.now(timezone.utc) - timedelta(hours=3)
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
@@ -537,15 +561,12 @@ def get_user_docs(collection_name, user_id):
     try:
         todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
         return [{"id": d.id, **d.to_dict()} for d in todos_docs]
-    except Exception as e:
-        return []
+    except Exception: return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    if modo == "Escuro":
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
-    else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
+    if modo == "Escuro": bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else: bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
         
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
@@ -553,33 +574,27 @@ def gerar_calendario_html(aulas_lista, ano, mes):
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'>"
     html_code += "<tr>"
-    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]: html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:13px; text-transform: uppercase; letter-spacing: 0.5px;'>{dia_sem}</th>"
     html_code += "</tr>"
-    
     for week in cal:
         html_code += "<tr>"
         for day in week:
-            if day == 0: 
-                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
+            if day == 0: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:8px;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
-                else: 
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; font-weight: 500; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px; transition: all 0.2s;' onmouseover=\"this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'\" onmouseout=\"this.style.transform='translateY(0)'; this.style.boxShadow='none'\"><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
+                else: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    if modo == "Escuro":
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
-    else:
-        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
+    if modo == "Escuro": bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else: bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
 
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
@@ -587,45 +602,40 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:20px; border-radius:12px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: collapse; table-layout: fixed;'>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'>"
     html_code += "<tr>"
-    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
-        html_code += f"<th style='text-align:center; padding:8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:14px;'>{dia_sem}</th>"
+    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]: html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:13px; text-transform: uppercase; letter-spacing: 0.5px;'>{dia_sem}</th>"
     html_code += "</tr>"
-    
     for week in cal:
         html_code += "<tr>"
         for day in week:
-            if day == 0: 
-                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
+            if day == 0: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:8px;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
-                else: 
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; font-weight: 500; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} <span style='opacity: 0.8; font-size: 9px;'>({r.get('ciclo').split(' ')[0]})</span></div>" for r in revs_dict[day]])
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px; transition: all 0.2s;' onmouseover=\"this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'\" onmouseout=\"this.style.transform='translateY(0)'; this.style.boxShadow='none'\"><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
+                else: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def render_toolbar():
     """
-    Motor definitivo de formatação à prova de mobile e iPad.
-    Implementa a barra fixa com flex-wrap (que quebra de linha em telas pequenas)
-    e o Real-Time Auto-Save local.
+    A Barra de Ferramentas definitiva Premium V2.0.
+    1 Barra Fixa In-line que não quebra graças ao flex-wrap e ao tamanho maior do Iframe.
+    Com suporte garantido a cliques no Celular e iPad via touchstart.
     """
     toolbar_html = """
-    <div id="inline-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: #1e293b; padding: 10px 15px; border-radius: 8px; border: 1px solid #334155; width: 100%; box-sizing: border-box;">
+    <div id="inline-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; width: 100%; box-sizing: border-box; margin-bottom: 10px;">
         <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">🪄 Formatador:</span>
-        <button class="inline-fmt-btn" data-t1="**" data-t2="**" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">B</button>
-        <button class="inline-fmt-btn" data-t1="<u>" data-t2="</u>" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s;">U</button>
-        <button class="inline-fmt-btn" data-t1="<mark>" data-t2="</mark>" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">🖍️ Grifar</button>
-        <button class="inline-fmt-btn" data-t1="\\n- " data-t2="" style="padding: 6px 12px; border-radius: 6px; border: none; background: #2563eb; color: white; cursor: pointer; transition: transform 0.1s;">📋 Tópico</button>
-        <button class="inline-fmt-btn" data-t1="PASTE" data-t2="" style="padding: 6px 12px; border-radius: 6px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s;">📸 Colar Imagem</button>
+        <button class="inline-fmt-btn" data-t1="**" data-t2="**" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.2s;">B</button>
+        <button class="inline-fmt-btn" data-t1="<u>" data-t2="</u>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s, background 0.2s;">U</button>
+        <button class="inline-fmt-btn" data-t1="<mark>" data-t2="</mark>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: transform 0.1s, background 0.2s;">🖍️ Grifar</button>
+        <button class="inline-fmt-btn" data-t1="\\n- " data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: transform 0.1s, background 0.2s;">📋 Tópico</button>
+        <button class="inline-fmt-btn" data-t1="PASTE" data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.2s; margin-left: auto;">📸 Colar Imagem</button>
     </div>
     
     <script>
-    // --- LÓGICA LOCAL PARA A BARRA FIXA (COM SUPORTE A IPAD/MOBILE) ---
     function formatTextLocal(tagStart, tagEnd) {
         const parentDoc = window.parent.document;
         const textareas = parentDoc.querySelectorAll('textarea');
@@ -654,7 +664,7 @@ def render_toolbar():
             
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
             nativeInputValueSetter.call(ta, newText);
-            ta.dispatchEvent(new Event('input', { bubbles: true }));
+            ta.dispatchEvent(new Event('input', { bubbles: true })); 
             
             ta.focus();
             ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
@@ -671,7 +681,7 @@ def render_toolbar():
             const container = target.closest('div[data-testid="stElementContainer"]');
             if (container) {
                 container.style.transition = 'box-shadow 0.3s, transform 0.3s';
-                container.style.boxShadow = '0 0 20px 5px #10b981';
+                container.style.boxShadow = '0 0 25px 8px rgba(16, 185, 129, 0.5)';
                 container.style.transform = 'scale(1.02)';
                 setTimeout(() => {
                     container.style.boxShadow = 'none';
@@ -686,8 +696,8 @@ def render_toolbar():
     // Configuração dos botões anti-perda-de-foco (PC + Mobile/iPad)
     document.querySelectorAll('.inline-fmt-btn').forEach(btn => {
         const action = (e) => {
-            e.preventDefault(); // Impede a perda de foco da caixa de texto no mobile
-            btn.style.transform = 'scale(0.95)';
+            e.preventDefault(); // Impede a perda de foco do teclado no mobile/iPad
+            btn.style.transform = 'scale(0.92)';
             setTimeout(() => btn.style.transform = 'scale(1)', 100);
             
             let t1 = btn.getAttribute('data-t1');
@@ -701,7 +711,7 @@ def render_toolbar():
         };
 
         btn.addEventListener('mousedown', action);
-        btn.addEventListener('touchstart', action, {passive: false}); // O segredo para o iPad e Celular
+        btn.addEventListener('touchstart', action, {passive: false});
     });
 
     // --- AUTO-SAVE REAL TIME NO NAVEGADOR ---
@@ -711,7 +721,7 @@ def render_toolbar():
         
         textareas.forEach((ta, index) => {
             const label = ta.getAttribute('aria-label') || '';
-            if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos')) {
+            if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('Chaves')) {
                 const storageKey = 'autosave_nota_' + label.replace(/\\s+/g, '_') + '_' + index;
                 
                 const savedText = window.parent.localStorage.getItem(storageKey);
@@ -730,7 +740,9 @@ def render_toolbar():
     setTimeout(initAutoSave, 1000);
     </script>
     """
-    components.html(toolbar_html, height=85)
+    # Aumentando a altura da "caixa" do iframe do Streamlit para 100px.
+    # Assim a barra Fixa tem espaço para quebrar de linha em telas pequenas sem ser cortada!
+    components.html(toolbar_html, height=100)
 
 # ==========================================
 # GESTÃO DE LOGIN E SEGURANÇA
@@ -762,48 +774,54 @@ if not st.session_state.logado:
     if "temp_theme" not in st.session_state: st.session_state.temp_theme = "Escuro"
     aplicar_css_tema(st.session_state.temp_theme)
     
-    st.title("🏥 Residência PRO ⚡")
-    st.session_state.temp_theme = st.radio("Tema Visual:", ["Escuro", "Claro"], horizontal=True, index=0 if st.session_state.temp_theme == "Escuro" else 1)
-    
-    aba_l, aba_c = st.tabs(["🔑 Acesso VIP", "📝 Nova Conta"])
-    with aba_l:
-        if cookie_controller is None: st.warning("⚠️ Biblioteca 'streamlit-cookies-controller' não detectada.")
-        with st.form("login_form"):
-            u, p, lembrar = st.text_input("Usuário"), st.text_input("Senha", type="password"), st.checkbox("Manter-me conectado")
-            if st.form_submit_button("Entrar no Sistema", use_container_width=True):
-                try:
-                    logou = False
-                    u_limpo = u.strip()
-                    p_limpo = p.strip()
-                    for doc in db.collection("usuarios").get():
-                        nome_banco = str(doc.to_dict().get("nome", "")).strip()
-                        if nome_banco.lower() == u_limpo.lower():
-                            if doc.to_dict().get("senha") == hash_senha(p) or doc.to_dict().get("senha") == hash_senha(p_limpo):
-                                st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
-                                logou = True
-                                if lembrar and cookie_controller:
-                                    novo_token = str(uuid.uuid4())
-                                    db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
-                                    cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                                    time.sleep(1) # Sincronização do Websocket para gravar o cookie com segurança
-                                st.rerun()
-                    if not logou: st.error("Usuário ou senha incorretos.")
-                except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
-    with aba_c:
-        with st.form("cadastro_form"):
-            nu, np = st.text_input("Novo Usuário"), st.text_input("Senha", type="password")
-            if st.form_submit_button("Cadastrar", use_container_width=True):
-                nu_limpo = nu.strip()
-                np_limpo = np.strip()
-                existe = False
-                for doc in db.collection("usuarios").get():
-                    if str(doc.to_dict().get("nome", "")).strip().lower() == nu_limpo.lower():
-                        existe = True
-                        break
-                if existe: st.error("Usuário já existe.")
-                else:
-                    db.collection("usuarios").add({"nome": nu_limpo, "senha": hash_senha(np_limpo), "tema_modo": st.session_state.temp_theme})
-                    st.toast("✅ Conta criada com sucesso!", icon="🎉")
+    with st.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        col_t1, col_t2, col_t3 = st.columns([1,2,1])
+        with col_t2:
+            st.markdown("<h1 style='text-align: center; font-weight: 800; font-size: 3rem;'>🏥 Residência PRO <span style='color: #4f46e5;'>2.0</span></h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #64748b; font-size: 1.1rem;'>Seu ecossistema avançado de aprovação médica.</p><br>", unsafe_allow_html=True)
+            
+            st.session_state.temp_theme = st.radio("Tema Visual:", ["Escuro", "Claro"], horizontal=True, index=0 if st.session_state.temp_theme == "Escuro" else 1)
+            
+            aba_l, aba_c = st.tabs(["🔑 Acesso VIP", "📝 Nova Conta"])
+            with aba_l:
+                if cookie_controller is None: st.warning("⚠️ Biblioteca 'streamlit-cookies-controller' não detectada.")
+                with st.form("login_form"):
+                    u, p, lembrar = st.text_input("Usuário"), st.text_input("Senha", type="password"), st.checkbox("Manter-me conectado")
+                    if st.form_submit_button("Entrar no Sistema", use_container_width=True):
+                        try:
+                            logou = False
+                            u_limpo = u.strip()
+                            p_limpo = p.strip()
+                            for doc in db.collection("usuarios").get():
+                                nome_banco = str(doc.to_dict().get("nome", "")).strip()
+                                if nome_banco.lower() == u_limpo.lower():
+                                    if doc.to_dict().get("senha") == hash_senha(p) or doc.to_dict().get("senha") == hash_senha(p_limpo):
+                                        st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
+                                        logou = True
+                                        if lembrar and cookie_controller:
+                                            novo_token = str(uuid.uuid4())
+                                            db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
+                                            cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
+                                            time.sleep(1) # Sincronização do Websocket para gravar o cookie com segurança
+                                        st.rerun()
+                            if not logou: st.error("Usuário ou senha incorretos.")
+                        except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
+            with aba_c:
+                with st.form("cadastro_form"):
+                    nu, np = st.text_input("Novo Usuário"), st.text_input("Senha", type="password")
+                    if st.form_submit_button("Cadastrar", use_container_width=True):
+                        nu_limpo = nu.strip()
+                        np_limpo = np.strip()
+                        existe = False
+                        for doc in db.collection("usuarios").get():
+                            if str(doc.to_dict().get("nome", "")).strip().lower() == nu_limpo.lower():
+                                existe = True
+                                break
+                        if existe: st.error("Usuário já existe.")
+                        else:
+                            db.collection("usuarios").add({"nome": nu_limpo, "senha": hash_senha(np_limpo), "tema_modo": st.session_state.temp_theme})
+                            st.toast("✅ Conta criada com sucesso!", icon="🎉")
 
 # ==========================================
 # APLICATIVO LOGADO
@@ -881,8 +899,9 @@ else:
     # BARRA LATERAL (PROFILE)
     if user_settings.get('foto_perfil_b64'):
         st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
-        st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 15px; margin-bottom: 25px; letter-spacing: 0.5px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
-    else: st.sidebar.title(f"👤 {st.session_state.user_nome}")
+        st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 20px; margin-bottom: 25px; font-weight: 700; letter-spacing: 0.5px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
+    else: 
+        st.sidebar.markdown(f"<h2 style='text-align: center; font-weight: 800;'>👤 {st.session_state.user_nome}</h2>", unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
         db.collection("usuarios").document(u_id).update({"token_sessao": None})
@@ -890,7 +909,7 @@ else:
         time.sleep(0.5)
         st.session_state.clear()
         st.rerun()
-    st.sidebar.markdown("---")
+    st.sidebar.markdown("<hr style='margin: 15px 0; border-color: #334155;'>", unsafe_allow_html=True)
 
     # ==========================================
     # MENU REORGANIZADO
@@ -958,22 +977,32 @@ else:
             st.divider()
             col_g1, col_g2 = st.columns([1, 1.5])
             
-            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+            modo_grafico_font = st.session_state.get("graph_font", "#f8fafc")
+            modo_grafico_bg = st.session_state.get("graph_bg", "rgba(0,0,0,0)")
             
             with col_g1:
                 if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
+                    fig_pie1.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_grafico_bg, width=2)))
+                    fig_pie1.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
+                        margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão Global", title_x=0.5
+                    )
+                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False})
             with col_g2:
                 todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula', r.get('area')), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all] + [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
                 df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
                 if not df_r.empty:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
-                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
+                    fig_bar1.update_traces(textposition="outside", cliponaxis=False)
+                    fig_bar1.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
+                        showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5,
+                        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False)
+                    )
+                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False})
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
@@ -1018,8 +1047,8 @@ else:
                 if paste_image_button is not None:
                     paste_result = paste_image_button(
                         label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8",
+                        background_color="#4f46e5",
+                        hover_background_color="#4338ca",
                         key="paste_crono"
                     )
                     if paste_result.image_data is not None:
@@ -1290,22 +1319,32 @@ else:
             st.divider()
             col_gh1, col_gh2 = st.columns([1, 1.5])
             
-            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+            modo_grafico_font = st.session_state.get("graph_font", "#f8fafc")
+            modo_grafico_bg = st.session_state.get("graph_bg", "rgba(0,0,0,0)")
             
             with col_gh1:
                 if t_questoes_h > 0: 
-                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
-                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
+                    fig_pie_h.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_grafico_bg, width=2)))
+                    fig_pie_h.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
+                        margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão HIIT", title_x=0.5
+                    )
+                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False})
             with col_gh2:
                 todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
                 df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
                 if not df_rh.empty:
                     df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
-                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
+                    fig_bar_h.update_traces(textposition="outside", cliponaxis=False)
+                    fig_bar_h.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
+                        showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5,
+                        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False)
+                    )
+                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False})
 
         with aba_reg_hiit:
             col_a, col_sub = st.columns(2)
@@ -1390,18 +1429,8 @@ else:
                     })
                 df_h = pd.DataFrame(lista_hiit).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
                 
-                def colorir_porcentagem_hiit(val):
-                    try:
-                        num = float(str(val).replace('%', ''))
-                        if num > 80: return 'color: #22c55e !important; font-weight: bold !important;'
-                        elif num >= 60: return 'color: #eab308 !important; font-weight: bold !important;'
-                        else: return 'color: #ef4444 !important; font-weight: bold !important;'
-                    except: return ''
-
-                if hasattr(df_h.style, "map"):
-                    st.table(df_h.style.map(colorir_porcentagem_hiit, subset=['% Acertos']))
-                else:
-                    st.table(df_h.style.applymap(colorir_porcentagem_hiit, subset=['% Acertos']))
+                # --- Usando st.dataframe moderno e clean em vez de st.table ---
+                st.dataframe(df_h, use_container_width=True, hide_index=True)
                     
                 st.write("---")
                 with st.expander("✏️ Editar ou Excluir Histórico HIIT"):
@@ -1583,7 +1612,7 @@ else:
                         if paste_image_button is not None:
                             res_paste_hiit = paste_image_button(
                                 label="Colar Imagem (Ctrl+V)",
-                                background_color="#2563eb", hover_background_color="#1d4ed8",
+                                background_color="#4f46e5", hover_background_color="#4338ca",
                                 key="paste_hiit_nota"
                             )
                             if res_paste_hiit.image_data is not None:
@@ -1616,7 +1645,10 @@ else:
                 
                 with st.container(border=True):
                     render_toolbar()
-                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, key="draft_hiit_txt_key")
+                    # O state temporário mantém o texto mesmo se cair a internet
+                    if "draft_hiit_txt" not in st.session_state: st.session_state.draft_hiit_txt = ""
+                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, value=st.session_state.draft_hiit_txt, key="draft_hiit_txt_key")
+                    st.session_state.draft_hiit_txt = txt_h # Salva no state on the fly
 
                 if st.button("💾 Salvar Resumo HIIT", use_container_width=True, type="primary"):
                     if sub_h and txt_h:
@@ -1626,6 +1658,7 @@ else:
                             "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
                         })
                         st.session_state.limpar_nova_nota_hiit = True
+                        st.session_state.draft_hiit_txt = "" # Limpa o rascunho apenas após o save final
                         time.sleep(0.5)
                         st.rerun()
                     else:
@@ -1738,8 +1771,8 @@ else:
                                                 if paste_image_button is not None:
                                                     res_paste_edit = paste_image_button(
                                                         label="Colar Imagem (Ctrl+V)",
-                                                        background_color="#2563eb",
-                                                        hover_background_color="#1d4ed8",
+                                                        background_color="#4f46e5",
+                                                        hover_background_color="#4338ca",
                                                         key=f"paste_edit_h_{id_nh}" 
                                                     )
                                                     if res_paste_edit.image_data is not None:
@@ -1866,13 +1899,370 @@ else:
             with st.expander("Gerenciar Flashcards HIIT"):
                 if dados_flashcards_hiit:
                     df_fcs_h = pd.DataFrame(dados_flashcards_hiit)
-                    st.dataframe(df_fcs_h[['area', 'tema', 'frente', 'data_prox_revisao']], use_container_width=True)
+                    st.dataframe(df_fcs_h[['area', 'tema', 'frente', 'data_prox_revisao']], use_container_width=True, hide_index=True)
                     del_fc_h = st.selectbox("Selecione para excluir:", [f"{f.get('id')} | {f.get('frente')[:30]}..." for f in dados_flashcards_hiit], key="del_fc_hiit_sel")
                     if st.button("🗑️ Excluir Flashcard", key="btn_del_fc_h"):
                         db_delete("flashcards_hiit", "flashcards_hiit", del_fc_h.split(" | ")[0])
                         st.toast("Excluído!", icon="🗑️")
                         time.sleep(0.5)
                         st.rerun()
+
+    elif menu == "🎯 Questões":
+        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
+        
+        with aba_reg:
+            col_a, col_sub = st.columns(2)
+            a = col_a.selectbox("Área", AREAS_MED, key="q_area")
+            sub_q = ""
+            if a == "Clínica Médica":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CM, key="q_sub_cm")
+            elif a == "Cirurgia Geral":
+                sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="q_sub_cg")
+                
+            with st.form("q_form", clear_on_submit=True):
+                st.info("Ao registrar suas questões, o sistema irá recalcular o seu desempenho e reagendar a sua próxima revisão automaticamente.")
+                c1, c2 = st.columns(2)
+                s = c1.text_input("Subtema (Ex: Insuficiência Cardíaca)")
+                d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
+                ac, er = st.columns(2)
+                acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
+                cc = st.text_input("Conceito Chave (Motivo de algum erro)")
+                
+                if st.form_submit_button("Registrar e Agendar Revisão Inteligente", use_container_width=True):
+                    s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
+                    db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
+                    
+                    # --- NOVO MOTOR DE REPETIÇÃO ESPAÇADA ADAPTATIVA ---
+                    total_q = acc + err
+                    if total_q > 0:
+                        taxa_acerto = acc / total_q
+                        if taxa_acerto < 0.60:
+                            ciclo_nome = "🔴 Crítico (Rever em 1d)"
+                            dias_prox = 1
+                        elif taxa_acerto < 0.80:
+                            ciclo_nome = "🟡 Reforço (Rever em 7d)"
+                            dias_prox = 7
+                        else:
+                            ciclo_nome = "🟢 Domínio (Rever em 15d)"
+                            dias_prox = 15
+                            
+                        nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
+                        
+                        batch = db.batch()
+                        ids_del = set()
+                        for r_pend in st.session_state.dados["revisoes"]:
+                            if str(r_pend.get('status')).lower() in ['pendente', 'pendentes'] and str(r_pend.get('tema')) == s_final:
+                                batch.delete(db.collection("revisoes").document(r_pend['id']))
+                                ids_del.add(r_pend['id'])
+                        
+                        doc_rev = db.collection("revisoes").document()
+                        nova_rev = {
+                            "usuario_id": u_id,
+                            "area": a,
+                            "tema": s_final,
+                            "ciclo": ciclo_nome,
+                            "data_agendada": str(nova_data),
+                            "status": "Pendente"
+                        }
+                        batch.set(doc_rev, nova_rev)
+                        batch.commit()
+                        
+                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
+                        nova_rev['id'] = doc_rev.id
+                        st.session_state.dados["revisoes"].append(nova_rev)
+                        
+                        st.toast(f"Revisão agendada para {formatar_data_br(nova_data)}!", icon="📅")
+                    # -------------------------------------------------------------------
+                    
+                    st.toast("Questões registradas!", icon="✅")
+                    time.sleep(1)
+                    st.rerun()
+            
+            if dados_questoes: 
+                lista_q = []
+                for b in dados_questoes:
+                    acertos = safe_int(b.get('acertos'))
+                    erros = safe_int(b.get('erros'))
+                    total = acertos + erros
+                    porcentagem = f"{(acertos / total * 100):.1f}%" if total > 0 else "0.0%"
+                    
+                    lista_q.append({
+                        "Data_obj": parse_data(b.get('data')),
+                        "Data": formatar_data_br(b.get('data')),
+                        "Área": b.get('area'),
+                        "Subtema": limpar_texto(b.get('subtema')),
+                        "Acertos": acertos,
+                        "Erros": erros,
+                        "% Acertos": porcentagem,
+                        "ID": b.get('id')
+                    })
+                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
+                
+                def colorir_porcentagem(val):
+                    try:
+                        num = float(str(val).replace('%', ''))
+                        if num > 80:
+                            return 'color: #22c55e !important; font-weight: bold !important;'
+                        elif num >= 70:
+                            return 'color: #eab308 !important; font-weight: bold !important;'
+                        elif num >= 60:
+                            return 'color: #3b82f6 !important; font-weight: bold !important;'
+                        else:
+                            return 'color: #ef4444 !important; font-weight: bold !important;'
+                    except:
+                        return ''
+
+                if hasattr(df_q.style, "map"):
+                    st.table(df_q.style.map(colorir_porcentagem, subset=['% Acertos']))
+                else:
+                    st.table(df_q.style.applymap(colorir_porcentagem, subset=['% Acertos']))
+                
+                st.write("---")
+                with st.expander("✏️ Editar ou Excluir Registro de Questões"):
+                    opcoes_edicao = {}
+                    for q_item in dados_questoes:
+                        data_formatada = formatar_data_br(q_item.get('data'))
+                        q_id = str(q_item.get('id', '0000'))
+                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
+                        opcoes_edicao[chave] = q_item
+                        
+                    if opcoes_edicao:
+                        q_selec = st.selectbox("Selecione o registro que deseja alterar:", list(opcoes_edicao.keys()))
+                        q_dados = opcoes_edicao[q_selec]
+                        q_id_alvo = str(q_dados.get('id', '0000'))
+                        
+                        col_e1, col_e2 = st.columns(2)
+                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')), key=f"ac_{q_id_alvo}")
+                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')), key=f"er_{q_id_alvo}")
+                        
+                        col_btn1, col_btn2 = st.columns(2)
+                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{q_id_alvo}"):
+                            if q_dados.get('id'):
+                                db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er})
+                                st.toast("Registro atualizado com sucesso!", icon="✅")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
+                            
+                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_id_alvo}"):
+                            if q_dados.get('id'):
+                                db_delete("questoes_sessoes", "questoes", q_id_alvo)
+                                st.toast("Registro excluído!", icon="🗑️")
+                                time.sleep(0.5)
+                                st.rerun()
+                            else:
+                                st.error("Erro: Registro sem ID.")
+                
+        with aba_erros:
+            baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
+            if baterias_erros:
+                erro_escolhido = st.selectbox("Escolha um conceito que você errou:", reversed([f"{b.get('area')} - {limpar_texto(b.get('subtema'))}: {b.get('conceito_chave')}" for b in baterias_erros]))
+                conceito_alvo = erro_escolhido.split(": ")[1]
+                area_alvo = erro_escolhido.split(" - ")[0]
+                tema_alvo = erro_escolhido.split(" - ")[1].split(":")[0]
+
+                if st.button("🔥 Gerar Questão Inédita via IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        with st.spinner("Construindo caso clínico..."):
+                            try:
+                                prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
+                                resposta_clone = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
+                                with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
+                            except Exception as e: st.error(str(e))
+                
+                st.write("---")
+                st.write("**Transformar Conceito Errado em Flashcard**")
+                frente_erro = st.text_input("Frente da Carta", value=f"O que devo lembrar sobre: {conceito_alvo}")
+                verso_erro = st.text_area("Verso (Resposta correta)")
+                if st.button("💾 Salvar direto no Deck"):
+                    db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                    st.toast("Flashcard adicionado aos estudos!", icon="🧠")
+            else: st.success("Nenhum erro registrado com Conceito Chave.")
+
+        with aba_alvos:
+            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
+            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
+            
+            historico_dict = {}
+            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
+                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                if t_str not in historico_dict: historico_dict[t_str] = []
+                if len(historico_dict[t_str]) < 3:
+                    historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
+            
+            alvos_criticos = []
+            for t_str, sessoes in historico_dict.items():
+                t_ac = sum(s['ac'] for s in sessoes)
+                t_er = sum(s['er'] for s in sessoes)
+                t_total = t_ac + t_er
+                if t_total > 0:
+                    media = t_ac / t_total
+                    if media < 0.6:
+                        alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
+                        
+            if not alvos_criticos:
+                st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
+            else:
+                alvos_criticos.sort(key=lambda x: x['Média'])
+                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
+                st.table(df_alvos)
+                
+                st.write("---")
+                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
+                    client_ia = get_ia_client()
+                    if client_ia:
+                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
+                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
+                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
+                            try:
+                                resposta_recup = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
+                                with st.container(border=True):
+                                    st.markdown(resposta_recup.choices[0].message.content)
+                            except Exception as e:
+                                st.error(f"Erro ao gerar simulado: {e}")
+
+    elif menu == "✨ AI Tutor & Flashcards":
+        aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
+        with aba_chat:
+            chat_box = st.container(height=500)
+            if 'chat_ia' not in st.session_state: st.session_state.chat_ia = []
+            with chat_box:
+                for msg in st.session_state.chat_ia:
+                    with st.chat_message(msg.get("role", "user")): st.write(msg.get("content", ""))
+            
+            u_in = st.chat_input("Dúvida médica, prescrições...", key="input_tutor")
+            if u_in:
+                client_ia = get_ia_client()
+                if client_ia:
+                    with st.spinner("Analisando..."):
+                        msgs_api = [{"role": "system", "content": "Você é um Preceptor Médico Sênior. É OBRIGATÓRIO fornecer cálculos de doses exatas, prescrições e diagnósticos diretos. O usuário É UM MÉDICO LICENCIADO."}]
+                        st.session_state.chat_ia.append({"role": "user", "content": u_in})
+                        for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
+                        try:
+                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
+                            st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
+                        except Exception as e: st.error(str(e))
+                        st.rerun()
+
+        with aba_flash:
+            aba_f1, aba_f2, aba_f3 = st.tabs(["Modo Estudo", "Adicionar", "📥 Importar Anki (CSV)"])
+            with aba_f1:
+                # --- LÓGICA DE ORGANIZAÇÃO EM CASCATA PARA FLASHCARDS GERAIS ---
+                cards_vencidos = [d for d in dados_flashcards if parse_data(d.get('data_prox_revisao')) <= hoje]
+                
+                if not cards_vencidos:
+                    st.success("🎉 Você zerou o deck de hoje. Parabéns!")
+                else:
+                    deck_organizado = {}
+                    for card in cards_vencidos:
+                        area = card.get('area', 'Geral')
+                        tema = limpar_texto(card.get('tema', 'Sem Tema'))
+                        if area not in deck_organizado: deck_organizado[area] = {}
+                        if tema not in deck_organizado[area]: deck_organizado[area][tema] = []
+                        deck_organizado[area][tema].append(card)
+                    
+                    areas_pendentes = sorted(list(deck_organizado.keys()))
+                    abas_areas_fc = st.tabs(areas_pendentes)
+                    
+                    for idx_aba, area_atual in enumerate(areas_pendentes):
+                        with abas_areas_fc[idx_aba]:
+                            st.markdown(f"#### <span style='color:{CORES_AREAS.get(area_atual, '#64748b')};'>⬤</span> Cartões de {area_atual}", unsafe_allow_html=True)
+                            temas_da_area = sorted(list(deck_organizado[area_atual].keys()))
+                            
+                            tema_ativo = temas_da_area[0]
+                            cartoes_do_tema = deck_organizado[area_atual][tema_ativo]
+                            c_data = cartoes_do_tema[0]
+                            c_data_id = str(c_data.get("id", "000"))
+                            
+                            st.caption(f"**Progresso na Área:** Restam {sum(len(deck_organizado[area_atual][t]) for t in temas_da_area)} cartões hoje.")
+                            
+                            with st.container(border=True):
+                                st.markdown(f"**Tema:** {tema_ativo}")
+                                st.markdown(f"### ❔ {c_data.get('frente', '')}")
+                                
+                                chave_ans = f"ans_{c_data_id}"
+                                if chave_ans not in st.session_state: st.session_state[chave_ans] = False
+                                
+                                if st.button("Revelar Resposta", key=f"rev_ans_{c_data_id}"): 
+                                    st.session_state[chave_ans] = True
+                                    st.rerun()
+                                    
+                                if st.session_state[chave_ans]:
+                                    st.info(f"**💡 Resposta:** {c_data.get('verso', '')}")
+                                    b1, b2, b3 = st.columns(3)
+                                    
+                                    def avaliar_fc(peso, cid=c_data_id, c_dict=c_data, k_ans=chave_ans): 
+                                        facil, interv = float(c_dict.get('facilidade', 2.5)), safe_int(c_dict.get('intervalo'))
+                                        if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
+                                        elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
+                                        else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
+                                        db_update("flashcards", "flashcards", cid, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
+                                        st.session_state[k_ans] = False
+                                        
+                                    if b1.button("🔴 Errei (1d)", use_container_width=True, key=f"btn_err_{c_data_id}"): 
+                                        avaliar_fc('err')
+                                        st.rerun()
+                                    if b2.button("🟡 Bom", use_container_width=True, key=f"btn_bom_{c_data_id}"): 
+                                        avaliar_fc('bom')
+                                        st.rerun()
+                                    if b3.button("🟢 Fácil", use_container_width=True, key=f"btn_facil_{c_data_id}"): 
+                                        avaliar_fc('facil')
+                                        st.rerun()
+            
+            with aba_f2:
+                col_a, col_t = st.columns(2)
+                a = col_a.selectbox("Área", AREAS_MED, key="fc_area")
+                sub_f = ""
+                if a == "Clínica Médica":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CM, key="fc_sub_cm")
+                elif a == "Cirurgia Geral":
+                    sub_f = col_t.selectbox("Subespecialidade", SUB_CG, key="fc_sub_cg")
+                    
+                with st.form("add_fc", clear_on_submit=True):
+                    t = st.text_input("Tema")
+                    f = st.text_input("Frente da Carta")
+                    v = st.text_area("Verso da Carta")
+                    if st.form_submit_button("Salvar no Banco", use_container_width=True):
+                        t_final = f"{sub_f} - {t}" if sub_f and sub_f != "Geral" else t
+                        db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t_final or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
+                        st.toast("Flashcard salvo!", icon="📚")
+                        time.sleep(0.5)
+                        st.rerun()
+            
+            with aba_f3:
+                st.markdown("### 📥 Importação em Massa")
+                arq_csv = st.file_uploader("Upload do CSV (Anki)", type=["csv"])
+                if arq_csv and st.button("Importar Flashcards", use_container_width=True, type="primary"):
+                    try:
+                        df_anki = pd.read_csv(arq_csv, sep=None, engine='python') 
+                        if all(col in df_anki.columns for col in ['Area', 'Tema', 'Frente', 'Verso']):
+                            with st.spinner("Injetando flashcards..."):
+                                batch = db.batch()
+                                for _, row in df_anki.iterrows():
+                                    doc_ref = db.collection("flashcards").document()
+                                    n_fc = {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
+                                    batch.set(doc_ref, n_fc)
+                                    n_fc["id"] = doc_ref.id
+                                    st.session_state.dados["flashcards"].append(n_fc)
+                                batch.commit()
+                            st.toast("✅ Flashcards importados com sucesso!")
+                            st.rerun()
+                    except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
+
+        with aba_feynman:
+            client_ia = get_ia_client()
+            if client_ia:
+                tema_f = st.text_input("Tema para explicar (Voz):")
+                aud_f = st.audio_input("Gravar")
+                if tema_f and aud_f:
+                    with st.spinner("Avaliando..."):
+                        try:
+                            transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
+                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
+                            st.success(r.choices[0].message.content)
+                        except Exception as e: st.error(f"Erro: {e}")
 
     elif menu == "📝 Anotações Rápidas":
         st.header("Caderno de Resumos e Anotações")
@@ -1900,9 +2290,9 @@ else:
                     st.caption("Tabelas, fluxogramas ou o print do seu erro.")
                     if paste_image_button is not None:
                         res_paste_nota = paste_image_button(
-                            label="CLIQUE AQUI E APERTE Ctrl+V",
-                            background_color="#2563eb",
-                            hover_background_color="#1d4ed8",
+                            label="Colar Imagem (Ctrl+V)",
+                            background_color="#4f46e5",
+                            hover_background_color="#4338ca",
                             key="paste_nota_nova"
                         )
                         if res_paste_nota.image_data is not None:
@@ -2041,8 +2431,8 @@ else:
                                             if paste_image_button is not None:
                                                 res_paste_edit = paste_image_button(
                                                     label="Colar Imagem (Ctrl+V)",
-                                                    background_color="#2563eb",
-                                                    hover_background_color="#1d4ed8",
+                                                    background_color="#4f46e5",
+                                                    hover_background_color="#4338ca",
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
@@ -2238,21 +2628,21 @@ else:
                     df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     c1g, c2g = st.columns(2)
                     
-                    modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
+                    modo_grafico_font = st.session_state.get("graph_font", "#f8fafc")
                     
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
                         fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
                         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
                     st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.table(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]])
+                    st.dataframe(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]], use_container_width=True, hide_index=True)
                     
                     st.divider()
                     with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
@@ -2289,7 +2679,7 @@ else:
             usuarios_todos = db.collection("usuarios").get()
             st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
             df_u = pd.DataFrame([{"ID Nuvem": u.id, "Nome": u.to_dict().get('nome')} for u in usuarios_todos])
-            st.dataframe(df_u, use_container_width=True, column_config={"ID Nuvem": None})
+            st.dataframe(df_u, use_container_width=True, hide_index=True)
             
             c1, c2, c3 = st.columns(3)
             with c1:
