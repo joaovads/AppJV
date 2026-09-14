@@ -537,12 +537,12 @@ def aplicar_ui_premium(modo):
     }}
 
     /* ===== CRONOGRAMA 2.9 — LEITURA RÁPIDA ===== */
-    .rp-simple-crono-head { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:3px 0 15px; border-bottom:1px solid {border}; margin-bottom:14px; }
-    .rp-simple-crono-title { color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; margin-top:3px; }
-    .rp-simple-crono-sub { color:{muted}; font-size:.79rem; margin-top:5px; }
-    .rp-simple-crono-progress { min-width:110px; text-align:right; }
-    .rp-simple-crono-progress strong { display:block; color:{accent}; font-size:1.35rem; }
-    .rp-simple-crono-progress span { color:{muted}; font-size:.68rem; }
+    .rp-simple-crono-head {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:3px 0 15px; border-bottom:1px solid {border}; margin-bottom:14px; }}
+    .rp-simple-crono-title {{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; margin-top:3px; }}
+    .rp-simple-crono-sub {{ color:{muted}; font-size:.79rem; margin-top:5px; }}
+    .rp-simple-crono-progress {{ min-width:110px; text-align:right; }}
+    .rp-simple-crono-progress strong {{ display:block; color:{accent}; font-size:1.35rem; }}
+    .rp-simple-crono-progress span {{ color:{muted}; font-size:.68rem; }}
 
     /* ===== TOPO DE MÓDULO ===== */
     .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}
