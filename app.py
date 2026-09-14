@@ -213,129 +213,130 @@ def aplicar_ui_premium(modo):
 
     css=f"""
     <style>
-    :root{{{{--rp-bg:{bg};--rp-surface:{surface};--rp-surface2:{surface2};--rp-border:{border};--rp-border2:{border2};--rp-text:{text};--rp-muted:{muted};--rp-accent:{accent};--rp-accent-soft:{accent_soft};--rp-input:{input_bg};--rp-hover:{hover};}}}}
+    :root{{--rp-bg:{bg};--rp-surface:{surface};--rp-surface2:{surface2};--rp-border:{border};--rp-border2:{border2};--rp-text:{text};--rp-muted:{muted};--rp-accent:{accent};--rp-accent-soft:{accent_soft};--rp-input:{input_bg};--rp-hover:{hover};}}
 
     /* ===== FUNDAMENTO ===== */
-    html,body,[data-testid="stAppViewContainer"],.stApp,.main {{{{ background:{bg} !important; color:{text} !important; }}}}
-    [data-testid="stHeader"] {{{{ background:transparent !important; }}}}
-    .main .block-container {{{{ max-width:1280px; padding:1.15rem 2rem 3.5rem; }}}}
-    .main .block-container > div {{{{ gap:.55rem; }}}}
-    *,*::before,*::after {{{{ box-sizing:border-box; }}}}
-    h1,h2,h3,h4,h5,h6 {{{{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; letter-spacing:-.018em !important; }}}}
-    h1 {{{{ font-size:1.75rem !important; font-weight:720 !important; margin:.15rem 0 .15rem !important; }}}}
-    h2 {{{{ font-size:1.28rem !important; font-weight:700 !important; }}}}
-    h3 {{{{ font-size:1.02rem !important; font-weight:680 !important; }}}}
-    p,li,label,.stMarkdown {{{{ color:{text} !important; }}}}
-    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{{{ color:{muted} !important; }}}}
-    hr {{{{ border-color:{border2} !important; margin:.75rem 0 !important; }}}}
+    html,body {{ color-scheme:{"dark" if dark else "light"} !important; }}
+    html,body,[data-testid="stAppViewContainer"],.stApp,.main {{ background:{bg} !important; color:{text} !important; }}
+    [data-testid="stHeader"] {{ background:transparent !important; }}
+    .main .block-container {{ max-width:1280px; padding:1.15rem 2rem 3.5rem; }}
+    .main .block-container > div {{ gap:.55rem; }}
+    *,*::before,*::after {{ box-sizing:border-box; }}
+    h1,h2,h3,h4,h5,h6 {{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; letter-spacing:-.018em !important; }}
+    h1 {{ font-size:1.75rem !important; font-weight:720 !important; margin:.15rem 0 .15rem !important; }}
+    h2 {{ font-size:1.28rem !important; font-weight:700 !important; }}
+    h3 {{ font-size:1.02rem !important; font-weight:680 !important; }}
+    p,li,label,.stMarkdown {{ color:{text} !important; }}
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
+    hr {{ border-color:{border2} !important; margin:.75rem 0 !important; }}
 
     /* ===== SIDEBAR ===== */
-    [data-testid="stSidebar"] {{{{ background:{surface} !important; border-right:1px solid {border} !important; }}}}
-    [data-testid="stSidebar"] > div:first-child {{{{ padding:.55rem .45rem 1rem !important; }}}}
-    .rp-brand {{{{ padding:7px 10px 14px !important; margin:0 4px 10px !important; border-bottom:1px solid {border2}; }}}}
-    .rp-brand-title {{{{ color:{text} !important; font-size:1rem !important; font-weight:760 !important; letter-spacing:.015em !important; }}}}
-    .rp-brand-sub {{{{ color:{muted} !important; font-size:.61rem !important; margin-top:4px !important; letter-spacing:.09em !important; }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] {{{{ gap:2px !important; }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{{{
+    [data-testid="stSidebar"] {{ background:{surface} !important; border-right:1px solid {border} !important; }}
+    [data-testid="stSidebar"] > div:first-child {{ padding:.55rem .45rem 1rem !important; }}
+    .rp-brand {{ padding:7px 10px 14px !important; margin:0 4px 10px !important; border-bottom:1px solid {border2}; }}
+    .rp-brand-title {{ color:{text} !important; font-size:1rem !important; font-weight:760 !important; letter-spacing:.015em !important; }}
+    .rp-brand-sub {{ color:{muted} !important; font-size:.61rem !important; margin-top:4px !important; letter-spacing:.09em !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:2px !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{
         margin:0 3px !important; padding:7px 9px !important; min-height:35px !important;
         border:1px solid transparent !important; border-radius:6px !important; transition:background .12s,border-color .12s !important;
-    }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{{{ background:{hover} !important; border-color:{border2} !important; transform:none !important; }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] label p {{{{ color:{muted} !important; font-size:13px !important; font-weight:570 !important; }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{{{ background:{accent_soft} !important; border-color:rgba(36,124,117,.18) !important; box-shadow:inset 2px 0 0 {accent} !important; }}}}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{{{ color:{accent} !important; font-weight:700 !important; }}}}
-    [data-testid="stSidebar"] hr {{{{ margin:9px 8px !important; border-color:{border2} !important; }}}}
-    [data-testid="stSidebar"] .stButton > button {{{{ min-height:34px !important; font-size:.78rem !important; padding:0 9px !important; }}}}
-    .profile-img {{{{ width:62px !important; height:62px !important; border-radius:8px !important; border:1px solid {border} !important; box-shadow:none !important; }}}}
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{hover} !important; border-color:{border2} !important; transform:none !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label p {{ color:{muted} !important; font-size:13px !important; font-weight:570 !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background:{accent_soft} !important; border-color:rgba(36,124,117,.18) !important; box-shadow:inset 2px 0 0 {accent} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:{accent} !important; font-weight:700 !important; }}
+    [data-testid="stSidebar"] hr {{ margin:9px 8px !important; border-color:{border2} !important; }}
+    [data-testid="stSidebar"] .stButton > button {{ min-height:34px !important; font-size:.78rem !important; padding:0 9px !important; }}
+    .profile-img {{ width:62px !important; height:62px !important; border-radius:8px !important; border:1px solid {border} !important; box-shadow:none !important; }}
 
     /* ===== MODO CLARO — CONTROLO EXPLÍCITO DOS COMPONENTES NATIVOS ===== */
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input,
-    [data-testid="stTextArea"] textarea {{{{
+    [data-testid="stTextArea"] textarea {{
         background-color:{input_bg} !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
         caret-color:{accent} !important;
         opacity:1 !important;
-    }}}}
+    }}
     [data-testid="stTextInput"] [data-baseweb="input"],
     [data-testid="stNumberInput"] [data-baseweb="input"],
     [data-testid="stDateInput"] [data-baseweb="input"],
     [data-testid="stTimeInput"] [data-baseweb="input"],
-    [data-testid="stTextArea"] [data-baseweb="textarea"] {{{{
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {{
         background-color:{input_bg} !important;
         color:{text} !important;
-    }}}}
+    }}
     [data-testid="stTextInput"] [data-baseweb="input"] > div,
     [data-testid="stNumberInput"] [data-baseweb="input"] > div,
     [data-testid="stDateInput"] [data-baseweb="input"] > div,
     [data-testid="stTimeInput"] [data-baseweb="input"] > div,
-    [data-testid="stTextArea"] [data-baseweb="textarea"] > div {{{{
+    [data-testid="stTextArea"] [data-baseweb="textarea"] > div {{
         background-color:{input_bg} !important;
-    }}}}
+    }}
     [data-testid="stSelectbox"] [data-baseweb="select"] > div,
     [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] > div {{{{
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div {{
         background-color:{input_bg} !important;
         color:{text} !important;
-    }}}}
+    }}
     [data-testid="stSelectbox"] [data-baseweb="select"] span,
     [data-testid="stMultiSelect"] [data-baseweb="select"] span,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] span {{{{
+    [data-testid="stSelectSlider"] [data-baseweb="select"] span {{
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }}}}
+    }}
     [data-baseweb="popover"],
     [data-baseweb="popover"] > div,
     [role="listbox"],
-    [role="listbox"] > div {{{{
+    [role="listbox"] > div {{
         background-color:{surface} !important;
         color:{text} !important;
-    }}}}
-    [role="option"], [role="option"] * {{{{
+    }}
+    [role="option"], [role="option"] * {{
         background-color:transparent !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }}}}
-    [role="option"]:hover, [role="option"][aria-selected="true"] {{{{
+    }}
+    [role="option"]:hover, [role="option"][aria-selected="true"] {{
         background-color:{hover} !important;
-    }}}}
-    [data-testid="stNumberInput"] button {{{{
+    }}
+    [data-testid="stNumberInput"] button {{
         background-color:{surface2} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }}}}
-    [data-testid="stNumberInput"] button svg {{{{
+    }}
+    [data-testid="stNumberInput"] button svg {{
         fill:{text} !important;
-    }}}}
+    }}
     [data-testid="stFileUploader"] section,
-    [data-testid="stFileUploadDropzone"] {{{{
+    [data-testid="stFileUploadDropzone"] {{
         background-color:{surface} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }}}}
+    }}
     [data-testid="stFileUploader"] section *,
-    [data-testid="stFileUploadDropzone"] * {{{{
+    [data-testid="stFileUploadDropzone"] * {{
         color:{text} !important;
-    }}}}
+    }}
     [data-testid="stRadio"] label,
     [data-testid="stCheckbox"] label,
-    [data-testid="stToggle"] label {{{{
+    [data-testid="stToggle"] label {{
         color:{text} !important;
-    }}}}
+    }}
     [data-testid="stRadio"] label p,
     [data-testid="stCheckbox"] label p,
-    [data-testid="stToggle"] label p {{{{
+    [data-testid="stToggle"] label p {{
         color:{text} !important;
-    }}}}
+    }}
     /* Remove qualquer fundo escuro residual em wrappers de formulário */
     [data-testid="stForm"],
     [data-testid="stForm"] > div,
-    [data-testid="stVerticalBlockBorderWrapper"] {{{{
+    [data-testid="stVerticalBlockBorderWrapper"] {{
         color:{text} !important;
-    }}}}
+    }}
 
     /* ===== THEME SHIELD — COMPONENTES BASEWEB / STREAMLIT ===== */
     /* O tema do aplicativo nunca deve vazar para os campos nativos. */
@@ -436,126 +437,186 @@ def aplicar_ui_premium(modo):
     input:disabled, textarea:disabled {{ background:{surface2} !important; color:{muted} !important; -webkit-text-fill-color:{muted} !important; }}
 
     /* ===== DASHBOARD 2.6 ===== */
-    .rp-dash-hero {{{{
+    .rp-dash-hero {{
         display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
         padding:4px 0 18px; margin-bottom:18px; border-bottom:1px solid {border};
-    }}}}
-    .rp-dash-eyebrow {{{{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}}}
-    .rp-dash-title {{{{ color:{text}; font-size:1.8rem; line-height:1.1; font-weight:760; letter-spacing:-.035em; margin-top:4px; }}}}
-    .rp-dash-sub {{{{ color:{muted}; font-size:.82rem; margin-top:6px; }}}}
-    .rp-dash-date {{{{ color:{muted}; font-size:.75rem; white-space:nowrap; padding-bottom:3px; }}}}
-    .rp-dash-alert {{{{
+    }}
+    .rp-dash-eyebrow {{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .rp-dash-title {{ color:{text}; font-size:1.8rem; line-height:1.1; font-weight:760; letter-spacing:-.035em; margin-top:4px; }}
+    .rp-dash-sub {{ color:{muted}; font-size:.82rem; margin-top:6px; }}
+    .rp-dash-date {{ color:{muted}; font-size:.75rem; white-space:nowrap; padding-bottom:3px; }}
+    .rp-dash-alert {{
         border:1px solid {border}; border-left:3px solid {accent}; background:{surface};
         padding:12px 14px; border-radius:7px; margin-bottom:16px;
-    }}}}
-    .rp-dash-alert-title {{{{ color:{text}; font-weight:700; font-size:.82rem; }}}}
-    .rp-dash-alert-sub {{{{ color:{muted}; font-size:.74rem; margin-top:3px; }}}}
-    .rp-dash-section {{{{
+    }}
+    .rp-dash-alert-title {{ color:{text}; font-weight:700; font-size:.82rem; }}
+    .rp-dash-alert-sub {{ color:{muted}; font-size:.74rem; margin-top:3px; }}
+    .rp-dash-section {{
         display:flex; align-items:center; gap:9px; margin:18px 0 9px;
         color:{text}; font-size:.92rem; font-weight:720;
-    }}}}
-    .rp-dash-section::before {{{{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}}}
-    .rp-chart-title {{{{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}}}
+    }}
+    .rp-dash-section::before {{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}
+    .rp-chart-title {{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}
 
     /* ===== CRONOGRAMA 2.6 ===== */
-    .rp-crono-hero {{{{
+    .rp-crono-hero {{
         padding:2px 0 16px; border-bottom:1px solid {border}; margin-bottom:16px;
-    }}}}
-    .rp-crono-kicker {{{{ color:{accent}; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}}}
-    .rp-crono-title {{{{ color:{text}; font-size:1.62rem; font-weight:750; letter-spacing:-.03em; margin-top:3px; }}}}
-    .rp-crono-sub {{{{ color:{muted}; font-size:.79rem; margin-top:4px; max-width:760px; }}}}
-    .rp-crono-stat {{{{
+    }}
+    .rp-crono-kicker {{ color:{accent}; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .rp-crono-title {{ color:{text}; font-size:1.62rem; font-weight:750; letter-spacing:-.03em; margin-top:3px; }}
+    .rp-crono-sub {{ color:{muted}; font-size:.79rem; margin-top:4px; max-width:760px; }}
+    .rp-crono-stat {{
         background:{surface}; border:1px solid {border}; border-radius:7px; padding:11px 13px;
         min-height:68px;
-    }}}}
-    .rp-crono-stat-label {{{{ color:{muted}; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }}}}
-    .rp-crono-stat-value {{{{ color:{text}; font-size:1.25rem; font-weight:760; margin-top:3px; }}}}
-    .rp-crono-stat-accent {{{{ color:{accent}; }}}}
-    .rp-crono-tabs [data-baseweb="tab-list"] {{{{ gap:3px !important; border-bottom:1px solid {border} !important; }}}}
-    .rp-crono-tabs [data-baseweb="tab"] {{{{ padding:8px 12px !important; }}}}
+    }}
+    .rp-crono-stat-label {{ color:{muted}; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }}
+    .rp-crono-stat-value {{ color:{text}; font-size:1.25rem; font-weight:760; margin-top:3px; }}
+    .rp-crono-stat-accent {{ color:{accent}; }}
+    .rp-crono-tabs [data-baseweb="tab-list"] {{ gap:3px !important; border-bottom:1px solid {border} !important; }}
+    .rp-crono-tabs [data-baseweb="tab"] {{ padding:8px 12px !important; }}
+
+
+    /* ===== CRONOGRAMA 2.8 — PLANNER PREMIUM ===== */
+    .rp-planner-hero {{
+        display:flex; align-items:flex-end; justify-content:space-between; gap:24px;
+        padding:3px 0 18px; margin-bottom:16px; border-bottom:1px solid {{border}};
+    }}
+    .rp-planner-kicker {{ color:{{accent}}; font-size:.64rem; font-weight:820; letter-spacing:.13em; text-transform:uppercase; }}
+    .rp-planner-title {{ color:{{text}}; font-size:1.82rem; line-height:1.08; font-weight:770; letter-spacing:-.04em; margin-top:4px; }}
+    .rp-planner-sub {{ color:{{muted}}; font-size:.8rem; line-height:1.5; margin-top:6px; max-width:760px; }}
+    .rp-planner-date {{ color:{{muted}}; font-size:.72rem; white-space:nowrap; padding-bottom:3px; }}
+    .rp-planner-progress {{ height:7px; background:{{surface2}}; border:1px solid {{border2}}; border-radius:999px; overflow:hidden; margin-top:11px; }}
+    .rp-planner-progress > div {{ height:100%; background:{{accent}}; border-radius:999px; }}
+    .rp-planner-kpi {{
+        background:{{surface}}; border:1px solid {{border}}; border-radius:9px; padding:12px 14px; min-height:78px;
+    }}
+    .rp-planner-kpi-label {{ color:{{muted}}; font-size:.65rem; text-transform:uppercase; letter-spacing:.075em; font-weight:760; }}
+    .rp-planner-kpi-value {{ color:{{text}}; font-size:1.38rem; font-weight:770; letter-spacing:-.03em; margin-top:4px; }}
+    .rp-planner-kpi-note {{ color:{{muted}}; font-size:.68rem; margin-top:2px; }}
+    .rp-planner-toolbar {{
+        background:{{surface}}; border:1px solid {{border}}; border-radius:9px; padding:12px 14px; margin:13px 0 15px;
+    }}
+    .rp-planner-toolbar-title {{ color:{{text}}; font-size:.76rem; font-weight:720; margin-bottom:7px; }}
+    .rp-week-head {{
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
+        padding:11px 13px; background:{{surface}}; border:1px solid {{border}}; border-bottom:0;
+        border-radius:9px 9px 0 0; margin-top:14px;
+    }}
+    .rp-week-name {{ color:{{text}}; font-size:.95rem; font-weight:760; letter-spacing:-.015em; }}
+    .rp-week-meta {{ color:{{muted}}; font-size:.7rem; white-space:nowrap; }}
+    .rp-day-card {{
+        background:{{surface}}; border:1px solid {{border}}; border-radius:8px; padding:10px 11px; margin-bottom:9px;
+    }}
+    .rp-day-card-empty {{ opacity:.72; }}
+    .rp-day-head {{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:7px; margin-bottom:8px; border-bottom:1px solid {{border2}}; }}
+    .rp-day-name {{ color:{{text}}; font-size:.75rem; font-weight:760; }}
+    .rp-day-count {{ color:{{muted}}; font-size:.64rem; }}
+    .rp-task {{
+        display:flex; align-items:center; gap:9px; padding:8px 7px; border:1px solid transparent; border-radius:7px; margin:2px 0;
+    }}
+    .rp-task:hover {{ background:{{hover}}; border-color:{{border2}}; }}
+    .rp-task-dot {{ width:7px; height:7px; min-width:7px; border-radius:50%; }}
+    .rp-task-body {{ min-width:0; flex:1; }}
+    .rp-task-title {{ color:{{text}}; font-size:.76rem; font-weight:650; line-height:1.3; overflow-wrap:anywhere; }}
+    .rp-task-title.done {{ color:{{muted}}; text-decoration:line-through; }}
+    .rp-task-meta {{ color:{{muted}}; font-size:.63rem; margin-top:2px; }}
+    .rp-task-priority {{ font-size:.61rem; font-weight:700; white-space:nowrap; }}
+    .rp-empty {{
+        text-align:center; padding:32px 16px; background:{{surface}}; border:1px dashed {{border}}; border-radius:9px; color:{{muted}};
+    }}
+    .rp-empty strong {{ color:{{text}}; display:block; font-size:.9rem; margin-bottom:4px; }}
+    .rp-import-card, .rp-manual-card {{ background:{{surface}}; border:1px solid {{border}}; border-radius:9px; padding:13px 14px; }}
+    @media(max-width:760px) {{
+        .rp-planner-hero {{ align-items:flex-start; }}
+        .rp-planner-date {{ display:none; }}
+        .rp-planner-title {{ font-size:1.5rem; }}
+        .rp-week-head {{ padding:10px; }}
+        .rp-week-meta {{ display:none; }}
+        .rp-task {{ padding:7px 4px; }}
+        .rp-task-priority {{ display:none; }}
+    }}
 
     /* ===== TOPO DE MÓDULO ===== */
-    .rp-topbar {{{{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}}}
-    .rp-topbar-title {{{{ color:{text}; font-size:1.42rem; font-weight:730; letter-spacing:-.025em; }}}}
-    .rp-topbar-sub {{{{ color:{muted}; font-size:.77rem; margin-top:3px; }}}}
-    .rp-status {{{{ color:{muted}; font-size:.7rem; white-space:nowrap; }}}}
-    .rp-dot {{{{ display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:{accent}; }}}}
-    .rp-kicker {{{{ color:{accent}; font-size:.66rem; font-weight:760; letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }}}}
+    .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}
+    .rp-topbar-title {{ color:{text}; font-size:1.42rem; font-weight:730; letter-spacing:-.025em; }}
+    .rp-topbar-sub {{ color:{muted}; font-size:.77rem; margin-top:3px; }}
+    .rp-status {{ color:{muted}; font-size:.7rem; white-space:nowrap; }}
+    .rp-dot {{ display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:{accent}; }}
+    .rp-kicker {{ color:{accent}; font-size:.66rem; font-weight:760; letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }}
 
     /* ===== FORMULÁRIOS ===== */
-    [data-baseweb="input"] > div,[data-baseweb="textarea"] > div,[data-baseweb="select"] > div,[data-testid="stFileUploadDropzone"] {{{{
+    [data-baseweb="input"] > div,[data-baseweb="textarea"] > div,[data-baseweb="select"] > div,[data-testid="stFileUploadDropzone"] {{
         background:{input_bg} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important;
-    }}}}
-    [data-baseweb="input"] > div:focus-within,[data-baseweb="textarea"] > div:focus-within,[data-baseweb="select"] > div:focus-within {{{{ border-color:{accent} !important; box-shadow:0 0 0 2px {accent_soft} !important; }}}}
-    input,textarea,[data-baseweb="select"] span {{{{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}}}
-    [data-baseweb="popover"] > div,ul[data-baseweb="menu"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:0 10px 28px rgba(0,0,0,.12) !important; }}}}
-    ul[data-baseweb="menu"] li:hover {{{{ background:{hover} !important; }}}}
+    }}
+    [data-baseweb="input"] > div:focus-within,[data-baseweb="textarea"] > div:focus-within,[data-baseweb="select"] > div:focus-within {{ border-color:{accent} !important; box-shadow:0 0 0 2px {accent_soft} !important; }}
+    input,textarea,[data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
+    [data-baseweb="popover"] > div,ul[data-baseweb="menu"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:0 10px 28px rgba(0,0,0,.12) !important; }}
+    ul[data-baseweb="menu"] li:hover {{ background:{hover} !important; }}
 
     /* Botões: hierarquia, não decoração */
-    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{{{ min-height:39px !important; border-radius:6px !important; border:1px solid {accent} !important; background:{accent} !important; color:#fff !important; box-shadow:none !important; font-weight:650 !important; }}}}
-    .stButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover {{{{ filter:brightness(.95); transform:none !important; }}}}
-    .stButton > button:focus-visible,div[data-testid="stFormSubmitButton"] > button:focus-visible {{{{ box-shadow:0 0 0 3px {accent_soft} !important; }}}}
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:39px !important; border-radius:6px !important; border:1px solid {accent} !important; background:{accent} !important; color:#fff !important; box-shadow:none !important; font-weight:650 !important; }}
+    .stButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover {{ filter:brightness(.95); transform:none !important; }}
+    .stButton > button:focus-visible,div[data-testid="stFormSubmitButton"] > button:focus-visible {{ box-shadow:0 0 0 3px {accent_soft} !important; }}
 
     /* ===== CONTAINERS / CARDS ===== */
-    div[data-testid="stVerticalBlockBorderWrapper"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}}}
-    div[data-testid="stExpander"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important; }}}}
-    div[data-testid="stExpander"] summary {{{{ font-weight:650 !important; }}}}
-    [data-testid="stAlert"] {{{{ border-radius:6px !important; box-shadow:none !important; }}}}
+    div[data-testid="stVerticalBlockBorderWrapper"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
+    div[data-testid="stExpander"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important; }}
+    div[data-testid="stExpander"] summary {{ font-weight:650 !important; }}
+    [data-testid="stAlert"] {{ border-radius:6px !important; box-shadow:none !important; }}
 
     /* Métricas com leitura de dashboard, não cartão de marketing */
-    div[data-testid="metric-container"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; padding:12px 14px !important; box-shadow:none !important; }}}}
-    div[data-testid="metric-container"] label {{{{ color:{muted} !important; font-size:.72rem !important; font-weight:620 !important; }}}}
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{{{ color:{text} !important; font-size:1.48rem !important; font-weight:730 !important; letter-spacing:-.035em !important; }}}}
-    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {{{{ font-size:.72rem !important; }}}}
+    div[data-testid="metric-container"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; padding:12px 14px !important; box-shadow:none !important; }}
+    div[data-testid="metric-container"] label {{ color:{muted} !important; font-size:.72rem !important; font-weight:620 !important; }}
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ color:{text} !important; font-size:1.48rem !important; font-weight:730 !important; letter-spacing:-.035em !important; }}
+    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {{ font-size:.72rem !important; }}
 
     /* ===== ABAS ===== */
-    [data-testid="stTabs"] {{{{ margin-top:.15rem !important; }}}}
-    [data-testid="stTabs"] [role="tablist"] {{{{ gap:0 !important; border-bottom:1px solid {border} !important; }}}}
-    [data-testid="stTabs"] button[role="tab"] {{{{ border:0 !important; border-bottom:2px solid transparent !important; border-radius:0 !important; padding:9px 14px 8px !important; color:{muted} !important; font-size:.8rem !important; font-weight:620 !important; background:transparent !important; }}}}
-    [data-testid="stTabs"] button[role="tab"]:hover {{{{ color:{text} !important; background:{hover} !important; }}}}
-    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{{{ color:{accent} !important; border-bottom-color:{accent} !important; background:transparent !important; }}}}
-    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{{{ background:{accent} !important; }}}}
+    [data-testid="stTabs"] {{ margin-top:.15rem !important; }}
+    [data-testid="stTabs"] [role="tablist"] {{ gap:0 !important; border-bottom:1px solid {border} !important; }}
+    [data-testid="stTabs"] button[role="tab"] {{ border:0 !important; border-bottom:2px solid transparent !important; border-radius:0 !important; padding:9px 14px 8px !important; color:{muted} !important; font-size:.8rem !important; font-weight:620 !important; background:transparent !important; }}
+    [data-testid="stTabs"] button[role="tab"]:hover {{ color:{text} !important; background:{hover} !important; }}
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{ color:{accent} !important; border-bottom-color:{accent} !important; background:transparent !important; }}
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{ background:{accent} !important; }}
 
     /* ===== TABELAS / EDITORES ===== */
-    [data-testid="stDataFrame"],[data-testid="stTable"] {{{{ border:1px solid {border} !important; border-radius:6px !important; overflow:hidden !important; box-shadow:none !important; }}}}
-    [data-testid="stDataFrame"] th,[data-testid="stTable"] th {{{{ background:{surface2} !important; color:{muted} !important; font-size:.74rem !important; font-weight:680 !important; text-transform:none !important; letter-spacing:0 !important; padding:9px !important; border-bottom:1px solid {border} !important; }}}}
-    [data-testid="stDataFrame"] td,[data-testid="stTable"] td {{{{ padding:9px !important; border-bottom:1px solid {border2} !important; }}}}
+    [data-testid="stDataFrame"],[data-testid="stTable"] {{ border:1px solid {border} !important; border-radius:6px !important; overflow:hidden !important; box-shadow:none !important; }}
+    [data-testid="stDataFrame"] th,[data-testid="stTable"] th {{ background:{surface2} !important; color:{muted} !important; font-size:.74rem !important; font-weight:680 !important; text-transform:none !important; letter-spacing:0 !important; padding:9px !important; border-bottom:1px solid {border} !important; }}
+    [data-testid="stDataFrame"] td,[data-testid="stTable"] td {{ padding:9px !important; border-bottom:1px solid {border2} !important; }}
 
     /* ===== COMPONENTES DE ESTUDO ===== */
-    .rp-study-row {{{{ background:{surface}; border:1px solid {border}; border-radius:6px; padding:10px 12px; }}}}
-    .rp-label {{{{ color:{muted}; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }}}}
-    .rp-value {{{{ color:{text}; font-size:.94rem; font-weight:650; margin-top:2px; }}}}
-    .rp-rule {{{{ height:1px; background:{border2}; margin:10px 0; }}}}
+    .rp-study-row {{ background:{surface}; border:1px solid {border}; border-radius:6px; padding:10px 12px; }}
+    .rp-label {{ color:{muted}; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }}
+    .rp-value {{ color:{text}; font-size:.94rem; font-weight:650; margin-top:2px; }}
+    .rp-rule {{ height:1px; background:{border2}; margin:10px 0; }}
 
     /* ===== DASHBOARD 2.4 — visual próprio ===== */
-    .dash-head {{{{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:2px 0 15px; margin:0 0 14px; border-bottom:1px solid {border}; }}}}
-    .dash-eyebrow {{{{ color:{accent}; font-size:.62rem; font-weight:800; letter-spacing:.12em; margin-bottom:5px; }}}}
-    .dash-title {{{{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; line-height:1.05; }}}}
-    .dash-sub {{{{ color:{muted}; font-size:.78rem; margin-top:6px; max-width:650px; }}}}
-    .dash-date {{{{ color:{muted}; font-size:.72rem; white-space:nowrap; }}}}
-    .dash-section-title {{{{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}}}
-    @media(max-width:760px) {{{{ .dash-head {{{{ align-items:flex-start; }}}} .dash-date {{{{ display:none; }}}} .dash-title {{{{ font-size:1.48rem; }}}} }}}}
+    .dash-head {{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:2px 0 15px; margin:0 0 14px; border-bottom:1px solid {border}; }}
+    .dash-eyebrow {{ color:{accent}; font-size:.62rem; font-weight:800; letter-spacing:.12em; margin-bottom:5px; }}
+    .dash-title {{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; line-height:1.05; }}
+    .dash-sub {{ color:{muted}; font-size:.78rem; margin-top:6px; max-width:650px; }}
+    .dash-date {{ color:{muted}; font-size:.72rem; white-space:nowrap; }}
+    .dash-section-title {{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}
+    @media(max-width:760px) {{ .dash-head {{ align-items:flex-start; }} .dash-date {{ display:none; }} .dash-title {{ font-size:1.48rem; }} }}
 
     /* ===== CHAT / IA ===== */
-    [data-testid="stChatMessage"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}}}
-    [data-testid="stChatInput"] > div {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}}}
+    [data-testid="stChatMessage"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}
+    [data-testid="stChatInput"] > div {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
 
     /* ===== GRÁFICOS ===== */
-    .js-plotly-plot .plotly .modebar {{{{ display:none !important; }}}}
+    .js-plotly-plot .plotly .modebar {{ display:none !important; }}
 
-    @media(max-width:760px) {{{{
-        .main .block-container {{{{ padding:.85rem .65rem 2.5rem !important; }}}}
-        h1 {{{{ font-size:1.52rem !important; }}}}
-        .rp-topbar {{{{ align-items:flex-start; margin-bottom:13px; }}}}
-        .rp-status {{{{ display:none; }}}}
-        [data-testid="stTabs"] button[role="tab"] {{{{ padding:9px 10px 8px !important; font-size:.75rem !important; }}}}
-        .stButton > button {{{{ min-height:43px !important; }}}}
-    }}}}
-    @media(prefers-reduced-motion:reduce) {{{{ *,*::before,*::after {{{{ transition:none !important; animation:none !important; }}}} }}}}
+    @media(max-width:760px) {{
+        .main .block-container {{ padding:.85rem .65rem 2.5rem !important; }}
+        h1 {{ font-size:1.52rem !important; }}
+        .rp-topbar {{ align-items:flex-start; margin-bottom:13px; }}
+        .rp-status {{ display:none; }}
+        [data-testid="stTabs"] button[role="tab"] {{ padding:9px 10px 8px !important; font-size:.75rem !important; }}
+        .stButton > button {{ min-height:43px !important; }}
+    }}
+    @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ transition:none !important; animation:none !important; }} }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
-
 
 def render_shell(menu, nome, modo):
     """Cabeçalho discreto por módulo; mantém a navegação e as funções intactas."""
@@ -584,7 +645,6 @@ def render_shell(menu, nome, modo):
         f'<div class="rp-status"><span class="rp-dot"></span>{nome}</div></div>',
         unsafe_allow_html=True,
     )
-
 
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
@@ -1304,7 +1364,7 @@ else:
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
-        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.6</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.8</div></div>", unsafe_allow_html=True)
         if user_settings.get('foto_perfil_b64'):
             st.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
@@ -1516,42 +1576,60 @@ else:
                 st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     elif menu == "🗓️ Cronograma IA":
-        total_crono = len(dados_cronogramas)
-        pendentes_crono = [t for t in dados_cronogramas if not bool(t.get("concluido"))]
-        concluidos_crono = [t for t in dados_cronogramas if bool(t.get("concluido"))]
+        # ==============================================================
+        # CRONOGRAMA 2.8 — PLANNER MODERNO
+        # Mantém o mesmo banco/estrutura de dados da versão anterior.
+        # ==============================================================
+        meu_crono = list(dados_cronogramas or [])
+        total_crono = len(meu_crono)
+        concluidos_crono = [t for t in meu_crono if bool(t.get("concluido"))]
+        pendentes_crono = [t for t in meu_crono if not bool(t.get("concluido"))]
         taxa_crono = (len(concluidos_crono) / total_crono * 100) if total_crono else 0
+        hoje_str = hoje.strftime("%d/%m/%Y")
 
-        st.markdown("""
-        <div class="rp-crono-hero">
-            <div class="rp-crono-kicker">PLANEJAMENTO DE ESTUDO</div>
-            <div class="rp-crono-title">Cronograma da semana</div>
-            <div class="rp-crono-sub">Organize suas metas, importe seu cronograma com IA ou adicione tarefas manualmente. Tudo permanece no mesmo fluxo de estudo.</div>
+        st.markdown(f"""
+        <div class="rp-planner-hero">
+            <div>
+                <div class="rp-planner-kicker">PLANEJAMENTO INTELIGENTE</div>
+                <div class="rp-planner-title">Seu plano de estudo</div>
+                <div class="rp-planner-sub">Veja o que precisa ser feito, acompanhe seu ritmo e ajuste o cronograma sem perder o histórico. Use a IA para transformar prints em metas ou cadastre uma tarefa em poucos segundos.</div>
+                <div class="rp-planner-progress"><div style="width:{min(max(taxa_crono,0),100):.1f}%"></div></div>
+            </div>
+            <div class="rp-planner-date">Hoje · {hoje_str}</div>
         </div>
         """, unsafe_allow_html=True)
-        sc1, sc2, sc3 = st.columns(3)
-        with sc1:
-            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Metas cadastradas</div><div class="rp-crono-stat-value">{total_crono}</div></div>', unsafe_allow_html=True)
-        with sc2:
-            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Pendentes</div><div class="rp-crono-stat-value">{len(pendentes_crono)}</div></div>', unsafe_allow_html=True)
-        with sc3:
-            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Execução</div><div class="rp-crono-stat-value rp-crono-stat-accent">{taxa_crono:.0f}%</div></div>', unsafe_allow_html=True)
 
-        if 'prints_colados' not in st.session_state: st.session_state.prints_colados = []
+        k1, k2, k3, k4 = st.columns(4)
+        with k1:
+            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Total de metas</div><div class="rp-planner-kpi-value">{total_crono}</div><div class="rp-planner-kpi-note">No seu cronograma</div></div>', unsafe_allow_html=True)
+        with k2:
+            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Pendentes</div><div class="rp-planner-kpi-value">{len(pendentes_crono)}</div><div class="rp-planner-kpi-note">Ainda para estudar</div></div>', unsafe_allow_html=True)
+        with k3:
+            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Concluídas</div><div class="rp-planner-kpi-value">{len(concluidos_crono)}</div><div class="rp-planner-kpi-note">Metas finalizadas</div></div>', unsafe_allow_html=True)
+        with k4:
+            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Execução</div><div class="rp-planner-kpi-value" style="color:var(--rp-accent)">{taxa_crono:.0f}%</div><div class="rp-planner-kpi-note">Progresso acumulado</div></div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="rp-crono-tabs">', unsafe_allow_html=True)
-        aba_lista, aba_importar, aba_manual = st.tabs(["Minhas Metas", "Extrair com IA", "Adicionar Manualmente"])
-        st.markdown('</div>', unsafe_allow_html=True)
+        if 'prints_colados' not in st.session_state:
+            st.session_state.prints_colados = []
 
-        with aba_importar:
-            nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
+        aba_visao, aba_ia, aba_manual = st.tabs(["📋 Meu plano", "✨ Importar com IA", "➕ Nova meta"])
+
+        # --------------------------------------------------------------
+        # IMPORTAÇÃO COM IA — mesma lógica da versão anterior
+        # --------------------------------------------------------------
+        with aba_ia:
+            st.markdown('<div class="rp-import-card">', unsafe_allow_html=True)
+            st.markdown("### Transforme seu cronograma em metas")
+            st.caption("Envie prints do cronograma. A IA identifica matéria, tema e prioridade e distribui as tarefas automaticamente.")
+            nome_semana = st.text_input("Nome do bloco/semana", placeholder="Ex.: Semana 1 · Reta final", key="crono28_nome_semana")
             col_btn, col_arq = st.columns(2)
-            
+
             with col_btn:
-                st.markdown("### 📋 Colar Prints (Suporta Múltiplos)")
-                st.caption("Clique no botão azul abaixo e aperte Ctrl+V várias vezes para colar vários prints seguidos.")
+                st.markdown("**📋 Colar prints**")
+                st.caption("Cole vários prints com Ctrl+V. Cada imagem entra na fila antes da extração.")
                 if paste_image_button is not None:
                     paste_result = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
+                        label="CLIQUE E APERTE Ctrl+V",
                         background_color="#2563eb",
                         hover_background_color="#1d4ed8",
                         key="paste_crono"
@@ -1561,48 +1639,51 @@ else:
                         buf = io.BytesIO()
                         img.save(buf, format="PNG")
                         img_hash = hashlib.md5(buf.getvalue()).hexdigest()
-                        
                         if not any(item['hash'] == img_hash for item in st.session_state.prints_colados):
                             st.session_state.prints_colados.append({'hash': img_hash, 'img': img, 'bytes': buf.getvalue()})
                             st.rerun()
                 else:
-                    st.warning("⚠️ Para habilitar o botão de colar mágico, adicione `streamlit-paste-button` no requirements.txt.")
-                
+                    st.warning("⚠️ Para habilitar o botão de colar, adicione `streamlit-paste-button` no requirements.txt.")
                 if st.session_state.prints_colados:
-                    st.toast(f"{len(st.session_state.prints_colados)} print(s) na fila para extração.", icon="📸")
-                    if st.button("Limpar Fila de Prints"):
+                    st.success(f"{len(st.session_state.prints_colados)} print(s) aguardando processamento.")
+                    if st.button("Limpar fila", key="crono28_limpar_fila"):
                         st.session_state.prints_colados = []
                         st.rerun()
-                        
+
             with col_arq:
-                st.markdown("### 📂 Enviar Arquivos Tradicional")
-                st.caption("Ou anexe múltiplos arquivos de imagem aqui.")
-                imgs_crono = st.file_uploader("Selecione os arquivos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, label_visibility="collapsed")
-            
+                st.markdown("**📂 Enviar arquivos**")
+                st.caption("Você também pode selecionar várias imagens de uma vez.")
+                imgs_crono = st.file_uploader(
+                    "Selecione os arquivos",
+                    type=['png', 'jpg', 'jpeg'],
+                    accept_multiple_files=True,
+                    label_visibility="collapsed",
+                    key="crono28_uploader"
+                )
+
+            st.markdown('</div>', unsafe_allow_html=True)
             st.divider()
-            
-            if (imgs_crono or st.session_state.prints_colados) and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
+
+            if (imgs_crono or st.session_state.prints_colados) and nome_semana and st.button("🪄 Extrair metas com IA", use_container_width=True, key="crono28_extract"):
                 client_ia = get_ia_client()
-                if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
+                if not client_ia:
+                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    with st.spinner("Visão Computacional analisando imagens uma a uma para evitar bloqueios de limite..."):
-                        
+                    with st.spinner("Analisando as imagens uma a uma para preservar todos os itens..."):
                         todas_imagens_b64 = []
                         if imgs_crono:
                             for img in imgs_crono:
                                 todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=720))
-                        
                         if st.session_state.prints_colados:
                             for item in st.session_state.prints_colados:
                                 todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=720))
-                        
+
                         tarefas_totais = []
                         if todas_imagens_b64:
                             barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Extraia RIGOROSAMENTE TODAS as tarefas visíveis na imagem, do início ao fim (não pule nenhuma). 
-                            Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
-                            MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINIFICADO (sem quebras de linha e sem espaços). PROIBIDO usar <think> ou explicar."""
-                            
+                            prompt_visao = """[SISTEMA NÍVEL 5] Extraia RIGOROSAMENTE TODAS as tarefas visíveis na imagem, do início ao fim (não pule nenhuma).
+Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
+MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINIFICADO (sem quebras de linha e sem espaços). PROIBIDO usar <think> ou explicar."""
                             for idx_img, img_b64 in enumerate(todas_imagens_b64):
                                 conteudo_api = [
                                     {"type": "text", "text": prompt_visao},
@@ -1610,35 +1691,35 @@ else:
                                 ]
                                 try:
                                     try:
-                                        resposta = chamar_ia(client_ia, 
-                                            modelo=MODELO_VISAO, 
-                                            messages=[{"role": "user", "content": conteudo_api}], 
+                                        resposta = chamar_ia(
+                                            client_ia,
+                                            modelo=MODELO_VISAO,
+                                            messages=[{"role": "user", "content": conteudo_api}],
                                             temperature=0.1,
                                             max_tokens=2500
                                         )
                                     except Exception as e_api:
                                         if "rate" in str(e_api).lower() or "429" in str(e_api) or "413" in str(e_api):
-                                            time.sleep(12) 
-                                            resposta = chamar_ia(client_ia, 
-                                                modelo=MODELO_VISAO, 
-                                                messages=[{"role": "user", "content": conteudo_api}], 
+                                            time.sleep(12)
+                                            resposta = chamar_ia(
+                                                client_ia,
+                                                modelo=MODELO_VISAO,
+                                                messages=[{"role": "user", "content": conteudo_api}],
                                                 temperature=0.1,
                                                 max_tokens=2500
                                             )
                                         else:
                                             raise e_api
-                                    
                                     tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
                                     tarefas_totais.extend(tarefas_lote)
                                 except Exception as e:
                                     st.warning(f"Aviso na imagem {idx_img+1}: {e}")
                                 barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
-                        
+
                         if not tarefas_totais:
                             st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
                         else:
                             batch = db.batch()
-                            
                             for t in tarefas_totais:
                                 c = str(t.get("cor", "")).lower()
                                 p = 3
@@ -1648,14 +1729,12 @@ else:
                                 elif "vermelho" in c: p = 4
                                 elif "roxo" in c: p = 5
                                 t["prioridade"] = p
-                                
+
                             tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
                             dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
-                            
                             for i, t in enumerate(tarefas_totais):
                                 dia_idx = (i // 4) % len(dias_semana)
                                 t_dia = dias_semana[dia_idx]
-                                
                                 doc_ref = db.collection("cronogramas").document()
                                 nova_tarefa = {
                                     "usuario_id": u_id,
@@ -1672,33 +1751,39 @@ else:
                                 nova_tarefa["id"] = doc_ref.id
                                 st.session_state.dados["cronogramas"].append(nova_tarefa)
                             batch.commit()
-                            
                             st.session_state.prints_colados = []
-                            st.toast(f"✅ {len(tarefas_totais)} metas importadas e distribuídas!", icon="🎉")
-                            time.sleep(1)
+                            st.toast(f"✅ {len(tarefas_totais)} metas importadas.", icon="🎯")
+                            time.sleep(0.8)
                             st.rerun()
 
+        # --------------------------------------------------------------
+        # NOVA META — mesma estrutura funcional, apresentação mais limpa
+        # --------------------------------------------------------------
         with aba_manual:
-            st.markdown("### ➕ Inserir Aula Manualmente no Cronograma")
+            st.markdown('<div class="rp-manual-card">', unsafe_allow_html=True)
+            st.markdown("### Adicionar uma meta")
+            st.caption("Cadastre uma tarefa específica sem precisar importar um cronograma inteiro.")
             c3, c4 = st.columns(2)
-            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="crono_mat")
+            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="crono28_mat")
             sub_m = ""
             if m_materia == "Clínica Médica":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="crono_sub_cm")
+                sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="crono28_sub_cm")
             elif m_materia == "Cirurgia Geral":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CG, key="crono_sub_cg")
-                
-            with st.form("form_crono_manual", clear_on_submit=True):
+                sub_m = c4.selectbox("Subespecialidade", SUB_CG, key="crono28_sub_cg")
+            else:
+                with c4:
+                    st.markdown("**Subespecialidade**")
+                    st.caption("Opcional para esta matéria.")
+
+            with st.form("form_crono_manual_28", clear_on_submit=True):
                 c1, c2 = st.columns(2)
-                m_semana = c1.text_input("Nome da Semana (Ex: Semana 1)")
-                m_dia = c2.selectbox("Dia da Semana", ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"])
-                
-                m_tema = st.text_input("Tema da Aula")
-                m_prio = st.selectbox("Prioridade (Cor)", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
-                
-                if st.form_submit_button("Adicionar Meta ao Cronograma", use_container_width=True):
+                m_semana = c1.text_input("Semana / bloco", placeholder="Ex.: Semana 4")
+                m_dia = c2.selectbox("Dia", ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"])
+                m_tema = st.text_input("Tema da meta", placeholder="Ex.: Insuficiência cardíaca — tratamento")
+                m_prio = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
+                if st.form_submit_button("Adicionar ao plano", use_container_width=True):
                     if not m_semana or not m_tema:
-                        st.error("Preencha a Semana e o Tema para adicionar.")
+                        st.error("Preencha a semana e o tema para adicionar a meta.")
                     else:
                         tema_final = f"{sub_m} - {m_tema}" if sub_m and sub_m != "Geral" else m_tema
                         db_add("cronogramas", "cronogramas", {
@@ -1712,94 +1797,127 @@ else:
                             "data_importacao": str(hoje),
                             "data_conclusao": None
                         })
-                        st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
+                        st.toast("✅ Meta adicionada.", icon="🎯")
                         time.sleep(0.5)
                         st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with aba_lista:
-            meu_crono = dados_cronogramas
-            
-            def sort_key_week(sem):
-                dates = [parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                max_d = max(dates) if dates else parse_data(None)
-                nums = re.findall(r'\d+', sem)
-                num = int(nums[0]) if nums else 0
-                return (max_d, num)
-                
-            semanas_unicas = sorted(list(set([c.get("semana", "Semana Geral") for c in meu_crono])), key=sort_key_week, reverse=True)
-            
-            if not meu_crono: 
-                st.info("Você ainda não tem nenhum cronograma. Vá na aba 'Adicionar Cronograma' para começar!")
+        # --------------------------------------------------------------
+        # VISÃO DO PLANO
+        # --------------------------------------------------------------
+        with aba_visao:
+            if not meu_crono:
+                st.markdown('<div class="rp-empty"><strong>Seu cronograma ainda está vazio.</strong>Comece importando um print com IA ou adicione sua primeira meta manualmente.</div>', unsafe_allow_html=True)
             else:
-                termo_pesquisa = st.text_input("🔍 Pesquisar aula, tema ou matéria...", "")
-            
-            for sem in semanas_unicas:
-                tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                
+                semanas_unicas = sorted(
+                    list(set([c.get("semana", "Semana Geral") for c in meu_crono])),
+                    key=lambda sem: (
+                        max([parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem] or [parse_data(None)]),
+                        int(re.findall(r'\d+', str(sem))[0]) if re.findall(r'\d+', str(sem)) else 0
+                    ),
+                    reverse=True
+                )
+                materias_unicas = sorted(list(set([str(c.get("materia", "Geral")) for c in meu_crono if c.get("materia")])) or ["Geral"])
+
+                st.markdown('<div class="rp-planner-toolbar">', unsafe_allow_html=True)
+                st.markdown("**Filtrar seu plano**", unsafe_allow_html=True)
+                f1, f2, f3, f4 = st.columns([1.15, 1, 1.25, 1.7])
+                with f1:
+                    semana_filtro = st.selectbox("Semana", ["Todas"] + semanas_unicas, key="crono28_semana_filtro", label_visibility="collapsed")
+                with f2:
+                    status_filtro = st.selectbox("Status", ["Todas", "Pendentes", "Concluídas"], key="crono28_status_filtro", label_visibility="collapsed")
+                with f3:
+                    materia_filtro = st.selectbox("Matéria", ["Todas"] + materias_unicas, key="crono28_materia_filtro", label_visibility="collapsed")
+                with f4:
+                    termo_pesquisa = st.text_input("Buscar", placeholder="🔎 Tema ou palavra-chave...", key="crono28_busca", label_visibility="collapsed")
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                filtradas = list(meu_crono)
+                if semana_filtro != "Todas":
+                    filtradas = [c for c in filtradas if c.get("semana", "Semana Geral") == semana_filtro]
+                if status_filtro == "Pendentes":
+                    filtradas = [c for c in filtradas if not bool(c.get("concluido"))]
+                elif status_filtro == "Concluídas":
+                    filtradas = [c for c in filtradas if bool(c.get("concluido"))]
+                if materia_filtro != "Todas":
+                    filtradas = [c for c in filtradas if str(c.get("materia", "Geral")) == materia_filtro]
                 if termo_pesquisa:
-                    termo_pesquisa_lower = termo_pesquisa.lower()
-                    tarefas_semana = [c for c in tarefas_semana if termo_pesquisa_lower in str(c.get('tema', '')).lower() or termo_pesquisa_lower in str(c.get('materia', '')).lower()]
-                
-                if termo_pesquisa and not tarefas_semana:
-                    continue
+                    q = termo_pesquisa.lower().strip()
+                    filtradas = [c for c in filtradas if q in str(c.get("tema", "")).lower() or q in str(c.get("materia", "")).lower() or q in str(c.get("dia", "")).lower()]
 
-                st.write("---")
-                col_titulo, col_del_sem = st.columns([0.7, 0.3])
-                with col_titulo: st.subheader(f"📂 {sem}")
-                with col_del_sem:
-                    if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
-                        batch = db.batch()
-                        ids_del = []
-                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: 
-                            t_id = str(t_del.get('id', '0'))
-                            if t_id != '0':
-                                batch.delete(db.collection("cronogramas").document(t_id))
-                                ids_del.append(t_id)
-                        batch.commit()
-                        st.session_state.dados["cronogramas"] = [c for c in st.session_state.dados["cronogramas"] if str(c.get('id')) not in ids_del]
-                        st.rerun()
+                if not filtradas:
+                    st.markdown('<div class="rp-empty"><strong>Nenhuma meta encontrada.</strong>Altere os filtros ou cadastre uma nova meta.</div>', unsafe_allow_html=True)
+                else:
+                    semanas_exibir = [semana_filtro] if semana_filtro != "Todas" else sorted(
+                        list(set([c.get("semana", "Semana Geral") for c in filtradas])),
+                        key=lambda sem: (
+                            max([parse_data(c.get("data_importacao", str(hoje))) for c in filtradas if c.get("semana", "Semana Geral") == sem] or [parse_data(None)]),
+                            int(re.findall(r'\d+', str(sem))[0]) if re.findall(r'\d+', str(sem)) else 0
+                        ),
+                        reverse=True
+                    )
+                    dias_ordem = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"]
 
-                pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
-                concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
-                pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                
-                if pendentes:
-                    for t in pendentes:
-                        t_id = str(t.get('id', uuid.uuid4()))
-                        with st.container(border=True):
-                            col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
-                            with col1:
-                                if st.button("✔️", key=f"btn_{t_id}"):
-                                    db_update("cronogramas", "cronogramas", t_id, {"concluido": True, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                    st.toast("Mandou bem! Mais uma concluída.", icon="🔥")
-                                    st.rerun()
-                            with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
-                            with col3:
-                                p_val = safe_int(t.get('prioridade', 3))
-                                novo_p = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"pri_{t_id}", label_visibility="collapsed")
-                                if novo_p != p_val: 
-                                    db_update("cronogramas", "cronogramas", t_id, {"prioridade": novo_p})
-                                    st.rerun()
-                            with col4:
-                                if st.button("🗑️", key=f"del_p_{t_id}"): 
-                                    db_delete("cronogramas", "cronogramas", t_id)
-                                    st.rerun()
-                elif not termo_pesquisa:
-                    st.success("🎉 Nenhuma aula pendente nesta semana!")
+                    for sem in semanas_exibir:
+                        tarefas_semana = [c for c in filtradas if c.get("semana", "Semana Geral") == sem]
+                        if not tarefas_semana:
+                            continue
+                        semana_conc = sum(1 for c in tarefas_semana if bool(c.get("concluido")))
+                        semana_total = len(tarefas_semana)
+                        semana_pct = (semana_conc / semana_total * 100) if semana_total else 0
+                        st.markdown(f'<div class="rp-week-head"><div class="rp-week-name">📚 {sem}</div><div class="rp-week-meta">{semana_conc}/{semana_total} concluídas · {semana_pct:.0f}%</div></div>', unsafe_allow_html=True)
 
-                if concluidos:
-                    st.divider()
-                    with st.expander(f"✅ Histórico ({len(concluidos)})"):
-                        for t in reversed(concluidos):
-                            dc = t.get('data_conclusao', '')
-                            try:
-                                if len(str(dc)) > 10:
-                                    dc_fmt = datetime.strptime(str(dc), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M")
-                                else:
-                                    dc_fmt = formatar_data_br(dc)
-                            except:
-                                dc_fmt = formatar_data_br(dc)
-                            st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Check: {dc_fmt})*")
+                        dias_presentes = [d for d in dias_ordem if any(c.get("dia", "") == d for c in tarefas_semana)]
+                        for base in range(0, len(dias_presentes), 2):
+                            dia_cols = st.columns(2)
+                            for idx_col, dia in enumerate(dias_presentes[base:base+2]):
+                                tarefas_dia = [c for c in tarefas_semana if c.get("dia", "") == dia]
+                                tarefas_dia.sort(key=lambda x: (bool(x.get("concluido")), safe_int(x.get("prioridade", 3)), str(x.get("tema", ""))))
+                                with dia_cols[idx_col]:
+                                    st.markdown(f'<div class="rp-day-card"><div class="rp-day-head"><div class="rp-day-name">{dia}</div><div class="rp-day-count">{sum(1 for c in tarefas_dia if c.get("concluido"))}/{len(tarefas_dia)} feitas</div></div>', unsafe_allow_html=True)
+                                    for t in tarefas_dia:
+                                        t_id = str(t.get("id", uuid.uuid4()))
+                                        concluido = bool(t.get("concluido"))
+                                        p_val = safe_int(t.get("prioridade", 3))
+                                        p_text = PRIORIDADES.get(p_val, "🟨 Amarelo")
+                                        cor_materia = CORES_AREAS.get(str(t.get("materia", "Geral")), "#64748b")
+                                        titulo = str(t.get("tema", "Sem tema"))
+                                        materia = str(t.get("materia", "Geral"))
+                                        done_cls = " done" if concluido else ""
+                                        st.markdown(f'<div class="rp-task"><span class="rp-task-dot" style="background:{cor_materia}"></span><div class="rp-task-body"><div class="rp-task-title{done_cls}">{titulo}</div><div class="rp-task-meta">{materia}</div></div><span class="rp-task-priority" style="color:{cor_materia}">{p_text}</span></div>', unsafe_allow_html=True)
+                                        a, b, c = st.columns([.22, .55, .23])
+                                        with a:
+                                            label = "↩️" if concluido else "✓"
+                                            if st.button(label, key=f"crono28_done_{t_id}", help="Reabrir meta" if concluido else "Concluir meta", use_container_width=True):
+                                                updates = {"concluido": not concluido, "data_conclusao": None if concluido else get_agora().strftime("%Y-%m-%d %H:%M:%S")}
+                                                db_update("cronogramas", "cronogramas", t_id, updates)
+                                                st.toast("Meta reaberta." if concluido else "Meta concluída!", icon="↩️" if concluido else "🎯")
+                                                st.rerun()
+                                        with b:
+                                            novo_p = st.selectbox("Prioridade", options=[1,2,3,4,5], format_func=lambda x: PRIORIDADES.get(x), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"crono28_pri_{t_id}", label_visibility="collapsed")
+                                            if novo_p != p_val:
+                                                db_update("cronogramas", "cronogramas", t_id, {"prioridade": novo_p})
+                                                st.rerun()
+                                        with c:
+                                            if st.button("🗑️", key=f"crono28_del_{t_id}", help="Excluir meta", use_container_width=True):
+                                                db_delete("cronogramas", "cronogramas", t_id)
+                                                st.rerun()
+                                    st.markdown('</div>', unsafe_allow_html=True)
+
+                        # Exclusão da semana preservada, mas agora discreta.
+                        with st.expander("⚙️ Gerenciar esta semana"):
+                            st.caption("Excluir a semana remove todas as metas desse bloco. Esta ação não pode ser desfeita.")
+                            if st.button("Excluir semana inteira", key=f"crono28_del_sem_{sem}"):
+                                batch = db.batch()
+                                ids_del = []
+                                for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
+                                    t_id = str(t_del.get("id", "0"))
+                                    if t_id != "0":
+                                        batch.delete(db.collection("cronogramas").document(t_id))
+                                        ids_del.append(t_id)
+                                batch.commit()
+                                st.session_state.dados["cronogramas"] = [c for c in st.session_state.dados["cronogramas"] if str(c.get("id")) not in ids_del]
+                                st.rerun()
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
