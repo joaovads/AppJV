@@ -1718,30 +1718,60 @@ else:
                             st.progress(pct/100)
                             # Dentro de cada dia, sempre ordenar pela prioridade visual:
                             # Azul -> Verde -> Amarelo -> Vermelho -> Roxo.
+                            # Aulas concluídas não permanecem na lista principal do dia:
+                            # elas são movidas para o tópico "Aulas assistidas" no fim da semana.
                             ordem_prioridade = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
                             for dia in dias:
-                                itens=[x for x in itens_sem if str(x.get("dia",""))==dia]
+                                itens=[x for x in itens_sem if str(x.get("dia",""))==dia and not bool(x.get("concluido"))]
                                 if not itens: continue
                                 itens.sort(key=lambda x: ordem_prioridade.get(safe_int(x.get("prioridade", 3)), 2))
                                 st.markdown(f"**{dia}**")
                                 for t in itens:
-                                    tid=str(t.get("id","")); done_t=bool(t.get("concluido")); mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")));
+                                    tid=str(t.get("id","")); mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")));
                                     a,b,c=st.columns([0.08,3.4,0.8])
                                     with a:
-                                        if st.button("↩" if done_t else "✓", key=f"crono29_done_{tid}", help="Reabrir" if done_t else "Concluir aula"):
-                                            if done_t:
-                                                # Mantém a possibilidade de reabrir apenas para registros antigos já concluídos.
-                                                db_update("cronogramas","cronogramas",tid,{"concluido":False,"data_conclusao":None})
-                                            else:
-                                                # Check = aula concluída: remove definitivamente a meta da lista do cronograma.
-                                                db_delete("cronogramas","cronogramas",tid)
-                                                st.toast("Aula concluída e removida do cronograma!", icon="✅")
+                                        # O botão de check conclui a aula e a move para
+                                        # "Aulas assistidas" no final desta semana.
+                                        if st.button("✓", key=f"crono29_done_{tid}", help="Marcar aula como assistida"):
+                                            agora = get_agora().strftime("%Y-%m-%d %H:%M:%S")
+                                            db_update("cronogramas","cronogramas",tid,{"concluido":True,"data_conclusao":agora})
+                                            # Mantém o registro no Firestore para preservar o histórico
+                                            # e permitir que a aula apareça no tópico de assistidas.
+                                            st.toast("Aula assistida! Ela foi movida para o histórico da semana.", icon="✅")
                                             st.rerun()
                                     with b:
-                                        st.markdown(f"<div style='padding:5px 0'><span style='color:{cor};font-weight:800'>●</span> <strong style='text-decoration:{'line-through' if done_t else 'none'}'>{tema}</strong><br><small style='color:var(--rp-muted)'>{mat}</small></div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='padding:5px 0'><span style='color:{cor};font-weight:800'>●</span> <strong>{tema}</strong><br><small style='color:var(--rp-muted)'>{mat}</small></div>", unsafe_allow_html=True)
                                     with c:
                                         p=safe_int(t.get("prioridade",3)); novo=st.selectbox("Prioridade",[1,2,3,4,5],index=max(0,min(4,p-1)),format_func=lambda x: PRIORIDADES.get(x),key=f"crono29_pri_{tid}",label_visibility="collapsed")
                                         if novo!=p: db_update("cronogramas","cronogramas",tid,{"prioridade":novo}); st.rerun()
+
+                            # =====================================================
+                            # HISTÓRICO DA SEMANA — aulas que já foram assistidas
+                            # =====================================================
+                            aulas_assistidas = [x for x in itens_sem if bool(x.get("concluido"))]
+                            if filtro_status in ("Todos", "Concluídas") and aulas_assistidas:
+                                with st.expander(f"✅ Aulas assistidas · {len(aulas_assistidas)}", expanded=False):
+                                    st.caption("As aulas marcadas com ✓ ficam aqui para você visualizar o que já estudou nesta semana.")
+                                    aulas_assistidas.sort(
+                                        key=lambda x: (
+                                            str(x.get("data_conclusao") or ""),
+                                            ordem_prioridade.get(safe_int(x.get("prioridade", 3)), 2)
+                                        ),
+                                        reverse=True
+                                    )
+                                    for t in aulas_assistidas:
+                                        mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")))
+                                        data_conc=limpar_texto(t.get("data_conclusao", ""))
+                                        a,b=st.columns([0.08,4.5])
+                                        with a:
+                                            st.markdown("### ✅")
+                                        with b:
+                                            detalhe=f"<small style='color:var(--rp-muted)'>{mat}"
+                                            if data_conc:
+                                                detalhe += f" · Assistida em {data_conc}"
+                                            detalhe += "</small>"
+                                            st.markdown(f"<div style='padding:5px 0'><strong style='text-decoration:line-through'>{tema}</strong><br>{detalhe}</div>", unsafe_allow_html=True)
+
                             with st.expander("⚙️ Gerenciar semana"):
                                 if st.button("Excluir esta semana",key=f"crono29_del_sem_{sem}"):
                                     batch=db.batch(); ids=[]
