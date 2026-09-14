@@ -2065,53 +2065,37 @@ else:
                         else: return 'color: #ef4444 !important; font-weight: bold !important;'
                     except: return ''
 
-                # Renderização HTML própria: evita que o CSS global do Streamlit
-                # sobrescreva as cores do percentual na tabela HIIT.
+                # Tabela HIIT: a última coluna recebe a cor diretamente no conteúdo.
+                # Não usamos st.table/st.dataframe para evitar que o CSS global do app sobrescreva a célula.
                 colunas_h = [c for c in df_h.columns if c != "ID"]
                 html_h = [
-                    "<div style='width:100%;overflow-x:auto;border:1px solid var(--rp-border);border-radius:12px;'>",
-                    "<table style='width:100%;border-collapse:collapse;font-size:13px;'>",
+                    "<div style=\"width:100%;overflow-x:auto;\">",
+                    "<table style=\"width:100%;border-collapse:separate;border-spacing:0;font-size:13px;\">",
                     "<thead><tr>"
                 ]
                 for c in colunas_h:
                     html_h.append(
-                        f"<th style='text-align:left;padding:10px 8px;border-bottom:1px solid var(--rp-border);"
-                        f"color:var(--rp-muted);font-weight:700;white-space:nowrap;'>{html.escape(str(c))}</th>"
+                        f"<th style=\"text-align:left;padding:10px 8px;border-bottom:1px solid #334155;color:#94a3b8 !important;font-weight:700;white-space:nowrap;\">{html.escape(str(c))}</th>"
                     )
                 html_h.append("</tr></thead><tbody>")
 
                 for _, row in df_h.iterrows():
-                    html_h.append("<tr style='border-bottom:1px solid var(--rp-border);'>")
+                    html_h.append("<tr>")
                     for c in colunas_h:
                         valor = "" if pd.isna(row[c]) else str(row[c])
                         if c == "% Acertos":
-                            # A ÚLTIMA COLUNA (% Acertos) recebe a cor diretamente na CÉLULA.
-                            # Isso evita qualquer interferência do CSS global do Streamlit.
                             cor_pct = cor_percentual_acerto(valor)
-                            try:
-                                num_pct = float(str(valor).replace('%', '').replace(',', '.'))
-                            except Exception:
-                                num_pct = 0.0
-                            cor_texto = "#111827" if 70 <= num_pct <= 80 else "#ffffff"
-                            conteudo = (
-                                f"<div style='width:100%;text-align:center;font-weight:900;"
-                                f"font-size:13px;color:{cor_texto} !important;"
-                                f"-webkit-text-fill-color:{cor_texto} !important;'>"
-                                f"{html.escape(valor)}</div>"
-                            )
-                            td_style = (
-                                f"padding:9px 8px;background-color:{cor_pct} !important;"
-                                f"border-left:1px solid rgba(255,255,255,.16);"
-                                f"border-bottom:1px solid var(--rp-border);"
-                                f"white-space:nowrap;min-width:88px;"
+                            html_h.append(
+                                f"<td style=\"padding:8px;border-bottom:1px solid #334155;white-space:nowrap;\">"
+                                f"<span style=\"display:inline-flex;align-items:center;gap:7px;font-weight:900;color:{cor_pct} !important;-webkit-text-fill-color:{cor_pct} !important;\">"
+                                f"<span style=\"display:inline-block;width:9px;height:9px;border-radius:50%;background:{cor_pct} !important;\"></span>"
+                                f"<span style=\"color:{cor_pct} !important;-webkit-text-fill-color:{cor_pct} !important;\">{html.escape(valor)}</span>"
+                                f"</span></td>"
                             )
                         else:
-                            conteudo = html.escape(valor)
-                            td_style = (
-                                "padding:9px 8px;color:var(--rp-text);"
-                                "white-space:nowrap;"
+                            html_h.append(
+                                f"<td style=\"padding:8px;color:var(--rp-text) !important;-webkit-text-fill-color:var(--rp-text) !important;border-bottom:1px solid #334155;white-space:nowrap;\">{html.escape(valor)}</td>"
                             )
-                        html_h.append(f"<td style='{td_style}'>{conteudo}</td>")
                     html_h.append("</tr>")
 
                 html_h.append("</tbody></table></div>")
