@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.1", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 2.2", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -198,101 +198,279 @@ def aplicar_css_tema(modo):
 # DESIGN PREMIUM 2.0 — CAMADA VISUAL NÃO INTRUSIVA
 # ==========================================
 def aplicar_ui_premium(modo):
-    """Design 2.1: camada visual completa, sem alterar a lógica das funcionalidades."""
+    """Design 2.2: interface editorial/clínica, discreta e funcional.
+    A camada é exclusivamente visual e não altera as regras de negócio.
+    """
     dark = modo == "Escuro"
-    bg = "#070a12" if dark else "#f3f6fb"
-    surface = "#0d1422" if dark else "#ffffff"
-    surface2 = "#111b2d" if dark else "#f8fafc"
-    surface3 = "#162238" if dark else "#eef3f9"
-    border = "rgba(148,163,184,.14)" if dark else "rgba(15,23,42,.08)"
-    text = "#f8fafc" if dark else "#101828"
-    muted = "#94a3b8" if dark else "#667085"
-    accent = "#4f7cff"
-    accent2 = "#7c5cff"
-    shadow = "0 20px 60px rgba(0,0,0,.28)" if dark else "0 20px 60px rgba(15,23,42,.08)"
-    sidebar = "#09101d" if dark else "#ffffff"
+    if dark:
+        bg = "#0b0f14"
+        surface = "#11161d"
+        surface_alt = "#151b23"
+        border = "#26303b"
+        border_soft = "#1d252e"
+        text = "#eef2f6"
+        muted = "#8d99a6"
+        accent = "#5aa9a5"
+        accent_soft = "rgba(90,169,165,.12)"
+        hover = "#18212a"
+        shadow = "0 8px 24px rgba(0,0,0,.16)"
+    else:
+        bg = "#f5f6f4"
+        surface = "#ffffff"
+        surface_alt = "#fafbfa"
+        border = "#dfe4e1"
+        border_soft = "#e9ecea"
+        text = "#17211f"
+        muted = "#68736f"
+        accent = "#287f79"
+        accent_soft = "rgba(40,127,121,.09)"
+        hover = "#f1f4f2"
+        shadow = "0 6px 20px rgba(24,40,35,.06)"
+
     css = f"""
     <style>
-    :root {{ --rp-bg:{bg}; --rp-surface:{surface}; --rp-surface2:{surface2}; --rp-surface3:{surface3}; --rp-border:{border}; --rp-text:{text}; --rp-muted:{muted}; --rp-accent:{accent}; --rp-accent2:{accent2}; }}
-    @keyframes rp_enter {{ from {{opacity:0; transform:translateY(8px)}} to {{opacity:1; transform:translateY(0)}} }}
-    @keyframes rp_glow {{ 0%,100% {{opacity:.55}} 50% {{opacity:1}} }}
-    .stApp {{ background: radial-gradient(900px 420px at 0% -5%, rgba(79,124,255,.13), transparent 60%), radial-gradient(700px 380px at 100% 0%, rgba(124,92,255,.10), transparent 60%), {bg} !important; }}
-    [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ background:transparent !important; }}
-    .main .block-container {{ max-width:1500px; padding-top:1.15rem; padding-bottom:4rem; animation:rp_enter .35s ease-out; }}
-    h1 {{ font-size:clamp(1.8rem,3vw,2.55rem) !important; font-weight:850 !important; letter-spacing:-.045em !important; }}
-    h2 {{ font-size:clamp(1.35rem,2.2vw,1.8rem) !important; font-weight:800 !important; letter-spacing:-.035em !important; }}
-    h3,h4 {{ font-weight:750 !important; letter-spacing:-.02em !important; }}
-    p, label, .stMarkdown {{ color:{text} !important; }}
+    :root {{
+        --rp-bg:{bg}; --rp-surface:{surface}; --rp-surface-alt:{surface_alt};
+        --rp-border:{border}; --rp-border-soft:{border_soft}; --rp-text:{text};
+        --rp-muted:{muted}; --rp-accent:{accent}; --rp-accent-soft:{accent_soft};
+        --rp-hover:{hover}; --rp-shadow:{shadow};
+    }}
+
+    /* Base: aparência de produto profissional, não de landing page */
+    .stApp, [data-testid="stAppViewContainer"], .main {{
+        background:{bg} !important;
+        color:{text} !important;
+    }}
+    [data-testid="stHeader"] {{ background:transparent !important; }}
+    .main .block-container {{
+        max-width:1320px;
+        padding-top:1.35rem;
+        padding-bottom:3.5rem;
+    }}
+    .main .block-container > div {{ gap:.75rem; }}
+
+    /* Tipografia mais sóbria */
+    h1, h2, h3, h4, h5, h6 {{
+        color:{text} !important;
+        font-family:Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        letter-spacing:-.025em !important;
+    }}
+    h1 {{ font-size:2rem !important; font-weight:720 !important; margin-bottom:.2rem !important; }}
+    h2 {{ font-size:1.42rem !important; font-weight:700 !important; }}
+    h3 {{ font-size:1.12rem !important; font-weight:700 !important; }}
+    p, label, .stMarkdown, .stCaption, [data-testid="stCaptionContainer"] {{ color:{text} !important; }}
     [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
-    [data-testid="stSidebar"] {{ background:linear-gradient(180deg,{sidebar}, {surface2}) !important; border-right:1px solid {border} !important; }}
-    [data-testid="stSidebar"] > div:first-child {{ padding-top:1rem; }}
-    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:3px !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ border:1px solid transparent; border-radius:13px !important; margin:1px 8px !important; padding:9px 12px !important; transition:all .18s ease !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{surface3} !important; border-color:{border} !important; transform:translateX(2px); }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color:{muted} !important; font-size:14px !important; font-weight:600 !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background:linear-gradient(135deg,rgba(79,124,255,.20),rgba(124,92,255,.14)) !important; border-color:rgba(79,124,255,.30) !important; box-shadow:inset 3px 0 0 {accent}, 0 8px 25px rgba(79,124,255,.08); }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:{text} !important; font-weight:800 !important; }}
-    [data-testid="stSidebar"] hr {{ border-color:{border} !important; }}
-    div[data-testid="stVerticalBlockBorderWrapper"], div[data-testid="stExpander"] {{ background:linear-gradient(145deg,{surface},{surface2}) !important; border:1px solid {border} !important; border-radius:20px !important; box-shadow:{shadow} !important; }}
-    div[data-testid="stVerticalBlockBorderWrapper"] {{ transition:transform .18s ease, border-color .18s ease; }}
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover {{ transform:translateY(-1px); border-color:rgba(79,124,255,.24) !important; }}
-    div[data-testid="metric-container"] {{ background:linear-gradient(145deg,{surface},{surface2}) !important; border:1px solid {border} !important; border-radius:18px !important; padding:18px 18px 15px !important; box-shadow:{shadow} !important; }}
-    div[data-testid="metric-container"] label {{ color:{muted} !important; font-weight:700 !important; }}
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-weight:850 !important; letter-spacing:-.045em !important; }}
-    [data-testid="stAlert"] {{ border-radius:15px !important; border:1px solid {border} !important; }}
-    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:13px !important; }}
-    input, textarea, [data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
-    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:14px !important; box-shadow:{shadow} !important; }}
-    ul[data-baseweb="menu"] li:hover {{ background:{surface3} !important; }}
-    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:43px !important; border-radius:13px !important; font-weight:750 !important; border:1px solid rgba(79,124,255,.22) !important; box-shadow:0 8px 22px rgba(79,124,255,.10) !important; transition:transform .16s ease, box-shadow .16s ease !important; }}
-    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{ transform:translateY(-1px); box-shadow:0 12px 30px rgba(79,124,255,.18) !important; }}
-    button p, button span {{ font-weight:750 !important; }}
+
+    /* Sidebar: aspecto de software de estudo, sem cartões gigantes */
+    [data-testid="stSidebar"] {{
+        background:{surface} !important;
+        border-right:1px solid {border} !important;
+    }}
+    [data-testid="stSidebar"] > div:first-child {{ padding-top:.7rem; }}
+    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:1px !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{
+        margin:0 8px !important;
+        padding:7px 10px !important;
+        min-height:36px !important;
+        border:1px solid transparent !important;
+        border-radius:7px !important;
+        transition:background .12s ease, color .12s ease, border-color .12s ease !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{
+        background:{hover} !important;
+        border-color:{border_soft} !important;
+        transform:none !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{
+        color:{muted} !important;
+        font-size:13.5px !important;
+        font-weight:560 !important;
+        line-height:1.2 !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
+        background:{accent_soft} !important;
+        border-color:rgba(40,127,121,.20) !important;
+        box-shadow:inset 2px 0 0 {accent} !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{
+        color:{accent} !important;
+        font-weight:700 !important;
+    }}
+    [data-testid="stSidebar"] hr {{ border-color:{border_soft} !important; margin:10px 12px !important; }}
+
+    /* Marca */
+    .rp-brand {{ margin:2px 10px 14px !important; padding:5px 2px 12px !important; border-bottom:1px solid {border_soft}; }}
+    .rp-brand-title {{
+        color:{text} !important; font-size:1.02rem !important; font-weight:750 !important;
+        letter-spacing:.01em !important;
+    }}
+    .rp-brand-sub {{ color:{muted} !important; font-size:.66rem !important; margin-top:4px !important; letter-spacing:.07em !important; }}
+
+    /* Controles: aparência de formulário real */
+    [data-baseweb="input"] > div,
+    [data-baseweb="textarea"] > div,
+    [data-baseweb="select"] > div,
+    [data-testid="stFileUploadDropzone"] {{
+        background:{surface} !important;
+        border:1px solid {border} !important;
+        border-radius:7px !important;
+        box-shadow:none !important;
+    }}
+    [data-baseweb="input"] > div:focus-within,
+    [data-baseweb="textarea"] > div:focus-within,
+    [data-baseweb="select"] > div:focus-within {{
+        border-color:{accent} !important;
+        box-shadow:0 0 0 2px {accent_soft} !important;
+    }}
+    input, textarea, [data-baseweb="select"] span {{
+        color:{text} !important; -webkit-text-fill-color:{text} !important;
+    }}
+    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{
+        background:{surface} !important; border:1px solid {border} !important;
+        border-radius:7px !important; box-shadow:{shadow} !important;
+    }}
+    ul[data-baseweb="menu"] li:hover {{ background:{hover} !important; }}
+
+    /* Botões: simples e sólidos */
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
+        min-height:40px !important;
+        padding:0 16px !important;
+        border-radius:7px !important;
+        border:1px solid {accent} !important;
+        background:{accent} !important;
+        color:#fff !important;
+        box-shadow:none !important;
+        font-weight:650 !important;
+        transition:filter .12s ease, transform .12s ease !important;
+    }}
+    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
+        filter:brightness(.94); transform:none !important; box-shadow:none !important;
+    }}
+    .stButton > button:focus-visible, div[data-testid="stFormSubmitButton"] > button:focus-visible {{
+        box-shadow:0 0 0 3px {accent_soft} !important;
+    }}
+    button p, button span {{ font-weight:650 !important; }}
+
+    /* Cards e containers: borda fina, pouca sombra, cantos moderados */
+    div[data-testid="stVerticalBlockBorderWrapper"] {{
+        background:{surface} !important;
+        border:1px solid {border} !important;
+        border-radius:9px !important;
+        box-shadow:none !important;
+    }}
+    div[data-testid="stExpander"] {{
+        background:{surface} !important;
+        border:1px solid {border} !important;
+        border-radius:8px !important;
+        box-shadow:none !important;
+    }}
+    div[data-testid="stExpander"] summary {{ font-weight:650 !important; }}
+    div[data-testid="metric-container"] {{
+        background:{surface} !important;
+        border:1px solid {border} !important;
+        border-radius:8px !important;
+        padding:14px 15px !important;
+        box-shadow:none !important;
+    }}
+    div[data-testid="metric-container"] label {{ color:{muted} !important; font-weight:600 !important; font-size:.78rem !important; }}
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+        color:{text} !important; font-weight:720 !important; letter-spacing:-.025em !important;
+    }}
+    [data-testid="stAlert"] {{ border-radius:7px !important; box-shadow:none !important; }}
+
+    /* Abas e tabelas */
+    [data-testid="stTabs"] [role="tablist"] {{ gap:0 !important; border-bottom:1px solid {border} !important; }}
+    [data-testid="stTabs"] button[role="tab"] {{
+        border-radius:0 !important;
+        padding:9px 13px !important;
+        font-weight:620 !important;
+        color:{muted} !important;
+    }}
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{
+        color:{accent} !important;
+        border-bottom-color:{accent} !important;
+    }}
+    [data-testid="stDataFrame"], [data-testid="stTable"] {{
+        border:1px solid {border} !important;
+        border-radius:8px !important;
+        overflow:hidden !important;
+        box-shadow:none !important;
+    }}
+    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{
+        font-weight:650 !important; text-transform:none !important;
+        letter-spacing:0 !important; font-size:.78rem !important;
+    }}
+
+    /* Chat: menos "chatbot genérico", mais painel de estudo */
+    [data-testid="stChatMessage"] {{
+        background:{surface} !important;
+        border:1px solid {border_soft} !important;
+        border-radius:8px !important;
+        margin-bottom:7px !important;
+    }}
     [data-testid="stChatInput"] {{ background:transparent !important; }}
-    [data-testid="stChatInput"] > div {{ background:{surface} !important; border:1px solid {border} !important; border-radius:18px !important; box-shadow:{shadow}; }}
-    [data-testid="stTabs"] [role="tablist"] {{ gap:6px; border-bottom:1px solid {border}; }}
-    [data-testid="stTabs"] button[role="tab"] {{ border-radius:11px 11px 0 0; font-weight:700; padding:9px 13px; }}
-    [data-testid="stDataFrame"], [data-testid="stTable"] {{ border-radius:16px !important; overflow:hidden !important; border:1px solid {border} !important; box-shadow:{shadow}; }}
-    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ font-weight:800 !important; text-transform:uppercase; letter-spacing:.04em; font-size:.72rem; }}
-    div[data-testid="stExpander"] summary {{ font-weight:750 !important; }}
-    .profile-img {{ border-radius:18px !important; object-fit:cover; border:2px solid rgba(79,124,255,.55) !important; width:88px !important; height:88px !important; display:block; margin:0 auto 8px; box-shadow:0 12px 35px rgba(0,0,0,.22); }}
-    .rp-brand {{ margin:0 0 10px; padding:10px 6px 4px; }}
-    .rp-brand-title {{ font-size:1.15rem; font-weight:900; letter-spacing:-.03em; color:{text}; }}
-    .rp-brand-sub {{ font-size:.72rem; color:{muted}; margin-top:2px; }}
-    .rp-chip {{ display:inline-block; padding:5px 9px; border-radius:999px; background:rgba(79,124,255,.10); border:1px solid rgba(79,124,255,.18); color:{text}; font-size:.72rem; font-weight:750; }}
-    .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; margin:0 0 18px; border:1px solid {border}; border-radius:20px; background:linear-gradient(135deg,rgba(79,124,255,.08),{surface} 42%,{surface2}); box-shadow:{shadow}; }}
-    .rp-topbar-title {{ font-size:1.05rem; font-weight:850; color:{text}; }}
-    .rp-topbar-sub {{ font-size:.78rem; color:{muted}; margin-top:2px; }}
-    .rp-status {{ display:flex; gap:7px; align-items:center; white-space:nowrap; }}
-    .rp-dot {{ width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,.10); animation:rp_glow 2s infinite; }}
-    @media(max-width:760px) {{ .main .block-container {{ padding:1rem .75rem 3rem; }} .rp-topbar {{ padding:13px 14px; border-radius:16px; }} .rp-status {{ display:none; }} [data-testid="stSidebar"] [role="radiogroup"] > label {{ margin-left:3px !important; margin-right:3px !important; }} div[data-testid="metric-container"] {{ padding:14px !important; }} .stButton > button {{ min-height:46px !important; }} }}
-    @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ animation:none !important; transition:none !important; }} }}
+    [data-testid="stChatInput"] > div {{
+        background:{surface} !important; border:1px solid {border} !important;
+        border-radius:8px !important; box-shadow:none !important;
+    }}
+
+    /* Separadores e pequenos detalhes */
+    hr {{ border-color:{border_soft} !important; }}
+    .profile-img {{
+        border-radius:10px !important; border:1px solid {border} !important;
+        width:82px !important; height:82px !important; box-shadow:none !important;
+    }}
+    .rp-topbar {{
+        display:flex; align-items:flex-end; justify-content:space-between; gap:18px;
+        padding:0 0 13px; margin:0 0 22px;
+        border-bottom:1px solid {border}; background:transparent; box-shadow:none;
+        border-radius:0;
+    }}
+    .rp-topbar-title {{ color:{text}; font-size:1.42rem; font-weight:720; letter-spacing:-.025em; }}
+    .rp-topbar-sub {{ color:{muted}; font-size:.79rem; margin-top:4px; }}
+    .rp-status {{ color:{muted}; font-size:.72rem; white-space:nowrap; }}
+    .rp-dot {{ display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:{accent}; }}
+
+    @media(max-width:760px) {{
+        .main .block-container {{ padding:1rem .7rem 2.5rem; }}
+        h1 {{ font-size:1.65rem !important; }}
+        .rp-topbar {{ align-items:flex-start; padding-bottom:11px; margin-bottom:16px; }}
+        .rp-status {{ display:none; }}
+        .stButton > button {{ min-height:44px !important; }}
+        [data-testid="stSidebar"] [role="radiogroup"] > label {{ margin-left:3px !important; margin-right:3px !important; }}
+    }}
+    @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ transition:none !important; animation:none !important; }} }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 
 
 def render_shell(menu, nome, modo):
-    """Cabeçalho visual global; não interfere nas telas existentes."""
+    """Cabeçalho discreto por módulo; mantém a navegação e as funções intactas."""
     nomes = {
-        "🏠 Dashboard": ("Central de Aprovação", "Seu desempenho, rotina e próximos passos em um só lugar."),
-        "🗓️ Cronograma IA": ("Planejamento Inteligente", "Organize o estudo sem perder o controle do que precisa ser revisado."),
-        "⚡ Revisão HIIT": ("Revisão de Alto Rendimento", "Sessões rápidas para transformar erros em pontos."),
-        "🎯 Questões": ("Banco de Questões", "Treine, registre resultados e acompanhe sua evolução."),
-        "📚 Registro de Aulas": ("Aulas", "Transforme cada aula assistida em progresso mensurável."),
-        "📝 Anotações Rápidas": ("Caderno Inteligente", "Capture, organize e reutilize o conhecimento."),
-        "📅 Agenda de Revisões": ("Agenda de Revisões", "Nunca deixe uma revisão importante passar."),
-        "✨ AI Tutor & Flashcards": ("Tutor & Flashcards", "Use a IA para estudar de forma ativa e objetiva."),
-        "📁 Materiais e Simulados": ("Biblioteca de Estudos", "Materiais e simulados organizados para acesso rápido."),
-        "🏥 Simulados & OSCE": ("Simulados & OSCE", "Pratique como se fosse o dia da prova."),
-        "📍 GPS da Aprovação": ("GPS da Aprovação", "Veja onde está e qual caminho falta percorrer."),
-        "⏱️ Modo Foco": ("Modo Foco", "Proteja seu tempo e transforme minutos em questões resolvidas."),
-        "⚙️ Configurações": ("Configurações", "Personalize sua experiência sem complicação."),
-        "📱 Instalar App": ("Residência PRO", "Leve seu ambiente de estudos com você."),
-        "👑 Admin": ("Administração", "Controle global do sistema."),
+        "🏠 Dashboard": ("Dashboard", "Visão geral do seu desempenho e da rotina de estudos."),
+        "🗓️ Cronograma IA": ("Cronograma", "Planejamento e distribuição do estudo."),
+        "⚡ Revisão HIIT": ("Revisão HIIT", "Revisões rápidas baseadas no que precisa de atenção."),
+        "🎯 Questões": ("Questões", "Registro, desempenho e revisão dos erros."),
+        "📚 Registro de Aulas": ("Aulas", "Acompanhe o conteúdo estudado e transforme aulas em progresso."),
+        "📝 Anotações Rápidas": ("Anotações", "Seu espaço para registrar e organizar pontos importantes."),
+        "📅 Agenda de Revisões": ("Revisões", "Veja o que está previsto e o que precisa ser retomado."),
+        "✨ AI Tutor & Flashcards": ("Tutor & Flashcards", "Estudo ativo com tutor, cartões e técnica Feynman."),
+        "📁 Materiais e Simulados": ("Materiais", "Organize materiais e simulados em um só lugar."),
+        "🏥 Simulados & OSCE": ("Simulados & OSCE", "Treino direcionado para prova e estações práticas."),
+        "📍 GPS da Aprovação": ("GPS da Aprovação", "Acompanhe seu caminho e os indicadores de desempenho."),
+        "⏱️ Modo Foco": ("Modo Foco", "Sessões de estudo concentradas e sem distrações."),
+        "⚙️ Configurações": ("Configurações", "Preferências e controle do seu perfil."),
+        "📱 Instalar App": ("Residência PRO", "Acesso rápido ao seu ambiente de estudos."),
+        "👑 Admin": ("Administração", "Gerenciamento global do sistema."),
     }
-    titulo, subtitulo = nomes.get(menu, ("Residência PRO", "Seu ambiente de preparação para residência."))
-    cor = "#94a3b8" if modo == "Escuro" else "#667085"
-    st.markdown(f'<div class="rp-topbar"><div><div class="rp-topbar-title">{titulo}</div><div class="rp-topbar-sub">{subtitulo}</div></div><div class="rp-status"><span class="rp-dot"></span><span style="color:{cor};font-size:.76rem;font-weight:700">Sessão ativa · {nome}</span></div></div>', unsafe_allow_html=True)
+    titulo, subtitulo = nomes.get(menu, ("Residência PRO", "Ambiente de preparação para residência."))
+    st.markdown(
+        f'<div class="rp-topbar"><div><div class="rp-topbar-title">{titulo}</div>'
+        f'<div class="rp-topbar-sub">{subtitulo}</div></div>'
+        f'<div class="rp-status"><span class="rp-dot"></span>{nome}</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ==========================================
@@ -986,7 +1164,7 @@ else:
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
-        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>CENTRAL DE PREPARAÇÃO · 2.1</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.2</div></div>", unsafe_allow_html=True)
         if user_settings.get('foto_perfil_b64'):
             st.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
