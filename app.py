@@ -1461,7 +1461,7 @@ else:
                             xanchor="left", yanchor="middle",
                             font=dict(size=12, color=cor_taxa(taxa)),
                             bgcolor="rgba(0,0,0,0)",
-                            border_width=0
+                            borderwidth=0
                         )
                     fig_bar1.update_xaxes(range=[0, 110], ticksuffix="%", gridcolor="rgba(128,128,128,.12)")
                     fig_bar1.update_layout(
