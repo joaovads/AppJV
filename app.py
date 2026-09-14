@@ -1728,8 +1728,15 @@ else:
                                     tid=str(t.get("id","")); done_t=bool(t.get("concluido")); mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")));
                                     a,b,c=st.columns([0.08,3.4,0.8])
                                     with a:
-                                        if st.button("↩" if done_t else "✓", key=f"crono29_done_{tid}", help="Reabrir" if done_t else "Concluir"):
-                                            db_update("cronogramas","cronogramas",tid,{"concluido":not done_t,"data_conclusao":None if done_t else get_agora().strftime("%Y-%m-%d %H:%M:%S")}); st.rerun()
+                                        if st.button("↩" if done_t else "✓", key=f"crono29_done_{tid}", help="Reabrir" if done_t else "Concluir aula"):
+                                            if done_t:
+                                                # Mantém a possibilidade de reabrir apenas para registros antigos já concluídos.
+                                                db_update("cronogramas","cronogramas",tid,{"concluido":False,"data_conclusao":None})
+                                            else:
+                                                # Check = aula concluída: remove definitivamente a meta da lista do cronograma.
+                                                db_delete("cronogramas","cronogramas",tid)
+                                                st.toast("Aula concluída e removida do cronograma!", icon="✅")
+                                            st.rerun()
                                     with b:
                                         st.markdown(f"<div style='padding:5px 0'><span style='color:{cor};font-weight:800'>●</span> <strong style='text-decoration:{'line-through' if done_t else 'none'}'>{tema}</strong><br><small style='color:var(--rp-muted)'>{mat}</small></div>", unsafe_allow_html=True)
                                     with c:
