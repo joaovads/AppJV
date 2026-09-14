@@ -213,129 +213,129 @@ def aplicar_ui_premium(modo):
 
     css=f"""
     <style>
-    :root{{--rp-bg:{bg};--rp-surface:{surface};--rp-surface2:{surface2};--rp-border:{border};--rp-border2:{border2};--rp-text:{text};--rp-muted:{muted};--rp-accent:{accent};--rp-accent-soft:{accent_soft};--rp-input:{input_bg};--rp-hover:{hover};}}
+    :root{{{{--rp-bg:{bg};--rp-surface:{surface};--rp-surface2:{surface2};--rp-border:{border};--rp-border2:{border2};--rp-text:{text};--rp-muted:{muted};--rp-accent:{accent};--rp-accent-soft:{accent_soft};--rp-input:{input_bg};--rp-hover:{hover};}}}}
 
     /* ===== FUNDAMENTO ===== */
-    html,body,[data-testid="stAppViewContainer"],.stApp,.main {{ background:{bg} !important; color:{text} !important; }}
-    [data-testid="stHeader"] {{ background:transparent !important; }}
-    .main .block-container {{ max-width:1280px; padding:1.15rem 2rem 3.5rem; }}
-    .main .block-container > div {{ gap:.55rem; }}
-    *,*::before,*::after {{ box-sizing:border-box; }}
-    h1,h2,h3,h4,h5,h6 {{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; letter-spacing:-.018em !important; }}
-    h1 {{ font-size:1.75rem !important; font-weight:720 !important; margin:.15rem 0 .15rem !important; }}
-    h2 {{ font-size:1.28rem !important; font-weight:700 !important; }}
-    h3 {{ font-size:1.02rem !important; font-weight:680 !important; }}
-    p,li,label,.stMarkdown {{ color:{text} !important; }}
-    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
-    hr {{ border-color:{border2} !important; margin:.75rem 0 !important; }}
+    html,body,[data-testid="stAppViewContainer"],.stApp,.main {{{{ background:{bg} !important; color:{text} !important; }}}}
+    [data-testid="stHeader"] {{{{ background:transparent !important; }}}}
+    .main .block-container {{{{ max-width:1280px; padding:1.15rem 2rem 3.5rem; }}}}
+    .main .block-container > div {{{{ gap:.55rem; }}}}
+    *,*::before,*::after {{{{ box-sizing:border-box; }}}}
+    h1,h2,h3,h4,h5,h6 {{{{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; letter-spacing:-.018em !important; }}}}
+    h1 {{{{ font-size:1.75rem !important; font-weight:720 !important; margin:.15rem 0 .15rem !important; }}}}
+    h2 {{{{ font-size:1.28rem !important; font-weight:700 !important; }}}}
+    h3 {{{{ font-size:1.02rem !important; font-weight:680 !important; }}}}
+    p,li,label,.stMarkdown {{{{ color:{text} !important; }}}}
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{{{ color:{muted} !important; }}}}
+    hr {{{{ border-color:{border2} !important; margin:.75rem 0 !important; }}}}
 
     /* ===== SIDEBAR ===== */
-    [data-testid="stSidebar"] {{ background:{surface} !important; border-right:1px solid {border} !important; }}
-    [data-testid="stSidebar"] > div:first-child {{ padding:.55rem .45rem 1rem !important; }}
-    .rp-brand {{ padding:7px 10px 14px !important; margin:0 4px 10px !important; border-bottom:1px solid {border2}; }}
-    .rp-brand-title {{ color:{text} !important; font-size:1rem !important; font-weight:760 !important; letter-spacing:.015em !important; }}
-    .rp-brand-sub {{ color:{muted} !important; font-size:.61rem !important; margin-top:4px !important; letter-spacing:.09em !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:2px !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{
+    [data-testid="stSidebar"] {{{{ background:{surface} !important; border-right:1px solid {border} !important; }}}}
+    [data-testid="stSidebar"] > div:first-child {{{{ padding:.55rem .45rem 1rem !important; }}}}
+    .rp-brand {{{{ padding:7px 10px 14px !important; margin:0 4px 10px !important; border-bottom:1px solid {border2}; }}}}
+    .rp-brand-title {{{{ color:{text} !important; font-size:1rem !important; font-weight:760 !important; letter-spacing:.015em !important; }}}}
+    .rp-brand-sub {{{{ color:{muted} !important; font-size:.61rem !important; margin-top:4px !important; letter-spacing:.09em !important; }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] {{{{ gap:2px !important; }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{{{
         margin:0 3px !important; padding:7px 9px !important; min-height:35px !important;
         border:1px solid transparent !important; border-radius:6px !important; transition:background .12s,border-color .12s !important;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{hover} !important; border-color:{border2} !important; transform:none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label p {{ color:{muted} !important; font-size:13px !important; font-weight:570 !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background:{accent_soft} !important; border-color:rgba(36,124,117,.18) !important; box-shadow:inset 2px 0 0 {accent} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:{accent} !important; font-weight:700 !important; }}
-    [data-testid="stSidebar"] hr {{ margin:9px 8px !important; border-color:{border2} !important; }}
-    [data-testid="stSidebar"] .stButton > button {{ min-height:34px !important; font-size:.78rem !important; padding:0 9px !important; }}
-    .profile-img {{ width:62px !important; height:62px !important; border-radius:8px !important; border:1px solid {border} !important; box-shadow:none !important; }}
+    }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{{{ background:{hover} !important; border-color:{border2} !important; transform:none !important; }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] label p {{{{ color:{muted} !important; font-size:13px !important; font-weight:570 !important; }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{{{ background:{accent_soft} !important; border-color:rgba(36,124,117,.18) !important; box-shadow:inset 2px 0 0 {accent} !important; }}}}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{{{ color:{accent} !important; font-weight:700 !important; }}}}
+    [data-testid="stSidebar"] hr {{{{ margin:9px 8px !important; border-color:{border2} !important; }}}}
+    [data-testid="stSidebar"] .stButton > button {{{{ min-height:34px !important; font-size:.78rem !important; padding:0 9px !important; }}}}
+    .profile-img {{{{ width:62px !important; height:62px !important; border-radius:8px !important; border:1px solid {border} !important; box-shadow:none !important; }}}}
 
     /* ===== MODO CLARO — CONTROLO EXPLÍCITO DOS COMPONENTES NATIVOS ===== */
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input,
-    [data-testid="stTextArea"] textarea {{
+    [data-testid="stTextArea"] textarea {{{{
         background-color:{input_bg} !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
         caret-color:{accent} !important;
         opacity:1 !important;
-    }}
+    }}}}
     [data-testid="stTextInput"] [data-baseweb="input"],
     [data-testid="stNumberInput"] [data-baseweb="input"],
     [data-testid="stDateInput"] [data-baseweb="input"],
     [data-testid="stTimeInput"] [data-baseweb="input"],
-    [data-testid="stTextArea"] [data-baseweb="textarea"] {{
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {{{{
         background-color:{input_bg} !important;
         color:{text} !important;
-    }}
+    }}}}
     [data-testid="stTextInput"] [data-baseweb="input"] > div,
     [data-testid="stNumberInput"] [data-baseweb="input"] > div,
     [data-testid="stDateInput"] [data-baseweb="input"] > div,
     [data-testid="stTimeInput"] [data-baseweb="input"] > div,
-    [data-testid="stTextArea"] [data-baseweb="textarea"] > div {{
+    [data-testid="stTextArea"] [data-baseweb="textarea"] > div {{{{
         background-color:{input_bg} !important;
-    }}
+    }}}}
     [data-testid="stSelectbox"] [data-baseweb="select"] > div,
     [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] > div {{
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div {{{{
         background-color:{input_bg} !important;
         color:{text} !important;
-    }}
+    }}}}
     [data-testid="stSelectbox"] [data-baseweb="select"] span,
     [data-testid="stMultiSelect"] [data-baseweb="select"] span,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] span {{
+    [data-testid="stSelectSlider"] [data-baseweb="select"] span {{{{
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }}
+    }}}}
     [data-baseweb="popover"],
     [data-baseweb="popover"] > div,
     [role="listbox"],
-    [role="listbox"] > div {{
+    [role="listbox"] > div {{{{
         background-color:{surface} !important;
         color:{text} !important;
-    }}
-    [role="option"], [role="option"] * {{
+    }}}}
+    [role="option"], [role="option"] * {{{{
         background-color:transparent !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }}
-    [role="option"]:hover, [role="option"][aria-selected="true"] {{
+    }}}}
+    [role="option"]:hover, [role="option"][aria-selected="true"] {{{{
         background-color:{hover} !important;
-    }}
-    [data-testid="stNumberInput"] button {{
+    }}}}
+    [data-testid="stNumberInput"] button {{{{
         background-color:{surface2} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }}
-    [data-testid="stNumberInput"] button svg {{
+    }}}}
+    [data-testid="stNumberInput"] button svg {{{{
         fill:{text} !important;
-    }}
+    }}}}
     [data-testid="stFileUploader"] section,
-    [data-testid="stFileUploadDropzone"] {{
+    [data-testid="stFileUploadDropzone"] {{{{
         background-color:{surface} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }}
+    }}}}
     [data-testid="stFileUploader"] section *,
-    [data-testid="stFileUploadDropzone"] * {{
+    [data-testid="stFileUploadDropzone"] * {{{{
         color:{text} !important;
-    }}
+    }}}}
     [data-testid="stRadio"] label,
     [data-testid="stCheckbox"] label,
-    [data-testid="stToggle"] label {{
+    [data-testid="stToggle"] label {{{{
         color:{text} !important;
-    }}
+    }}}}
     [data-testid="stRadio"] label p,
     [data-testid="stCheckbox"] label p,
-    [data-testid="stToggle"] label p {{
+    [data-testid="stToggle"] label p {{{{
         color:{text} !important;
-    }}
+    }}}}
     /* Remove qualquer fundo escuro residual em wrappers de formulário */
     [data-testid="stForm"],
     [data-testid="stForm"] > div,
-    [data-testid="stVerticalBlockBorderWrapper"] {{
+    [data-testid="stVerticalBlockBorderWrapper"] {{{{
         color:{text} !important;
-    }}
+    }}}}
 
     /* ===== THEME SHIELD — COMPONENTES BASEWEB / STREAMLIT ===== */
     /* O tema do aplicativo nunca deve vazar para os campos nativos. */
@@ -362,50 +362,50 @@ def aplicar_ui_premium(modo):
     [data-testid="stMultiSelect"] [data-baseweb="select"] > div > div,
     [data-testid="stSelectSlider"] [data-baseweb="select"],
     [data-testid="stSelectSlider"] [data-baseweb="select"] > div,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] > div > div {
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div > div {{
         background-color:{input_bg} !important;
         background:{input_bg} !important;
         color:{text} !important;
         border-color:{border} !important;
         box-shadow:none !important;
         opacity:1 !important;
-    }
+    }}
     [data-testid="stTextInput"] input,
     [data-testid="stNumberInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input,
-    [data-testid="stTextArea"] textarea {
+    [data-testid="stTextArea"] textarea {{
         background-color:{input_bg} !important;
         background:{input_bg} !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
         opacity:1 !important;
-    }
+    }}
     [data-testid="stSelectbox"] [data-baseweb="select"] span,
     [data-testid="stSelectbox"] [data-baseweb="select"] div,
     [data-testid="stMultiSelect"] [data-baseweb="select"] span,
     [data-testid="stMultiSelect"] [data-baseweb="select"] div,
     [data-testid="stSelectSlider"] [data-baseweb="select"] span,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] div {
+    [data-testid="stSelectSlider"] [data-baseweb="select"] div {{
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }
+    }}
     [data-testid="stSelectbox"] [data-baseweb="select"] svg,
     [data-testid="stMultiSelect"] [data-baseweb="select"] svg,
-    [data-testid="stSelectSlider"] [data-baseweb="select"] svg {
+    [data-testid="stSelectSlider"] [data-baseweb="select"] svg {{
         fill:{muted} !important;
         color:{muted} !important;
-    }
-    [data-testid="stNumberInput"] button {
+    }}
+    [data-testid="stNumberInput"] button {{
         background:{surface2} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }
-    [data-testid="stNumberInput"] button svg { fill:{text} !important; color:{text} !important; }
+    }}
+    [data-testid="stNumberInput"] button svg {{ fill:{text} !important; color:{text} !important; }}
     [data-testid="stDateInput"] button,
-    [data-testid="stTimeInput"] button { background:transparent !important; color:{muted} !important; }
+    [data-testid="stTimeInput"] button {{ background:transparent !important; color:{muted} !important; }}
     [data-testid="stDateInput"] button svg,
-    [data-testid="stTimeInput"] button svg { fill:{muted} !important; }
+    [data-testid="stTimeInput"] button svg {{ fill:{muted} !important; }}
 
     /* Menus e popovers vivem fora do bloco principal no DOM. */
     [data-baseweb="popover"],
@@ -413,145 +413,145 @@ def aplicar_ui_premium(modo):
     [data-baseweb="popover"] [role="listbox"],
     [data-baseweb="popover"] ul,
     ul[data-baseweb="menu"],
-    [role="listbox"] {
+    [role="listbox"] {{
         background:{surface} !important;
         background-color:{surface} !important;
         color:{text} !important;
         border-color:{border} !important;
-    }
+    }}
     [data-baseweb="popover"] [role="option"],
     [data-baseweb="popover"] [role="option"] *,
     ul[data-baseweb="menu"] li,
-    ul[data-baseweb="menu"] li * {
+    ul[data-baseweb="menu"] li * {{
         background:transparent !important;
         color:{text} !important;
         -webkit-text-fill-color:{text} !important;
-    }
+    }}
     [data-baseweb="popover"] [role="option"]:hover,
     [data-baseweb="popover"] [role="option"][aria-selected="true"],
-    ul[data-baseweb="menu"] li:hover { background:{hover} !important; }
-
-    /* Placeholder e texto desabilitado continuam legíveis no modo claro. */
-    input::placeholder, textarea::placeholder { color:{muted} !important; -webkit-text-fill-color:{muted} !important; opacity:1 !important; }
-    input:disabled, textarea:disabled { background:{surface2} !important; color:{muted} !important; -webkit-text-fill-color:{muted} !important; }
-
-    /* ===== DASHBOARD 2.6 ===== */
-    .rp-dash-hero {{
-        display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
-        padding:4px 0 18px; margin-bottom:18px; border-bottom:1px solid {border};
-    }}
-    .rp-dash-eyebrow {{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
-    .rp-dash-title {{ color:{text}; font-size:1.8rem; line-height:1.1; font-weight:760; letter-spacing:-.035em; margin-top:4px; }}
-    .rp-dash-sub {{ color:{muted}; font-size:.82rem; margin-top:6px; }}
-    .rp-dash-date {{ color:{muted}; font-size:.75rem; white-space:nowrap; padding-bottom:3px; }}
-    .rp-dash-alert {{
-        border:1px solid {border}; border-left:3px solid {accent}; background:{surface};
-        padding:12px 14px; border-radius:7px; margin-bottom:16px;
-    }}
-    .rp-dash-alert-title {{ color:{text}; font-weight:700; font-size:.82rem; }}
-    .rp-dash-alert-sub {{ color:{muted}; font-size:.74rem; margin-top:3px; }}
-    .rp-dash-section {{
-        display:flex; align-items:center; gap:9px; margin:18px 0 9px;
-        color:{text}; font-size:.92rem; font-weight:720;
-    }}
-    .rp-dash-section::before {{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}
-    .rp-chart-title {{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}
-
-    /* ===== CRONOGRAMA 2.6 ===== */
-    .rp-crono-hero {{
-        padding:2px 0 16px; border-bottom:1px solid {border}; margin-bottom:16px;
-    }}
-    .rp-crono-kicker {{ color:{accent}; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
-    .rp-crono-title {{ color:{text}; font-size:1.62rem; font-weight:750; letter-spacing:-.03em; margin-top:3px; }}
-    .rp-crono-sub {{ color:{muted}; font-size:.79rem; margin-top:4px; max-width:760px; }}
-    .rp-crono-stat {{
-        background:{surface}; border:1px solid {border}; border-radius:7px; padding:11px 13px;
-        min-height:68px;
-    }}
-    .rp-crono-stat-label {{ color:{muted}; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }}
-    .rp-crono-stat-value {{ color:{text}; font-size:1.25rem; font-weight:760; margin-top:3px; }}
-    .rp-crono-stat-accent {{ color:{accent}; }}
-    .rp-crono-tabs [data-baseweb="tab-list"] {{ gap:3px !important; border-bottom:1px solid {border} !important; }}
-    .rp-crono-tabs [data-baseweb="tab"] {{ padding:8px 12px !important; }}
-
-    /* ===== TOPO DE MÓDULO ===== */
-    .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}
-    .rp-topbar-title {{ color:{text}; font-size:1.42rem; font-weight:730; letter-spacing:-.025em; }}
-    .rp-topbar-sub {{ color:{muted}; font-size:.77rem; margin-top:3px; }}
-    .rp-status {{ color:{muted}; font-size:.7rem; white-space:nowrap; }}
-    .rp-dot {{ display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:{accent}; }}
-    .rp-kicker {{ color:{accent}; font-size:.66rem; font-weight:760; letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }}
-
-    /* ===== FORMULÁRIOS ===== */
-    [data-baseweb="input"] > div,[data-baseweb="textarea"] > div,[data-baseweb="select"] > div,[data-testid="stFileUploadDropzone"] {{
-        background:{input_bg} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important;
-    }}
-    [data-baseweb="input"] > div:focus-within,[data-baseweb="textarea"] > div:focus-within,[data-baseweb="select"] > div:focus-within {{ border-color:{accent} !important; box-shadow:0 0 0 2px {accent_soft} !important; }}
-    input,textarea,[data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
-    [data-baseweb="popover"] > div,ul[data-baseweb="menu"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:0 10px 28px rgba(0,0,0,.12) !important; }}
     ul[data-baseweb="menu"] li:hover {{ background:{hover} !important; }}
 
+    /* Placeholder e texto desabilitado continuam legíveis no modo claro. */
+    input::placeholder, textarea::placeholder {{ color:{muted} !important; -webkit-text-fill-color:{muted} !important; opacity:1 !important; }}
+    input:disabled, textarea:disabled {{ background:{surface2} !important; color:{muted} !important; -webkit-text-fill-color:{muted} !important; }}
+
+    /* ===== DASHBOARD 2.6 ===== */
+    .rp-dash-hero {{{{
+        display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+        padding:4px 0 18px; margin-bottom:18px; border-bottom:1px solid {border};
+    }}}}
+    .rp-dash-eyebrow {{{{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}}}
+    .rp-dash-title {{{{ color:{text}; font-size:1.8rem; line-height:1.1; font-weight:760; letter-spacing:-.035em; margin-top:4px; }}}}
+    .rp-dash-sub {{{{ color:{muted}; font-size:.82rem; margin-top:6px; }}}}
+    .rp-dash-date {{{{ color:{muted}; font-size:.75rem; white-space:nowrap; padding-bottom:3px; }}}}
+    .rp-dash-alert {{{{
+        border:1px solid {border}; border-left:3px solid {accent}; background:{surface};
+        padding:12px 14px; border-radius:7px; margin-bottom:16px;
+    }}}}
+    .rp-dash-alert-title {{{{ color:{text}; font-weight:700; font-size:.82rem; }}}}
+    .rp-dash-alert-sub {{{{ color:{muted}; font-size:.74rem; margin-top:3px; }}}}
+    .rp-dash-section {{{{
+        display:flex; align-items:center; gap:9px; margin:18px 0 9px;
+        color:{text}; font-size:.92rem; font-weight:720;
+    }}}}
+    .rp-dash-section::before {{{{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}}}
+    .rp-chart-title {{{{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}}}
+
+    /* ===== CRONOGRAMA 2.6 ===== */
+    .rp-crono-hero {{{{
+        padding:2px 0 16px; border-bottom:1px solid {border}; margin-bottom:16px;
+    }}}}
+    .rp-crono-kicker {{{{ color:{accent}; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}}}
+    .rp-crono-title {{{{ color:{text}; font-size:1.62rem; font-weight:750; letter-spacing:-.03em; margin-top:3px; }}}}
+    .rp-crono-sub {{{{ color:{muted}; font-size:.79rem; margin-top:4px; max-width:760px; }}}}
+    .rp-crono-stat {{{{
+        background:{surface}; border:1px solid {border}; border-radius:7px; padding:11px 13px;
+        min-height:68px;
+    }}}}
+    .rp-crono-stat-label {{{{ color:{muted}; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }}}}
+    .rp-crono-stat-value {{{{ color:{text}; font-size:1.25rem; font-weight:760; margin-top:3px; }}}}
+    .rp-crono-stat-accent {{{{ color:{accent}; }}}}
+    .rp-crono-tabs [data-baseweb="tab-list"] {{{{ gap:3px !important; border-bottom:1px solid {border} !important; }}}}
+    .rp-crono-tabs [data-baseweb="tab"] {{{{ padding:8px 12px !important; }}}}
+
+    /* ===== TOPO DE MÓDULO ===== */
+    .rp-topbar {{{{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}}}
+    .rp-topbar-title {{{{ color:{text}; font-size:1.42rem; font-weight:730; letter-spacing:-.025em; }}}}
+    .rp-topbar-sub {{{{ color:{muted}; font-size:.77rem; margin-top:3px; }}}}
+    .rp-status {{{{ color:{muted}; font-size:.7rem; white-space:nowrap; }}}}
+    .rp-dot {{{{ display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; background:{accent}; }}}}
+    .rp-kicker {{{{ color:{accent}; font-size:.66rem; font-weight:760; letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }}}}
+
+    /* ===== FORMULÁRIOS ===== */
+    [data-baseweb="input"] > div,[data-baseweb="textarea"] > div,[data-baseweb="select"] > div,[data-testid="stFileUploadDropzone"] {{{{
+        background:{input_bg} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important;
+    }}}}
+    [data-baseweb="input"] > div:focus-within,[data-baseweb="textarea"] > div:focus-within,[data-baseweb="select"] > div:focus-within {{{{ border-color:{accent} !important; box-shadow:0 0 0 2px {accent_soft} !important; }}}}
+    input,textarea,[data-baseweb="select"] span {{{{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}}}
+    [data-baseweb="popover"] > div,ul[data-baseweb="menu"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:0 10px 28px rgba(0,0,0,.12) !important; }}}}
+    ul[data-baseweb="menu"] li:hover {{{{ background:{hover} !important; }}}}
+
     /* Botões: hierarquia, não decoração */
-    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:39px !important; border-radius:6px !important; border:1px solid {accent} !important; background:{accent} !important; color:#fff !important; box-shadow:none !important; font-weight:650 !important; }}
-    .stButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover {{ filter:brightness(.95); transform:none !important; }}
-    .stButton > button:focus-visible,div[data-testid="stFormSubmitButton"] > button:focus-visible {{ box-shadow:0 0 0 3px {accent_soft} !important; }}
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{{{ min-height:39px !important; border-radius:6px !important; border:1px solid {accent} !important; background:{accent} !important; color:#fff !important; box-shadow:none !important; font-weight:650 !important; }}}}
+    .stButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover {{{{ filter:brightness(.95); transform:none !important; }}}}
+    .stButton > button:focus-visible,div[data-testid="stFormSubmitButton"] > button:focus-visible {{{{ box-shadow:0 0 0 3px {accent_soft} !important; }}}}
 
     /* ===== CONTAINERS / CARDS ===== */
-    div[data-testid="stVerticalBlockBorderWrapper"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
-    div[data-testid="stExpander"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important; }}
-    div[data-testid="stExpander"] summary {{ font-weight:650 !important; }}
-    [data-testid="stAlert"] {{ border-radius:6px !important; box-shadow:none !important; }}
+    div[data-testid="stVerticalBlockBorderWrapper"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}}}
+    div[data-testid="stExpander"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important; }}}}
+    div[data-testid="stExpander"] summary {{{{ font-weight:650 !important; }}}}
+    [data-testid="stAlert"] {{{{ border-radius:6px !important; box-shadow:none !important; }}}}
 
     /* Métricas com leitura de dashboard, não cartão de marketing */
-    div[data-testid="metric-container"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; padding:12px 14px !important; box-shadow:none !important; }}
-    div[data-testid="metric-container"] label {{ color:{muted} !important; font-size:.72rem !important; font-weight:620 !important; }}
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ color:{text} !important; font-size:1.48rem !important; font-weight:730 !important; letter-spacing:-.035em !important; }}
-    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {{ font-size:.72rem !important; }}
+    div[data-testid="metric-container"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; padding:12px 14px !important; box-shadow:none !important; }}}}
+    div[data-testid="metric-container"] label {{{{ color:{muted} !important; font-size:.72rem !important; font-weight:620 !important; }}}}
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{{{ color:{text} !important; font-size:1.48rem !important; font-weight:730 !important; letter-spacing:-.035em !important; }}}}
+    div[data-testid="metric-container"] [data-testid="stMetricDelta"] {{{{ font-size:.72rem !important; }}}}
 
     /* ===== ABAS ===== */
-    [data-testid="stTabs"] {{ margin-top:.15rem !important; }}
-    [data-testid="stTabs"] [role="tablist"] {{ gap:0 !important; border-bottom:1px solid {border} !important; }}
-    [data-testid="stTabs"] button[role="tab"] {{ border:0 !important; border-bottom:2px solid transparent !important; border-radius:0 !important; padding:9px 14px 8px !important; color:{muted} !important; font-size:.8rem !important; font-weight:620 !important; background:transparent !important; }}
-    [data-testid="stTabs"] button[role="tab"]:hover {{ color:{text} !important; background:{hover} !important; }}
-    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{ color:{accent} !important; border-bottom-color:{accent} !important; background:transparent !important; }}
-    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{ background:{accent} !important; }}
+    [data-testid="stTabs"] {{{{ margin-top:.15rem !important; }}}}
+    [data-testid="stTabs"] [role="tablist"] {{{{ gap:0 !important; border-bottom:1px solid {border} !important; }}}}
+    [data-testid="stTabs"] button[role="tab"] {{{{ border:0 !important; border-bottom:2px solid transparent !important; border-radius:0 !important; padding:9px 14px 8px !important; color:{muted} !important; font-size:.8rem !important; font-weight:620 !important; background:transparent !important; }}}}
+    [data-testid="stTabs"] button[role="tab"]:hover {{{{ color:{text} !important; background:{hover} !important; }}}}
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{{{ color:{accent} !important; border-bottom-color:{accent} !important; background:transparent !important; }}}}
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{{{ background:{accent} !important; }}}}
 
     /* ===== TABELAS / EDITORES ===== */
-    [data-testid="stDataFrame"],[data-testid="stTable"] {{ border:1px solid {border} !important; border-radius:6px !important; overflow:hidden !important; box-shadow:none !important; }}
-    [data-testid="stDataFrame"] th,[data-testid="stTable"] th {{ background:{surface2} !important; color:{muted} !important; font-size:.74rem !important; font-weight:680 !important; text-transform:none !important; letter-spacing:0 !important; padding:9px !important; border-bottom:1px solid {border} !important; }}
-    [data-testid="stDataFrame"] td,[data-testid="stTable"] td {{ padding:9px !important; border-bottom:1px solid {border2} !important; }}
+    [data-testid="stDataFrame"],[data-testid="stTable"] {{{{ border:1px solid {border} !important; border-radius:6px !important; overflow:hidden !important; box-shadow:none !important; }}}}
+    [data-testid="stDataFrame"] th,[data-testid="stTable"] th {{{{ background:{surface2} !important; color:{muted} !important; font-size:.74rem !important; font-weight:680 !important; text-transform:none !important; letter-spacing:0 !important; padding:9px !important; border-bottom:1px solid {border} !important; }}}}
+    [data-testid="stDataFrame"] td,[data-testid="stTable"] td {{{{ padding:9px !important; border-bottom:1px solid {border2} !important; }}}}
 
     /* ===== COMPONENTES DE ESTUDO ===== */
-    .rp-study-row {{ background:{surface}; border:1px solid {border}; border-radius:6px; padding:10px 12px; }}
-    .rp-label {{ color:{muted}; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }}
-    .rp-value {{ color:{text}; font-size:.94rem; font-weight:650; margin-top:2px; }}
-    .rp-rule {{ height:1px; background:{border2}; margin:10px 0; }}
+    .rp-study-row {{{{ background:{surface}; border:1px solid {border}; border-radius:6px; padding:10px 12px; }}}}
+    .rp-label {{{{ color:{muted}; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }}}}
+    .rp-value {{{{ color:{text}; font-size:.94rem; font-weight:650; margin-top:2px; }}}}
+    .rp-rule {{{{ height:1px; background:{border2}; margin:10px 0; }}}}
 
     /* ===== DASHBOARD 2.4 — visual próprio ===== */
-    .dash-head {{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:2px 0 15px; margin:0 0 14px; border-bottom:1px solid {border}; }}
-    .dash-eyebrow {{ color:{accent}; font-size:.62rem; font-weight:800; letter-spacing:.12em; margin-bottom:5px; }}
-    .dash-title {{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; line-height:1.05; }}
-    .dash-sub {{ color:{muted}; font-size:.78rem; margin-top:6px; max-width:650px; }}
-    .dash-date {{ color:{muted}; font-size:.72rem; white-space:nowrap; }}
-    .dash-section-title {{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}
-    @media(max-width:760px) {{ .dash-head {{ align-items:flex-start; }} .dash-date {{ display:none; }} .dash-title {{ font-size:1.48rem; }} }}
+    .dash-head {{{{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:2px 0 15px; margin:0 0 14px; border-bottom:1px solid {border}; }}}}
+    .dash-eyebrow {{{{ color:{accent}; font-size:.62rem; font-weight:800; letter-spacing:.12em; margin-bottom:5px; }}}}
+    .dash-title {{{{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; line-height:1.05; }}}}
+    .dash-sub {{{{ color:{muted}; font-size:.78rem; margin-top:6px; max-width:650px; }}}}
+    .dash-date {{{{ color:{muted}; font-size:.72rem; white-space:nowrap; }}}}
+    .dash-section-title {{{{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}}}
+    @media(max-width:760px) {{{{ .dash-head {{{{ align-items:flex-start; }}}} .dash-date {{{{ display:none; }}}} .dash-title {{{{ font-size:1.48rem; }}}} }}}}
 
     /* ===== CHAT / IA ===== */
-    [data-testid="stChatMessage"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}
-    [data-testid="stChatInput"] > div {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
+    [data-testid="stChatMessage"] {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}}}
+    [data-testid="stChatInput"] > div {{{{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}}}
 
     /* ===== GRÁFICOS ===== */
-    .js-plotly-plot .plotly .modebar {{ display:none !important; }}
+    .js-plotly-plot .plotly .modebar {{{{ display:none !important; }}}}
 
-    @media(max-width:760px) {{
-        .main .block-container {{ padding:.85rem .65rem 2.5rem !important; }}
-        h1 {{ font-size:1.52rem !important; }}
-        .rp-topbar {{ align-items:flex-start; margin-bottom:13px; }}
-        .rp-status {{ display:none; }}
-        [data-testid="stTabs"] button[role="tab"] {{ padding:9px 10px 8px !important; font-size:.75rem !important; }}
-        .stButton > button {{ min-height:43px !important; }}
-    }}
-    @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ transition:none !important; animation:none !important; }} }}
+    @media(max-width:760px) {{{{
+        .main .block-container {{{{ padding:.85rem .65rem 2.5rem !important; }}}}
+        h1 {{{{ font-size:1.52rem !important; }}}}
+        .rp-topbar {{{{ align-items:flex-start; margin-bottom:13px; }}}}
+        .rp-status {{{{ display:none; }}}}
+        [data-testid="stTabs"] button[role="tab"] {{{{ padding:9px 10px 8px !important; font-size:.75rem !important; }}}}
+        .stButton > button {{{{ min-height:43px !important; }}}}
+    }}}}
+    @media(prefers-reduced-motion:reduce) {{{{ *,*::before,*::after {{{{ transition:none !important; animation:none !important; }}}} }}}}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
