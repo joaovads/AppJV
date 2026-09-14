@@ -1633,7 +1633,9 @@ else:
                 def chave_semana(x):
                     nums=re.findall(r"\d+", x)
                     return (0,int(nums[0])) if nums else (1,x.casefold())
-                semanas.sort(key=chave_semana)
+                # Mais recente primeiro: semanas numeradas maiores aparecem antes das antigas.
+                # Semanas sem número ficam por último.
+                semanas.sort(key=chave_semana, reverse=True)
                 f1,f2,f3 = st.columns([1.2,1.2,2])
                 filtro_sem = f1.selectbox("Semana", ["Todas"]+semanas, key="crono29_sem")
                 filtro_status = f2.selectbox("Status", ["Todos","Pendentes","Concluídas"], key="crono29_status")
@@ -1659,9 +1661,13 @@ else:
                             st.markdown(f"### 📚 {sem}")
                             st.caption(f"{done} de {len(itens_sem)} metas concluídas · {pct:.0f}%")
                             st.progress(pct/100)
+                            # Dentro de cada dia, sempre ordenar pela prioridade visual:
+                            # Azul -> Verde -> Amarelo -> Vermelho -> Roxo.
+                            ordem_prioridade = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4}
                             for dia in dias:
                                 itens=[x for x in itens_sem if str(x.get("dia",""))==dia]
                                 if not itens: continue
+                                itens.sort(key=lambda x: ordem_prioridade.get(safe_int(x.get("prioridade", 3)), 2))
                                 st.markdown(f"**{dia}**")
                                 for t in itens:
                                     tid=str(t.get("id","")); done_t=bool(t.get("concluido")); mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")));
@@ -1737,7 +1743,7 @@ else:
                         batch=db.batch()
                         for i,t in enumerate(tarefas):
                             cor=str(t.get('cor','')).casefold(); p=1 if 'azul' in cor else 2 if 'verde' in cor else 3 if 'amarelo' in cor else 4 if 'vermelho' in cor else 5 if 'roxo' in cor else 3
-                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//4)%len(dias)],"materia":normalizar_area(t.get('materia'),'{}'),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
+                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//4)%len(dias)],"materia":normalizar_area(t.get('materia'), mapa_aulas),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
                         batch.commit(); st.session_state.prints_colados=[]; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
                     else: st.warning("Não foi possível encontrar metas nas imagens.")
 
