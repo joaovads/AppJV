@@ -1760,17 +1760,21 @@ else:
                                         reverse=True
                                     )
                                     for t in aulas_assistidas:
+                                        tid=str(t.get("id", ""))
                                         mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")))
                                         data_conc=limpar_texto(t.get("data_conclusao", ""))
-                                        a,b=st.columns([0.08,4.5])
+                                        a,b=st.columns([0.45,4.15])
                                         with a:
-                                            st.markdown("### ✅")
+                                            # Permite desfazer o check e devolver a aula à lista pendente.
+                                            if st.button("↩️", key=f"crono29_uncheck_{tid}", help="Desmarcar como assistida e devolver ao cronograma"):
+                                                db_update("cronogramas","cronogramas",tid,{"concluido":False,"data_conclusao":None})
+                                                st.toast("Aula devolvida ao cronograma.", icon="↩️")
+                                                st.rerun()
                                         with b:
-                                            detalhe=f"<small style='color:var(--rp-muted)'>{mat}"
+                                            detalhe=f"<small style='color:{cor};font-weight:700'>{html.escape(mat)}</small>"
                                             if data_conc:
-                                                detalhe += f" · Assistida em {data_conc}"
-                                            detalhe += "</small>"
-                                            st.markdown(f"<div style='padding:5px 0'><strong style='text-decoration:line-through'>{tema}</strong><br>{detalhe}</div>", unsafe_allow_html=True)
+                                                detalhe += f"<small style='color:var(--rp-muted)'> · Assistida em {html.escape(data_conc)}</small>"
+                                            st.markdown(f"<div style='padding:5px 0'><span style='color:{cor};font-weight:900'>●</span> <span style='color:{cor};font-weight:900'>✅</span> <strong style='text-decoration:line-through'>{tema}</strong><br>{detalhe}</div>", unsafe_allow_html=True)
 
                             with st.expander("⚙️ Gerenciar semana"):
                                 if st.button("Excluir esta semana",key=f"crono29_del_sem_{sem}"):
