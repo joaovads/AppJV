@@ -1941,6 +1941,49 @@ else:
                 d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
                 ac, er = st.columns(2)
                 acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
+
+                # Prévia do desempenho: usa EXATAMENTE a mesma escala de cores
+                # que alimenta o cálculo das revisões HIIT.
+                total_preview = int(acc) + int(err)
+                taxa_preview_pct = (int(acc) / total_preview * 100) if total_preview > 0 else 0.0
+                cor_preview = cor_percentual_acerto(taxa_preview_pct)
+                if total_preview > 0:
+                    if taxa_preview_pct < 60:
+                        ciclo_preview = "🔴 HIIT Alerta"
+                        intervalo_preview = "7 dias"
+                    elif taxa_preview_pct < 80:
+                        ciclo_preview = "🟡 HIIT Reforço"
+                        intervalo_preview = "14 dias"
+                    else:
+                        ciclo_preview = "🟢 HIIT Domínio"
+                        intervalo_preview = "30 dias"
+                else:
+                    ciclo_preview = "—"
+                    intervalo_preview = "—"
+
+                st.markdown(
+                    f"""
+                    <div style='margin:10px 0 14px;padding:12px 14px;border:1px solid var(--rp-border);
+                                border-radius:12px;background:var(--rp-surface);'>
+                        <div style='font-size:11px;color:var(--rp-muted);font-weight:800;text-transform:uppercase;
+                                    letter-spacing:.04em;margin-bottom:7px;'>Desempenho que será usado para calcular a revisão</div>
+                        <div style='display:flex;align-items:center;gap:12px;flex-wrap:wrap;'>
+                            <span style='display:inline-block;min-width:72px;text-align:center;padding:6px 11px;
+                                         border-radius:999px;background:{cor_preview} !important;
+                                         border:1px solid {cor_preview} !important;color:#fff !important;
+                                         -webkit-text-fill-color:#fff !important;font-size:15px;font-weight:900;'>
+                                {taxa_preview_pct:.1f}%
+                            </span>
+                            <span style='font-weight:800;color:var(--rp-text);'>{ciclo_preview}</span>
+                            <span style='color:var(--rp-muted);font-size:12px;'>Próxima revisão: <b>{intervalo_preview}</b></span>
+                        </div>
+                        <div style='font-size:10px;color:var(--rp-muted);margin-top:7px;'>
+                            🔴 &lt;60% · 🔵 60–69% · 🟡 70–80% · 🟢 &gt;80%
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 
                 if st.form_submit_button("Registrar e Agendar HIIT", use_container_width=True):
                     s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
