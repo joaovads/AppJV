@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.0", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 2.1", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -198,69 +198,101 @@ def aplicar_css_tema(modo):
 # DESIGN PREMIUM 2.0 — CAMADA VISUAL NÃO INTRUSIVA
 # ==========================================
 def aplicar_ui_premium(modo):
-    """Camada visual da V2.0. Não altera a lógica, dados ou chaves dos widgets."""
+    """Design 2.1: camada visual completa, sem alterar a lógica das funcionalidades."""
     dark = modo == "Escuro"
-    bg = "#070b14" if dark else "#f5f7fb"
-    surface = "#0f172a" if dark else "#ffffff"
-    surface2 = "#111c31" if dark else "#f8fafc"
-    border = "rgba(148,163,184,.16)" if dark else "rgba(15,23,42,.09)"
-    text = "#f8fafc" if dark else "#0f172a"
-    muted = "#94a3b8" if dark else "#64748b"
-    accent = "#3b82f6"
-    accent2 = "#60a5fa"
-    shadow = "0 18px 50px rgba(0,0,0,.22)" if dark else "0 18px 50px rgba(15,23,42,.08)"
-    st.markdown(f"""
+    bg = "#070a12" if dark else "#f3f6fb"
+    surface = "#0d1422" if dark else "#ffffff"
+    surface2 = "#111b2d" if dark else "#f8fafc"
+    surface3 = "#162238" if dark else "#eef3f9"
+    border = "rgba(148,163,184,.14)" if dark else "rgba(15,23,42,.08)"
+    text = "#f8fafc" if dark else "#101828"
+    muted = "#94a3b8" if dark else "#667085"
+    accent = "#4f7cff"
+    accent2 = "#7c5cff"
+    shadow = "0 20px 60px rgba(0,0,0,.28)" if dark else "0 20px 60px rgba(15,23,42,.08)"
+    sidebar = "#09101d" if dark else "#ffffff"
+    css = f"""
     <style>
-    :root {{ --rp-bg:{bg}; --rp-surface:{surface}; --rp-surface2:{surface2}; --rp-border:{border}; --rp-text:{text}; --rp-muted:{muted}; --rp-accent:{accent}; --rp-accent2:{accent2}; }}
-    .stApp {{ background: radial-gradient(circle at 10% 0%, rgba(59,130,246,.09), transparent 28%), radial-gradient(circle at 90% 10%, rgba(99,102,241,.07), transparent 25%), {bg} !important; }}
-    [data-testid="stAppViewContainer"] {{ background: transparent !important; }}
-    [data-testid="stHeader"] {{ background: transparent !important; }}
-    [data-testid="stToolbar"] {{ opacity:.55; }}
-    .main .block-container {{ max-width: 1480px; padding-top: 2rem; padding-bottom: 4rem; }}
-    h1, h2, h3 {{ letter-spacing:-.025em !important; }}
-    h1 {{ font-weight:800 !important; }}
-    h2, h3, h4 {{ font-weight:750 !important; }}
-    [data-testid="stCaptionContainer"] {{ color:{muted} !important; }}
-    div[data-testid="stVerticalBlockBorderWrapper"] {{
-        border:1px solid {border} !important; border-radius:18px !important;
-        background: linear-gradient(145deg, {surface}, {surface2}) !important;
-        box-shadow:{shadow} !important; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    }}
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover {{ transform:translateY(-1px); border-color:rgba(59,130,246,.28) !important; }}
-    div[data-testid="metric-container"] {{ border-radius:16px !important; background:linear-gradient(145deg,{surface},{surface2}) !important; border:1px solid {border} !important; box-shadow:{shadow} !important; }}
-    div[data-testid="metric-container"] label {{ color:{muted} !important; font-weight:650 !important; }}
-    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-weight:800 !important; letter-spacing:-.03em; }}
-    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
-        min-height:42px !important; border-radius:12px !important; font-weight:700 !important;
-        border:1px solid rgba(59,130,246,.18) !important; box-shadow:0 8px 22px rgba(37,99,235,.12) !important;
-    }}
-    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{ transform:translateY(-1px); box-shadow:0 12px 28px rgba(37,99,235,.20) !important; }}
-    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div {{ border-radius:12px !important; min-height:44px; }}
-    [data-testid="stFileUploadDropzone"] {{ border-radius:14px !important; padding:1rem !important; }}
-    div[data-testid="stTabs"] [role="tablist"] {{ gap:6px; border-bottom:1px solid {border}; padding-bottom:5px; }}
-    div[data-testid="stTabs"] button[role="tab"] {{ border-radius:10px 10px 0 0; padding:9px 14px; font-weight:650; }}
-    div[data-testid="stTabs"] button[aria-selected="true"] {{ background:rgba(59,130,246,.12); color:{accent2} !important; }}
-    [data-testid="stSidebar"] {{ background:linear-gradient(180deg,{surface}, {surface2}) !important; box-shadow:10px 0 40px rgba(0,0,0,.08); }}
-    [data-testid="stSidebar"] > div:first-child {{ padding-top:1.2rem; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ border:1px solid transparent; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ border-color:rgba(59,130,246,.20) !important; transform:translateX(2px); }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background:linear-gradient(90deg,{accent},#6366f1) !important; }}
-    div[data-testid="stExpander"] {{ border-radius:14px !important; border:1px solid {border} !important; overflow:hidden; }}
-    div[data-testid="stExpander"] summary:hover {{ background:rgba(59,130,246,.06); }}
-    [data-testid="stDataFrame"] {{ border-radius:14px; overflow:hidden; }}
-    .stAlert {{ border-radius:14px !important; border:1px solid {border} !important; }}
-    hr {{ border-color:{border} !important; opacity:.8; }}
-    @media (max-width: 900px) {{
-        .main .block-container {{ padding:1rem .75rem 3rem .75rem !important; }}
-        h1 {{ font-size:1.75rem !important; }} h2 {{ font-size:1.35rem !important; }} h3 {{ font-size:1.15rem !important; }}
-        div[data-testid="stVerticalBlockBorderWrapper"] {{ border-radius:15px !important; }}
-        .stButton > button {{ min-height:44px !important; }}
-        div[data-testid="stTabs"] button[role="tab"] {{ padding:8px 10px; font-size:.86rem; }}
-        [data-testid="stSidebar"] {{ min-width:250px !important; max-width:250px !important; }}
-    }}
-    @media (prefers-reduced-motion: reduce) {{ *, *::before, *::after {{ animation:none !important; transition:none !important; }} }}
+    :root {{ --rp-bg:{bg}; --rp-surface:{surface}; --rp-surface2:{surface2}; --rp-surface3:{surface3}; --rp-border:{border}; --rp-text:{text}; --rp-muted:{muted}; --rp-accent:{accent}; --rp-accent2:{accent2}; }}
+    @keyframes rp_enter {{ from {{opacity:0; transform:translateY(8px)}} to {{opacity:1; transform:translateY(0)}} }}
+    @keyframes rp_glow {{ 0%,100% {{opacity:.55}} 50% {{opacity:1}} }}
+    .stApp {{ background: radial-gradient(900px 420px at 0% -5%, rgba(79,124,255,.13), transparent 60%), radial-gradient(700px 380px at 100% 0%, rgba(124,92,255,.10), transparent 60%), {bg} !important; }}
+    [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ background:transparent !important; }}
+    .main .block-container {{ max-width:1500px; padding-top:1.15rem; padding-bottom:4rem; animation:rp_enter .35s ease-out; }}
+    h1 {{ font-size:clamp(1.8rem,3vw,2.55rem) !important; font-weight:850 !important; letter-spacing:-.045em !important; }}
+    h2 {{ font-size:clamp(1.35rem,2.2vw,1.8rem) !important; font-weight:800 !important; letter-spacing:-.035em !important; }}
+    h3,h4 {{ font-weight:750 !important; letter-spacing:-.02em !important; }}
+    p, label, .stMarkdown {{ color:{text} !important; }}
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
+    [data-testid="stSidebar"] {{ background:linear-gradient(180deg,{sidebar}, {surface2}) !important; border-right:1px solid {border} !important; }}
+    [data-testid="stSidebar"] > div:first-child {{ padding-top:1rem; }}
+    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:3px !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ border:1px solid transparent; border-radius:13px !important; margin:1px 8px !important; padding:9px 12px !important; transition:all .18s ease !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{surface3} !important; border-color:{border} !important; transform:translateX(2px); }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color:{muted} !important; font-size:14px !important; font-weight:600 !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background:linear-gradient(135deg,rgba(79,124,255,.20),rgba(124,92,255,.14)) !important; border-color:rgba(79,124,255,.30) !important; box-shadow:inset 3px 0 0 {accent}, 0 8px 25px rgba(79,124,255,.08); }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:{text} !important; font-weight:800 !important; }}
+    [data-testid="stSidebar"] hr {{ border-color:{border} !important; }}
+    div[data-testid="stVerticalBlockBorderWrapper"], div[data-testid="stExpander"] {{ background:linear-gradient(145deg,{surface},{surface2}) !important; border:1px solid {border} !important; border-radius:20px !important; box-shadow:{shadow} !important; }}
+    div[data-testid="stVerticalBlockBorderWrapper"] {{ transition:transform .18s ease, border-color .18s ease; }}
+    div[data-testid="stVerticalBlockBorderWrapper"]:hover {{ transform:translateY(-1px); border-color:rgba(79,124,255,.24) !important; }}
+    div[data-testid="metric-container"] {{ background:linear-gradient(145deg,{surface},{surface2}) !important; border:1px solid {border} !important; border-radius:18px !important; padding:18px 18px 15px !important; box-shadow:{shadow} !important; }}
+    div[data-testid="metric-container"] label {{ color:{muted} !important; font-weight:700 !important; }}
+    div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-weight:850 !important; letter-spacing:-.045em !important; }}
+    [data-testid="stAlert"] {{ border-radius:15px !important; border:1px solid {border} !important; }}
+    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div, [data-testid="stFileUploadDropzone"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:13px !important; }}
+    input, textarea, [data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
+    [data-baseweb="popover"] > div, ul[data-baseweb="menu"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:14px !important; box-shadow:{shadow} !important; }}
+    ul[data-baseweb="menu"] li:hover {{ background:{surface3} !important; }}
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:43px !important; border-radius:13px !important; font-weight:750 !important; border:1px solid rgba(79,124,255,.22) !important; box-shadow:0 8px 22px rgba(79,124,255,.10) !important; transition:transform .16s ease, box-shadow .16s ease !important; }}
+    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{ transform:translateY(-1px); box-shadow:0 12px 30px rgba(79,124,255,.18) !important; }}
+    button p, button span {{ font-weight:750 !important; }}
+    [data-testid="stChatInput"] {{ background:transparent !important; }}
+    [data-testid="stChatInput"] > div {{ background:{surface} !important; border:1px solid {border} !important; border-radius:18px !important; box-shadow:{shadow}; }}
+    [data-testid="stTabs"] [role="tablist"] {{ gap:6px; border-bottom:1px solid {border}; }}
+    [data-testid="stTabs"] button[role="tab"] {{ border-radius:11px 11px 0 0; font-weight:700; padding:9px 13px; }}
+    [data-testid="stDataFrame"], [data-testid="stTable"] {{ border-radius:16px !important; overflow:hidden !important; border:1px solid {border} !important; box-shadow:{shadow}; }}
+    [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ font-weight:800 !important; text-transform:uppercase; letter-spacing:.04em; font-size:.72rem; }}
+    div[data-testid="stExpander"] summary {{ font-weight:750 !important; }}
+    .profile-img {{ border-radius:18px !important; object-fit:cover; border:2px solid rgba(79,124,255,.55) !important; width:88px !important; height:88px !important; display:block; margin:0 auto 8px; box-shadow:0 12px 35px rgba(0,0,0,.22); }}
+    .rp-brand {{ margin:0 0 10px; padding:10px 6px 4px; }}
+    .rp-brand-title {{ font-size:1.15rem; font-weight:900; letter-spacing:-.03em; color:{text}; }}
+    .rp-brand-sub {{ font-size:.72rem; color:{muted}; margin-top:2px; }}
+    .rp-chip {{ display:inline-block; padding:5px 9px; border-radius:999px; background:rgba(79,124,255,.10); border:1px solid rgba(79,124,255,.18); color:{text}; font-size:.72rem; font-weight:750; }}
+    .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 20px; margin:0 0 18px; border:1px solid {border}; border-radius:20px; background:linear-gradient(135deg,rgba(79,124,255,.08),{surface} 42%,{surface2}); box-shadow:{shadow}; }}
+    .rp-topbar-title {{ font-size:1.05rem; font-weight:850; color:{text}; }}
+    .rp-topbar-sub {{ font-size:.78rem; color:{muted}; margin-top:2px; }}
+    .rp-status {{ display:flex; gap:7px; align-items:center; white-space:nowrap; }}
+    .rp-dot {{ width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,.10); animation:rp_glow 2s infinite; }}
+    @media(max-width:760px) {{ .main .block-container {{ padding:1rem .75rem 3rem; }} .rp-topbar {{ padding:13px 14px; border-radius:16px; }} .rp-status {{ display:none; }} [data-testid="stSidebar"] [role="radiogroup"] > label {{ margin-left:3px !important; margin-right:3px !important; }} div[data-testid="metric-container"] {{ padding:14px !important; }} .stButton > button {{ min-height:46px !important; }} }}
+    @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ animation:none !important; transition:none !important; }} }}
     </style>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def render_shell(menu, nome, modo):
+    """Cabeçalho visual global; não interfere nas telas existentes."""
+    nomes = {
+        "🏠 Dashboard": ("Central de Aprovação", "Seu desempenho, rotina e próximos passos em um só lugar."),
+        "🗓️ Cronograma IA": ("Planejamento Inteligente", "Organize o estudo sem perder o controle do que precisa ser revisado."),
+        "⚡ Revisão HIIT": ("Revisão de Alto Rendimento", "Sessões rápidas para transformar erros em pontos."),
+        "🎯 Questões": ("Banco de Questões", "Treine, registre resultados e acompanhe sua evolução."),
+        "📚 Registro de Aulas": ("Aulas", "Transforme cada aula assistida em progresso mensurável."),
+        "📝 Anotações Rápidas": ("Caderno Inteligente", "Capture, organize e reutilize o conhecimento."),
+        "📅 Agenda de Revisões": ("Agenda de Revisões", "Nunca deixe uma revisão importante passar."),
+        "✨ AI Tutor & Flashcards": ("Tutor & Flashcards", "Use a IA para estudar de forma ativa e objetiva."),
+        "📁 Materiais e Simulados": ("Biblioteca de Estudos", "Materiais e simulados organizados para acesso rápido."),
+        "🏥 Simulados & OSCE": ("Simulados & OSCE", "Pratique como se fosse o dia da prova."),
+        "📍 GPS da Aprovação": ("GPS da Aprovação", "Veja onde está e qual caminho falta percorrer."),
+        "⏱️ Modo Foco": ("Modo Foco", "Proteja seu tempo e transforme minutos em questões resolvidas."),
+        "⚙️ Configurações": ("Configurações", "Personalize sua experiência sem complicação."),
+        "📱 Instalar App": ("Residência PRO", "Leve seu ambiente de estudos com você."),
+        "👑 Admin": ("Administração", "Controle global do sistema."),
+    }
+    titulo, subtitulo = nomes.get(menu, ("Residência PRO", "Seu ambiente de preparação para residência."))
+    cor = "#94a3b8" if modo == "Escuro" else "#667085"
+    st.markdown(f'<div class="rp-topbar"><div><div class="rp-topbar-title">{titulo}</div><div class="rp-topbar-sub">{subtitulo}</div></div><div class="rp-status"><span class="rp-dot"></span><span style="color:{cor};font-size:.76rem;font-weight:700">Sessão ativa · {nome}</span></div></div>', unsafe_allow_html=True)
 
 
 # ==========================================
@@ -952,19 +984,21 @@ else:
     aplicar_css_tema(modo_atual)
     aplicar_ui_premium(modo_atual)
 
-    # BARRA LATERAL (PROFILE)
-    if user_settings.get('foto_perfil_b64'):
-        st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
-        st.sidebar.markdown(f"<h3 style='text-align: center; margin-top: 15px; margin-bottom: 25px; letter-spacing: 0.5px;'>{st.session_state.user_nome}</h3>", unsafe_allow_html=True)
-    else: st.sidebar.title(f"👤 {st.session_state.user_nome}")
-
-    if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
-        db.collection("usuarios").document(u_id).update({"token_sessao": None})
-        if cookie_controller: cookie_controller.remove('mr_token')
-        time.sleep(0.5)
-        st.session_state.clear()
-        st.rerun()
-    st.sidebar.markdown("---")
+    # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
+    with st.sidebar:
+        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>CENTRAL DE PREPARAÇÃO · 2.1</div></div>", unsafe_allow_html=True)
+        if user_settings.get('foto_perfil_b64'):
+            st.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
+        total_atividade = sum(len(_dados_cache.get(k, [])) for k in ["aulas","revisoes","questoes","flashcards","simulados","focus","materiais","cronogramas","anotacoes"])
+        st.markdown(f'<div style="text-align:center;margin-bottom:12px"><span class="rp-chip">● {total_atividade} registros</span></div>', unsafe_allow_html=True)
+        if st.button("🚪 Sair da Conta", use_container_width=True):
+            db.collection("usuarios").document(u_id).update({"token_sessao": None})
+            if cookie_controller: cookie_controller.remove('mr_token')
+            time.sleep(0.5)
+            st.session_state.clear()
+            st.rerun()
+        st.markdown("---")
 
     # ==========================================
     # MENU REORGANIZADO
@@ -989,7 +1023,19 @@ else:
     if is_super_admin(st.session_state.user_nome): 
         opcoes_menu.append("👑 Admin")
         
-    menu = st.sidebar.radio("Navegação Principal", opcoes_menu)
+    st.sidebar.markdown("<div style='font-size:.72rem;font-weight:850;letter-spacing:.08em;color:var(--rp-muted);margin:4px 12px 7px'>ACESSO RÁPIDO</div>", unsafe_allow_html=True)
+    q1, q2 = st.sidebar.columns(2)
+    with q1:
+        if st.button("🏠 Início", use_container_width=True, key="quick_home"):
+            st.session_state["menu_navegacao"] = "🏠 Dashboard"
+            st.rerun()
+    with q2:
+        if st.button("🎯 Questões", use_container_width=True, key="quick_q"):
+            st.session_state["menu_navegacao"] = "🎯 Questões"
+            st.rerun()
+    st.sidebar.markdown("<div style='font-size:.72rem;font-weight:850;letter-spacing:.08em;color:var(--rp-muted);margin:12px 12px 7px'>NAVEGAÇÃO</div>", unsafe_allow_html=True)
+    menu = st.sidebar.radio("Navegação Principal", opcoes_menu, key="menu_navegacao", label_visibility="collapsed")
+    render_shell(menu, st.session_state.user_nome, modo_atual)
 
     # ==========================================
     # TELAS
