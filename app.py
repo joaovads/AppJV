@@ -2085,21 +2085,33 @@ else:
                     for c in colunas_h:
                         valor = "" if pd.isna(row[c]) else str(row[c])
                         if c == "% Acertos":
+                            # A ÚLTIMA COLUNA (% Acertos) recebe a cor diretamente na CÉLULA.
+                            # Isso evita qualquer interferência do CSS global do Streamlit.
                             cor_pct = cor_percentual_acerto(valor)
-                            # Badge com fundo sólido: não depende do CSS do Streamlit.
+                            try:
+                                num_pct = float(str(valor).replace('%', '').replace(',', '.'))
+                            except Exception:
+                                num_pct = 0.0
+                            cor_texto = "#111827" if 70 <= num_pct <= 80 else "#ffffff"
                             conteudo = (
-                                f"<span style='display:inline-block;min-width:58px;text-align:center;"
-                                f"padding:4px 9px;border-radius:999px;background:{cor_pct} !important;"
-                                f"border:1px solid {cor_pct} !important;color:#ffffff !important;"
-                                f"-webkit-text-fill-color:#ffffff !important;font-weight:900 !important;"
-                                f"line-height:1.2;'>{html.escape(valor)}</span>"
+                                f"<div style='width:100%;text-align:center;font-weight:900;"
+                                f"font-size:13px;color:{cor_texto} !important;"
+                                f"-webkit-text-fill-color:{cor_texto} !important;'>"
+                                f"{html.escape(valor)}</div>"
+                            )
+                            td_style = (
+                                f"padding:9px 8px;background-color:{cor_pct} !important;"
+                                f"border-left:1px solid rgba(255,255,255,.16);"
+                                f"border-bottom:1px solid var(--rp-border);"
+                                f"white-space:nowrap;min-width:88px;"
                             )
                         else:
                             conteudo = html.escape(valor)
-                        html_h.append(
-                            f"<td style='padding:9px 8px;color:var(--rp-text);"
-                            f"white-space:nowrap;'>{conteudo}</td>"
-                        )
+                            td_style = (
+                                "padding:9px 8px;color:var(--rp-text);"
+                                "white-space:nowrap;"
+                            )
+                        html_h.append(f"<td style='{td_style}'>{conteudo}</td>")
                     html_h.append("</tr>")
 
                 html_h.append("</tbody></table></div>")
