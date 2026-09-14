@@ -198,7 +198,7 @@ def aplicar_css_tema(modo):
 # DESIGN PREMIUM 2.0 — CAMADA VISUAL NÃO INTRUSIVA
 # ==========================================
 def aplicar_ui_premium(modo):
-    """Residência PRO 2.3 — linguagem visual de produto profissional.
+    """Residência PRO 2.4 — linguagem visual de produto profissional.
     Camada exclusivamente visual: não altera banco, chaves ou regras de negócio.
     """
     dark = modo == "Escuro"
@@ -300,6 +300,15 @@ def aplicar_ui_premium(modo):
     .rp-label {{ color:{muted}; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }}
     .rp-value {{ color:{text}; font-size:.94rem; font-weight:650; margin-top:2px; }}
     .rp-rule {{ height:1px; background:{border2}; margin:10px 0; }}
+
+    /* ===== DASHBOARD 2.4 — visual próprio ===== */
+    .dash-head {{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:2px 0 15px; margin:0 0 14px; border-bottom:1px solid {border}; }}
+    .dash-eyebrow {{ color:{accent}; font-size:.62rem; font-weight:800; letter-spacing:.12em; margin-bottom:5px; }}
+    .dash-title {{ color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; line-height:1.05; }}
+    .dash-sub {{ color:{muted}; font-size:.78rem; margin-top:6px; max-width:650px; }}
+    .dash-date {{ color:{muted}; font-size:.72rem; white-space:nowrap; }}
+    .dash-section-title {{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}
+    @media(max-width:760px) {{ .dash-head {{ align-items:flex-start; }} .dash-date {{ display:none; }} .dash-title {{ font-size:1.48rem; }} }}
 
     /* ===== CHAT / IA ===== */
     [data-testid="stChatMessage"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}
@@ -1098,8 +1107,8 @@ else:
     # TELAS
     # ==========================================
     if menu == "🏠 Dashboard":
-        st.header("Painel de Desempenho Global")
-        
+        st.markdown(f"""<div class=\"dash-head\"><div><div class=\"dash-eyebrow\">CENTRO DE COMANDO</div><div class=\"dash-title\">Seu desempenho</div><div class=\"dash-sub\">Tudo o que importa para decidir o que estudar agora.</div></div><div class=\"dash-date\">{hoje.strftime('%d/%m/%Y')}</div></div>""", unsafe_allow_html=True)
+                
         # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
         revs_pendentes_dash = [r for r in dados_revisoes + dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
         revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
@@ -1111,7 +1120,7 @@ else:
             st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba de Revisões.")
         else:
             st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
-        st.divider()
+        st.markdown('<div class="dash-section-title">Indicadores principais</div>', unsafe_allow_html=True)
         # --------------------------------------------------------
         
         qs_sess_all = [dict(q) for q in dados_questoes]
@@ -1120,7 +1129,7 @@ else:
         qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
         revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
         
-        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
+        aba_geral, aba_detalhada = st.tabs(["Visão geral", "Por matéria"])
         with aba_geral:
             t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
             t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
@@ -1139,7 +1148,7 @@ else:
             
             with col_g1:
                 if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
+                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#22c55e", '#ef4444'])
                     fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
                     st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
             with col_g2:
