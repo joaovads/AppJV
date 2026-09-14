@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.6", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 2.9", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -195,10 +195,10 @@ def aplicar_css_tema(modo):
 
 
 # ==========================================
-# DESIGN PREMIUM 2.0 — CAMADA VISUAL NÃO INTRUSIVA
+# DESIGN PREMIUM 2.9 — CAMADA VISUAL NÃO INTRUSIVA
 # ==========================================
 def aplicar_ui_premium(modo):
-    """Residência PRO 2.6 — linguagem visual de produto profissional.
+    """Residência PRO 2.9 — linguagem visual de produto profissional.
     Camada exclusivamente visual: não altera banco, chaves ou regras de negócio.
     """
     dark = modo == "Escuro"
@@ -535,6 +535,14 @@ def aplicar_ui_premium(modo):
         .rp-task {{ padding:7px 4px; }}
         .rp-task-priority {{ display:none; }}
     }}
+
+    /* ===== CRONOGRAMA 2.9 — LEITURA RÁPIDA ===== */
+    .rp-simple-crono-head { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:3px 0 15px; border-bottom:1px solid {border}; margin-bottom:14px; }
+    .rp-simple-crono-title { color:{text}; font-size:1.72rem; font-weight:760; letter-spacing:-.035em; margin-top:3px; }
+    .rp-simple-crono-sub { color:{muted}; font-size:.79rem; margin-top:5px; }
+    .rp-simple-crono-progress { min-width:110px; text-align:right; }
+    .rp-simple-crono-progress strong { display:block; color:{accent}; font-size:1.35rem; }
+    .rp-simple-crono-progress span { color:{muted}; font-size:.68rem; }
 
     /* ===== TOPO DE MÓDULO ===== */
     .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}
@@ -986,31 +994,46 @@ def limpar_texto(texto):
     if not texto: return "Sem título"
     return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto)).strip()
 
-def resolver_area_grafico(valor, mapa_aulas=None):
-    """Converte valores antigos/IDs armazenados no Firestore para o nome legível da área."""
+def normalizar_area(valor, mapa_aulas=None):
+    """Normaliza nomes e códigos antigos de área para os nomes oficiais do app."""
     mapa_aulas = mapa_aulas or {}
     if valor is None:
         return "Geral"
     raw = str(valor).strip()
     if not raw:
         return "Geral"
-    # Caso seja o ID de uma aula, recupera a área real da aula.
+    # IDs de aulas antigas: resolve primeiro pelo documento relacionado.
     if raw in mapa_aulas:
         aula = mapa_aulas.get(raw, {})
-        area_aula = aula.get("area") or aula.get("especialidade") or aula.get("materia")
-        if area_aula:
-            return str(area_aula).strip()
-    # Alguns registros antigos podem trazer um prefixo técnico antes do nome.
+        candidato = aula.get("area") or aula.get("especialidade") or aula.get("materia")
+        if candidato:
+            return normalizar_area(candidato, {})
     limpo = limpar_texto(raw)
+    chave = re.sub(r"[^a-z0-9]+", "", limpo.casefold())
+    aliases = {
+        "clinicamedica": "Clínica Médica", "cm": "Clínica Médica", "clinica": "Clínica Médica",
+        "cirurgiageral": "Cirurgia Geral", "cg": "Cirurgia Geral", "cirurgia": "Cirurgia Geral",
+        "pediatria": "Pediatria", "ped": "Pediatria", "peds": "Pediatria",
+        "ginecologiaeobstetricia": "Ginecologia e Obstetrícia", "ginecologiaobstetricia": "Ginecologia e Obstetrícia",
+        "go": "Ginecologia e Obstetrícia", "gineco": "Ginecologia e Obstetrícia", "obstetricia": "Ginecologia e Obstetrícia",
+        "medicinapreventiva": "Medicina Preventiva", "preventiva": "Medicina Preventiva", "mp": "Medicina Preventiva",
+        "geral": "Geral", "medicinageral": "Geral"
+    }
+    if chave in aliases:
+        return aliases[chave]
     for area in AREAS_MED:
-        if limpo.casefold() == area.casefold():
+        if limpo.casefold() == area.casefold() or area.casefold() in limpo.casefold():
             return area
-        if area.casefold() in limpo.casefold():
-            return area
-    # Nunca exibe um ID técnico como nome de matéria.
-    if re.fullmatch(r"[A-Za-z0-9_-]{10,64}", limpo):
+    # Códigos/IDs técnicos não vazam para a interface.
+    if re.fullmatch(r"[A-Za-z0-9_-]{6,64}", limpo):
         return "Geral"
     return limpo or "Geral"
+
+def resolver_area_grafico(valor, mapa_aulas=None):
+    return normalizar_area(valor, mapa_aulas)
+
+def cor_area(valor, mapa_aulas=None):
+    return CORES_AREAS.get(normalizar_area(valor, mapa_aulas), CORES_AREAS["Geral"])
 
 def get_user_docs(collection_name, user_id):
     try:
@@ -1045,7 +1068,7 @@ def gerar_calendario_html(aulas_lista, ano, mes):
                 html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
+                    temas = "".join([f"<div style='background-color:{cor_area(a.get('area'), mapa_aulas)}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
@@ -1079,7 +1102,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
                 html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(normalizar_area(r.get('area'), mapa_aulas), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
@@ -1481,13 +1504,13 @@ else:
                 st.markdown('<div class="rp-chart-title">Aproveitamento por matéria</div>', unsafe_allow_html=True)
                 todas_questoes_grafico = []
                 for q in qs_sess_all:
-                    todas_questoes_grafico.append({"area": resolver_area_grafico(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
+                    todas_questoes_grafico.append({"area": normalizar_area(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
                 for r in qs_revs_all:
-                    todas_questoes_grafico.append({"area": resolver_area_grafico(r.get('area_aula', r.get('area')), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
+                    todas_questoes_grafico.append({"area": normalizar_area(r.get('area_aula', r.get('area')), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
                 for q in qs_hiit_all:
-                    todas_questoes_grafico.append({"area": resolver_area_grafico(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
+                    todas_questoes_grafico.append({"area": normalizar_area(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
                 for r in revs_hiit_all:
-                    todas_questoes_grafico.append({"area": resolver_area_grafico(r.get('area'), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
+                    todas_questoes_grafico.append({"area": normalizar_area(r.get('area'), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
                 df_r = pd.DataFrame(todas_questoes_grafico)
                 if not df_r.empty:
                     df_r = df_r[df_r["area"].notna()]
@@ -1548,10 +1571,10 @@ else:
 
         with aba_detalhada:
             filtro_dash = st.selectbox("Selecione a matéria", AREAS_MED, key="dash_area_filtro")
-            qs_sess_f = [q for q in qs_sess_all if resolver_area_grafico(q.get('area'), mapa_aulas) == filtro_dash]
-            qs_revs_f = [r for r in qs_revs_all if resolver_area_grafico(r.get('area_aula', r.get('area')), mapa_aulas) == filtro_dash]
-            qs_hiit_f = [q for q in qs_hiit_all if resolver_area_grafico(q.get('area'), mapa_aulas) == filtro_dash]
-            revs_hiit_f = [r for r in revs_hiit_all if resolver_area_grafico(r.get('area'), mapa_aulas) == filtro_dash]
+            qs_sess_f = [q for q in qs_sess_all if normalizar_area(q.get('area'), mapa_aulas) == filtro_dash]
+            qs_revs_f = [r for r in qs_revs_all if normalizar_area(r.get('area_aula', r.get('area')), mapa_aulas) == filtro_dash]
+            qs_hiit_f = [q for q in qs_hiit_all if normalizar_area(q.get('area'), mapa_aulas) == filtro_dash]
+            revs_hiit_f = [r for r in revs_hiit_all if normalizar_area(r.get('area'), mapa_aulas) == filtro_dash]
             t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f) + sum(safe_int(q.get('acertos')) for q in qs_hiit_f) + sum(safe_int(r.get('acertos')) for r in revs_hiit_f)
             t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f) + sum(safe_int(q.get('erros')) for q in qs_hiit_f) + sum(safe_int(r.get('erros')) for r in revs_hiit_f)
             t_questoes_f = t_acertos_f + t_erros_f
@@ -1576,348 +1599,147 @@ else:
                 st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     elif menu == "🗓️ Cronograma IA":
-        # ==============================================================
-        # CRONOGRAMA 2.8 — PLANNER MODERNO
-        # Mantém o mesmo banco/estrutura de dados da versão anterior.
-        # ==============================================================
+        # =============================================================
+        # CRONOGRAMA 2.9 — PLANEJADOR SIMPLES E DIRETO
+        # =============================================================
         meu_crono = list(dados_cronogramas or [])
         total_crono = len(meu_crono)
         concluidos_crono = [t for t in meu_crono if bool(t.get("concluido"))]
         pendentes_crono = [t for t in meu_crono if not bool(t.get("concluido"))]
         taxa_crono = (len(concluidos_crono) / total_crono * 100) if total_crono else 0
-        hoje_str = hoje.strftime("%d/%m/%Y")
 
         st.markdown(f"""
-        <div class="rp-planner-hero">
-            <div>
-                <div class="rp-planner-kicker">PLANEJAMENTO INTELIGENTE</div>
-                <div class="rp-planner-title">Seu plano de estudo</div>
-                <div class="rp-planner-sub">Veja o que precisa ser feito, acompanhe seu ritmo e ajuste o cronograma sem perder o histórico. Use a IA para transformar prints em metas ou cadastre uma tarefa em poucos segundos.</div>
-                <div class="rp-planner-progress"><div style="width:{min(max(taxa_crono,0),100):.1f}%"></div></div>
-            </div>
-            <div class="rp-planner-date">Hoje · {hoje_str}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        <div class="rp-simple-crono-head">
+          <div><div class="rp-kicker">PLANEJAMENTO</div>
+          <div class="rp-simple-crono-title">Meu cronograma</div>
+          <div class="rp-simple-crono-sub">Um lugar para saber exatamente o que estudar hoje e o que vem depois.</div></div>
+          <div class="rp-simple-crono-progress"><strong>{taxa_crono:.0f}%</strong><span>concluído</span></div>
+        </div>""", unsafe_allow_html=True)
 
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
-            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Total de metas</div><div class="rp-planner-kpi-value">{total_crono}</div><div class="rp-planner-kpi-note">No seu cronograma</div></div>', unsafe_allow_html=True)
-        with k2:
-            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Pendentes</div><div class="rp-planner-kpi-value">{len(pendentes_crono)}</div><div class="rp-planner-kpi-note">Ainda para estudar</div></div>', unsafe_allow_html=True)
-        with k3:
-            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Concluídas</div><div class="rp-planner-kpi-value">{len(concluidos_crono)}</div><div class="rp-planner-kpi-note">Metas finalizadas</div></div>', unsafe_allow_html=True)
-        with k4:
-            st.markdown(f'<div class="rp-planner-kpi"><div class="rp-planner-kpi-label">Execução</div><div class="rp-planner-kpi-value" style="color:var(--rp-accent)">{taxa_crono:.0f}%</div><div class="rp-planner-kpi-note">Progresso acumulado</div></div>', unsafe_allow_html=True)
+        k1,k2,k3 = st.columns(3)
+        k1.metric("Total", total_crono)
+        k2.metric("Pendentes", len(pendentes_crono))
+        k3.metric("Concluídas", len(concluidos_crono))
+        st.progress(min(max(taxa_crono/100,0),1), text=f"Progresso geral · {taxa_crono:.0f}%")
 
-        if 'prints_colados' not in st.session_state:
-            st.session_state.prints_colados = []
+        tab_plano, tab_nova, tab_ia = st.tabs(["📋 Meu plano", "➕ Nova meta", "✨ Importar com IA"])
 
-        aba_visao, aba_ia, aba_manual = st.tabs(["📋 Meu plano", "✨ Importar com IA", "➕ Nova meta"])
-
-        # --------------------------------------------------------------
-        # IMPORTAÇÃO COM IA — mesma lógica da versão anterior
-        # --------------------------------------------------------------
-        with aba_ia:
-            st.markdown('<div class="rp-import-card">', unsafe_allow_html=True)
-            st.markdown("### Transforme seu cronograma em metas")
-            st.caption("Envie prints do cronograma. A IA identifica matéria, tema e prioridade e distribui as tarefas automaticamente.")
-            nome_semana = st.text_input("Nome do bloco/semana", placeholder="Ex.: Semana 1 · Reta final", key="crono28_nome_semana")
-            col_btn, col_arq = st.columns(2)
-
-            with col_btn:
-                st.markdown("**📋 Colar prints**")
-                st.caption("Cole vários prints com Ctrl+V. Cada imagem entra na fila antes da extração.")
-                if paste_image_button is not None:
-                    paste_result = paste_image_button(
-                        label="CLIQUE E APERTE Ctrl+V",
-                        background_color="#2563eb",
-                        hover_background_color="#1d4ed8",
-                        key="paste_crono"
-                    )
-                    if paste_result.image_data is not None:
-                        img = paste_result.image_data
-                        buf = io.BytesIO()
-                        img.save(buf, format="PNG")
-                        img_hash = hashlib.md5(buf.getvalue()).hexdigest()
-                        if not any(item['hash'] == img_hash for item in st.session_state.prints_colados):
-                            st.session_state.prints_colados.append({'hash': img_hash, 'img': img, 'bytes': buf.getvalue()})
-                            st.rerun()
-                else:
-                    st.warning("⚠️ Para habilitar o botão de colar, adicione `streamlit-paste-button` no requirements.txt.")
-                if st.session_state.prints_colados:
-                    st.success(f"{len(st.session_state.prints_colados)} print(s) aguardando processamento.")
-                    if st.button("Limpar fila", key="crono28_limpar_fila"):
-                        st.session_state.prints_colados = []
-                        st.rerun()
-
-            with col_arq:
-                st.markdown("**📂 Enviar arquivos**")
-                st.caption("Você também pode selecionar várias imagens de uma vez.")
-                imgs_crono = st.file_uploader(
-                    "Selecione os arquivos",
-                    type=['png', 'jpg', 'jpeg'],
-                    accept_multiple_files=True,
-                    label_visibility="collapsed",
-                    key="crono28_uploader"
-                )
-
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.divider()
-
-            if (imgs_crono or st.session_state.prints_colados) and nome_semana and st.button("🪄 Extrair metas com IA", use_container_width=True, key="crono28_extract"):
-                client_ia = get_ia_client()
-                if not client_ia:
-                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
-                else:
-                    with st.spinner("Analisando as imagens uma a uma para preservar todos os itens..."):
-                        todas_imagens_b64 = []
-                        if imgs_crono:
-                            for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=720))
-                        if st.session_state.prints_colados:
-                            for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=720))
-
-                        tarefas_totais = []
-                        if todas_imagens_b64:
-                            barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Extraia RIGOROSAMENTE TODAS as tarefas visíveis na imagem, do início ao fim (não pule nenhuma).
-Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
-MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINIFICADO (sem quebras de linha e sem espaços). PROIBIDO usar <think> ou explicar."""
-                            for idx_img, img_b64 in enumerate(todas_imagens_b64):
-                                conteudo_api = [
-                                    {"type": "text", "text": prompt_visao},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                                ]
-                                try:
-                                    try:
-                                        resposta = chamar_ia(
-                                            client_ia,
-                                            modelo=MODELO_VISAO,
-                                            messages=[{"role": "user", "content": conteudo_api}],
-                                            temperature=0.1,
-                                            max_tokens=2500
-                                        )
-                                    except Exception as e_api:
-                                        if "rate" in str(e_api).lower() or "429" in str(e_api) or "413" in str(e_api):
-                                            time.sleep(12)
-                                            resposta = chamar_ia(
-                                                client_ia,
-                                                modelo=MODELO_VISAO,
-                                                messages=[{"role": "user", "content": conteudo_api}],
-                                                temperature=0.1,
-                                                max_tokens=2500
-                                            )
-                                        else:
-                                            raise e_api
-                                    tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
-                                    tarefas_totais.extend(tarefas_lote)
-                                except Exception as e:
-                                    st.warning(f"Aviso na imagem {idx_img+1}: {e}")
-                                barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
-
-                        if not tarefas_totais:
-                            st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
-                        else:
-                            batch = db.batch()
-                            for t in tarefas_totais:
-                                c = str(t.get("cor", "")).lower()
-                                p = 3
-                                if "azul" in c: p = 1
-                                elif "verde" in c: p = 2
-                                elif "amarelo" in c: p = 3
-                                elif "vermelho" in c: p = 4
-                                elif "roxo" in c: p = 5
-                                t["prioridade"] = p
-
-                            tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                            dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
-                            for i, t in enumerate(tarefas_totais):
-                                dia_idx = (i // 4) % len(dias_semana)
-                                t_dia = dias_semana[dia_idx]
-                                doc_ref = db.collection("cronogramas").document()
-                                nova_tarefa = {
-                                    "usuario_id": u_id,
-                                    "semana": nome_semana,
-                                    "dia": t_dia,
-                                    "materia": t.get("materia", ""),
-                                    "tema": t.get("tema", ""),
-                                    "prioridade": safe_int(t.get("prioridade", 3)),
-                                    "concluido": False,
-                                    "data_importacao": str(hoje),
-                                    "data_conclusao": None
-                                }
-                                batch.set(doc_ref, nova_tarefa)
-                                nova_tarefa["id"] = doc_ref.id
-                                st.session_state.dados["cronogramas"].append(nova_tarefa)
-                            batch.commit()
-                            st.session_state.prints_colados = []
-                            st.toast(f"✅ {len(tarefas_totais)} metas importadas.", icon="🎯")
-                            time.sleep(0.8)
-                            st.rerun()
-
-        # --------------------------------------------------------------
-        # NOVA META — mesma estrutura funcional, apresentação mais limpa
-        # --------------------------------------------------------------
-        with aba_manual:
-            st.markdown('<div class="rp-manual-card">', unsafe_allow_html=True)
-            st.markdown("### Adicionar uma meta")
-            st.caption("Cadastre uma tarefa específica sem precisar importar um cronograma inteiro.")
-            c3, c4 = st.columns(2)
-            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="crono28_mat")
-            sub_m = ""
-            if m_materia == "Clínica Médica":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="crono28_sub_cm")
-            elif m_materia == "Cirurgia Geral":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CG, key="crono28_sub_cg")
-            else:
-                with c4:
-                    st.markdown("**Subespecialidade**")
-                    st.caption("Opcional para esta matéria.")
-
-            with st.form("form_crono_manual_28", clear_on_submit=True):
-                c1, c2 = st.columns(2)
-                m_semana = c1.text_input("Semana / bloco", placeholder="Ex.: Semana 4")
-                m_dia = c2.selectbox("Dia", ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"])
-                m_tema = st.text_input("Tema da meta", placeholder="Ex.: Insuficiência cardíaca — tratamento")
-                m_prio = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
-                if st.form_submit_button("Adicionar ao plano", use_container_width=True):
-                    if not m_semana or not m_tema:
-                        st.error("Preencha a semana e o tema para adicionar a meta.")
-                    else:
-                        tema_final = f"{sub_m} - {m_tema}" if sub_m and sub_m != "Geral" else m_tema
-                        db_add("cronogramas", "cronogramas", {
-                            "usuario_id": u_id,
-                            "semana": m_semana,
-                            "dia": m_dia,
-                            "materia": m_materia,
-                            "tema": tema_final,
-                            "prioridade": m_prio,
-                            "concluido": False,
-                            "data_importacao": str(hoje),
-                            "data_conclusao": None
-                        })
-                        st.toast("✅ Meta adicionada.", icon="🎯")
-                        time.sleep(0.5)
-                        st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        # --------------------------------------------------------------
-        # VISÃO DO PLANO
-        # --------------------------------------------------------------
-        with aba_visao:
+        with tab_plano:
             if not meu_crono:
-                st.markdown('<div class="rp-empty"><strong>Seu cronograma ainda está vazio.</strong>Comece importando um print com IA ou adicione sua primeira meta manualmente.</div>', unsafe_allow_html=True)
+                st.info("Seu cronograma está vazio. Crie uma meta ou importe seu cronograma com IA.")
             else:
-                semanas_unicas = sorted(
-                    list(set([c.get("semana", "Semana Geral") for c in meu_crono])),
-                    key=lambda sem: (
-                        max([parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem] or [parse_data(None)]),
-                        int(re.findall(r'\d+', str(sem))[0]) if re.findall(r'\d+', str(sem)) else 0
-                    ),
-                    reverse=True
-                )
-                materias_unicas = sorted(list(set([str(c.get("materia", "Geral")) for c in meu_crono if c.get("materia")])) or ["Geral"])
-
-                st.markdown('<div class="rp-planner-toolbar">', unsafe_allow_html=True)
-                st.markdown("**Filtrar seu plano**", unsafe_allow_html=True)
-                f1, f2, f3, f4 = st.columns([1.15, 1, 1.25, 1.7])
-                with f1:
-                    semana_filtro = st.selectbox("Semana", ["Todas"] + semanas_unicas, key="crono28_semana_filtro", label_visibility="collapsed")
-                with f2:
-                    status_filtro = st.selectbox("Status", ["Todas", "Pendentes", "Concluídas"], key="crono28_status_filtro", label_visibility="collapsed")
-                with f3:
-                    materia_filtro = st.selectbox("Matéria", ["Todas"] + materias_unicas, key="crono28_materia_filtro", label_visibility="collapsed")
-                with f4:
-                    termo_pesquisa = st.text_input("Buscar", placeholder="🔎 Tema ou palavra-chave...", key="crono28_busca", label_visibility="collapsed")
-                st.markdown('</div>', unsafe_allow_html=True)
-
-                filtradas = list(meu_crono)
-                if semana_filtro != "Todas":
-                    filtradas = [c for c in filtradas if c.get("semana", "Semana Geral") == semana_filtro]
-                if status_filtro == "Pendentes":
-                    filtradas = [c for c in filtradas if not bool(c.get("concluido"))]
-                elif status_filtro == "Concluídas":
-                    filtradas = [c for c in filtradas if bool(c.get("concluido"))]
-                if materia_filtro != "Todas":
-                    filtradas = [c for c in filtradas if str(c.get("materia", "Geral")) == materia_filtro]
-                if termo_pesquisa:
-                    q = termo_pesquisa.lower().strip()
-                    filtradas = [c for c in filtradas if q in str(c.get("tema", "")).lower() or q in str(c.get("materia", "")).lower() or q in str(c.get("dia", "")).lower()]
+                semanas = list(dict.fromkeys([str(c.get("semana") or "Sem semana") for c in meu_crono]))
+                # Ordenação natural: Semana 1, Semana 2... e depois textos sem número.
+                def chave_semana(x):
+                    nums=re.findall(r"\d+", x)
+                    return (0,int(nums[0])) if nums else (1,x.casefold())
+                semanas.sort(key=chave_semana)
+                f1,f2,f3 = st.columns([1.2,1.2,2])
+                filtro_sem = f1.selectbox("Semana", ["Todas"]+semanas, key="crono29_sem")
+                filtro_status = f2.selectbox("Status", ["Todos","Pendentes","Concluídas"], key="crono29_status")
+                busca = f3.text_input("Buscar tema", placeholder="Ex.: insuficiência cardíaca", key="crono29_busca")
+                filtradas=meu_crono
+                if filtro_sem!="Todas": filtradas=[x for x in filtradas if str(x.get("semana") or "Sem semana")==filtro_sem]
+                if filtro_status=="Pendentes": filtradas=[x for x in filtradas if not bool(x.get("concluido"))]
+                elif filtro_status=="Concluídas": filtradas=[x for x in filtradas if bool(x.get("concluido"))]
+                if busca:
+                    q=busca.casefold(); filtradas=[x for x in filtradas if q in str(x.get("tema","")).casefold() or q in normalizar_area(x.get("materia"), mapa_aulas).casefold()]
 
                 if not filtradas:
-                    st.markdown('<div class="rp-empty"><strong>Nenhuma meta encontrada.</strong>Altere os filtros ou cadastre uma nova meta.</div>', unsafe_allow_html=True)
+                    st.warning("Nenhuma meta encontrada com esses filtros.")
                 else:
-                    semanas_exibir = [semana_filtro] if semana_filtro != "Todas" else sorted(
-                        list(set([c.get("semana", "Semana Geral") for c in filtradas])),
-                        key=lambda sem: (
-                            max([parse_data(c.get("data_importacao", str(hoje))) for c in filtradas if c.get("semana", "Semana Geral") == sem] or [parse_data(None)]),
-                            int(re.findall(r'\d+', str(sem))[0]) if re.findall(r'\d+', str(sem)) else 0
-                        ),
-                        reverse=True
-                    )
-                    dias_ordem = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"]
-
+                    dias=["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"]
+                    semanas_exibir=semanas if filtro_sem=="Todas" else [filtro_sem]
                     for sem in semanas_exibir:
-                        tarefas_semana = [c for c in filtradas if c.get("semana", "Semana Geral") == sem]
-                        if not tarefas_semana:
-                            continue
-                        semana_conc = sum(1 for c in tarefas_semana if bool(c.get("concluido")))
-                        semana_total = len(tarefas_semana)
-                        semana_pct = (semana_conc / semana_total * 100) if semana_total else 0
-                        st.markdown(f'<div class="rp-week-head"><div class="rp-week-name">📚 {sem}</div><div class="rp-week-meta">{semana_conc}/{semana_total} concluídas · {semana_pct:.0f}%</div></div>', unsafe_allow_html=True)
+                        itens_sem=[x for x in filtradas if str(x.get("semana") or "Sem semana")==sem]
+                        if not itens_sem: continue
+                        done=sum(bool(x.get("concluido")) for x in itens_sem)
+                        pct=done/len(itens_sem)*100
+                        with st.container(border=True):
+                            st.markdown(f"### 📚 {sem}")
+                            st.caption(f"{done} de {len(itens_sem)} metas concluídas · {pct:.0f}%")
+                            st.progress(pct/100)
+                            for dia in dias:
+                                itens=[x for x in itens_sem if str(x.get("dia",""))==dia]
+                                if not itens: continue
+                                st.markdown(f"**{dia}**")
+                                for t in itens:
+                                    tid=str(t.get("id","")); done_t=bool(t.get("concluido")); mat=normalizar_area(t.get("materia"), mapa_aulas); cor=cor_area(mat); tema=html.escape(limpar_texto(t.get("tema","Sem tema")));
+                                    a,b,c=st.columns([0.08,3.4,0.8])
+                                    with a:
+                                        if st.button("↩" if done_t else "✓", key=f"crono29_done_{tid}", help="Reabrir" if done_t else "Concluir"):
+                                            db_update("cronogramas","cronogramas",tid,{"concluido":not done_t,"data_conclusao":None if done_t else get_agora().strftime("%Y-%m-%d %H:%M:%S")}); st.rerun()
+                                    with b:
+                                        st.markdown(f"<div style='padding:5px 0'><span style='color:{cor};font-weight:800'>●</span> <strong style='text-decoration:{'line-through' if done_t else 'none'}'>{tema}</strong><br><small style='color:var(--rp-muted)'>{mat}</small></div>", unsafe_allow_html=True)
+                                    with c:
+                                        p=safe_int(t.get("prioridade",3)); novo=st.selectbox("Prioridade",[1,2,3,4,5],index=max(0,min(4,p-1)),format_func=lambda x: PRIORIDADES.get(x),key=f"crono29_pri_{tid}",label_visibility="collapsed")
+                                        if novo!=p: db_update("cronogramas","cronogramas",tid,{"prioridade":novo}); st.rerun()
+                            with st.expander("⚙️ Gerenciar semana"):
+                                if st.button("Excluir esta semana",key=f"crono29_del_sem_{sem}"):
+                                    batch=db.batch(); ids=[]
+                                    for t in [x for x in meu_crono if str(x.get("semana") or "Sem semana")==sem]:
+                                        tid=str(t.get("id",""))
+                                        if tid: batch.delete(db.collection("cronogramas").document(tid)); ids.append(tid)
+                                    batch.commit(); st.session_state.dados["cronogramas"]=[x for x in st.session_state.dados["cronogramas"] if str(x.get("id")) not in ids]; st.rerun()
 
-                        dias_presentes = [d for d in dias_ordem if any(c.get("dia", "") == d for c in tarefas_semana)]
-                        for base in range(0, len(dias_presentes), 2):
-                            dia_cols = st.columns(2)
-                            for idx_col, dia in enumerate(dias_presentes[base:base+2]):
-                                tarefas_dia = [c for c in tarefas_semana if c.get("dia", "") == dia]
-                                tarefas_dia.sort(key=lambda x: (bool(x.get("concluido")), safe_int(x.get("prioridade", 3)), str(x.get("tema", ""))))
-                                with dia_cols[idx_col]:
-                                    st.markdown(f'<div class="rp-day-card"><div class="rp-day-head"><div class="rp-day-name">{dia}</div><div class="rp-day-count">{sum(1 for c in tarefas_dia if c.get("concluido"))}/{len(tarefas_dia)} feitas</div></div>', unsafe_allow_html=True)
-                                    for t in tarefas_dia:
-                                        t_id = str(t.get("id", uuid.uuid4()))
-                                        concluido = bool(t.get("concluido"))
-                                        p_val = safe_int(t.get("prioridade", 3))
-                                        p_text = PRIORIDADES.get(p_val, "🟨 Amarelo")
-                                        cor_materia = CORES_AREAS.get(str(t.get("materia", "Geral")), "#64748b")
-                                        titulo = str(t.get("tema", "Sem tema"))
-                                        materia = str(t.get("materia", "Geral"))
-                                        done_cls = " done" if concluido else ""
-                                        st.markdown(f'<div class="rp-task"><span class="rp-task-dot" style="background:{cor_materia}"></span><div class="rp-task-body"><div class="rp-task-title{done_cls}">{titulo}</div><div class="rp-task-meta">{materia}</div></div><span class="rp-task-priority" style="color:{cor_materia}">{p_text}</span></div>', unsafe_allow_html=True)
-                                        a, b, c = st.columns([.22, .55, .23])
-                                        with a:
-                                            label = "↩️" if concluido else "✓"
-                                            if st.button(label, key=f"crono28_done_{t_id}", help="Reabrir meta" if concluido else "Concluir meta", use_container_width=True):
-                                                updates = {"concluido": not concluido, "data_conclusao": None if concluido else get_agora().strftime("%Y-%m-%d %H:%M:%S")}
-                                                db_update("cronogramas", "cronogramas", t_id, updates)
-                                                st.toast("Meta reaberta." if concluido else "Meta concluída!", icon="↩️" if concluido else "🎯")
-                                                st.rerun()
-                                        with b:
-                                            novo_p = st.selectbox("Prioridade", options=[1,2,3,4,5], format_func=lambda x: PRIORIDADES.get(x), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"crono28_pri_{t_id}", label_visibility="collapsed")
-                                            if novo_p != p_val:
-                                                db_update("cronogramas", "cronogramas", t_id, {"prioridade": novo_p})
-                                                st.rerun()
-                                        with c:
-                                            if st.button("🗑️", key=f"crono28_del_{t_id}", help="Excluir meta", use_container_width=True):
-                                                db_delete("cronogramas", "cronogramas", t_id)
-                                                st.rerun()
-                                    st.markdown('</div>', unsafe_allow_html=True)
+        with tab_nova:
+            with st.form("form_crono_manual_29", clear_on_submit=True):
+                st.markdown("### Criar uma meta")
+                st.caption("Preencha apenas o necessário: semana, dia, matéria e tema.")
+                c1,c2=st.columns(2)
+                m_sem=c1.text_input("Semana / bloco",placeholder="Ex.: Semana 1")
+                m_dia=c2.selectbox("Dia",["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"])
+                c3,c4=st.columns(2)
+                m_mat=c3.selectbox("Matéria",AREAS_MED,key="crono29_mat")
+                sub=""
+                if m_mat=="Clínica Médica": sub=c4.selectbox("Subespecialidade",SUB_CM,key="crono29_subcm")
+                elif m_mat=="Cirurgia Geral": sub=c4.selectbox("Subespecialidade",SUB_CG,key="crono29_subcg")
+                m_tema=st.text_input("Tema",placeholder="Ex.: Insuficiência cardíaca — tratamento")
+                m_prio=st.select_slider("Prioridade",options=[1,2,3,4,5],value=3,format_func=lambda x: PRIORIDADES.get(x))
+                if st.form_submit_button("Adicionar ao cronograma",use_container_width=True,type="primary"):
+                    if not m_sem.strip() or not m_tema.strip(): st.error("Preencha a semana e o tema.")
+                    else:
+                        tema=f"{sub} - {m_tema.strip()}" if sub and sub!="Geral" else m_tema.strip()
+                        db_add("cronogramas","cronogramas",{"usuario_id":u_id,"semana":m_sem.strip(),"dia":m_dia,"materia":m_mat,"tema":tema,"prioridade":m_prio,"concluido":False,"data_importacao":str(hoje),"data_conclusao":None}); st.toast("Meta adicionada!",icon="🎯"); st.rerun()
 
-                        # Exclusão da semana preservada, mas agora discreta.
-                        with st.expander("⚙️ Gerenciar esta semana"):
-                            st.caption("Excluir a semana remove todas as metas desse bloco. Esta ação não pode ser desfeita.")
-                            if st.button("Excluir semana inteira", key=f"crono28_del_sem_{sem}"):
-                                batch = db.batch()
-                                ids_del = []
-                                for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]:
-                                    t_id = str(t_del.get("id", "0"))
-                                    if t_id != "0":
-                                        batch.delete(db.collection("cronogramas").document(t_id))
-                                        ids_del.append(t_id)
-                                batch.commit()
-                                st.session_state.dados["cronogramas"] = [c for c in st.session_state.dados["cronogramas"] if str(c.get("id")) not in ids_del]
-                                st.rerun()
+        with tab_ia:
+            st.markdown("### Transformar seu cronograma em metas")
+            st.caption("Envie prints. A IA extrai as tarefas sem alterar o restante do seu cronograma.")
+            nome_semana=st.text_input("Nome da semana / bloco",placeholder="Ex.: Semana 1 · Reta final",key="crono29_nome")
+            ca,cb=st.columns(2)
+            with ca:
+                st.markdown("**📋 Colar prints**")
+                if paste_image_button is not None:
+                    pr=paste_image_button(label="Colar imagem (Ctrl+V)",background_color="#2563eb",hover_background_color="#1d4ed8",key="paste_crono29")
+                    if pr.image_data is not None:
+                        buf=io.BytesIO(); pr.image_data.save(buf,format="PNG"); h=hashlib.md5(buf.getvalue()).hexdigest()
+                        if not any(x['hash']==h for x in st.session_state.get('prints_colados',[])): st.session_state.prints_colados.append({'hash':h,'img':pr.image_data,'bytes':buf.getvalue()}); st.rerun()
+                if st.session_state.get('prints_colados'): st.success(f"{len(st.session_state.prints_colados)} print(s) na fila")
+            with cb:
+                imgs=st.file_uploader("Enviar imagens",type=['png','jpg','jpeg'],accept_multiple_files=True,key="crono29_upload")
+            if (imgs or st.session_state.get('prints_colados')) and nome_semana and st.button("🪄 Extrair metas com IA",use_container_width=True,key="crono29_extract"):
+                client=get_ia_client()
+                if not client: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
+                else:
+                    imagens=[]
+                    for im in (imgs or []): imagens.append(otimizar_imagem_para_api(im,max_size=720))
+                    for x in st.session_state.get('prints_colados',[]): imagens.append(otimizar_imagem_para_api(x['img'],max_size=720))
+                    tarefas=[]; prog=st.progress(0)
+                    prompt="Extraia TODAS as tarefas visíveis. Retorne somente JSON: {\"tarefas\":[{\"materia\":\"Clínica Médica\",\"tema\":\"...\",\"cor\":\"azul\"}]} Use somente nomes oficiais de matéria: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral."
+                    for i,b64 in enumerate(imagens):
+                        try:
+                            r=chamar_ia(client,modelo=MODELO_VISAO,messages=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}],temperature=.1,max_tokens=2500)
+                            tarefas.extend(extrair_json_seguro(r.choices[0].message.content).get('tarefas',[]))
+                        except Exception as e: st.warning(f"Imagem {i+1}: {e}")
+                        prog.progress((i+1)/max(1,len(imagens)))
+                    if tarefas:
+                        dias=["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"]
+                        batch=db.batch()
+                        for i,t in enumerate(tarefas):
+                            cor=str(t.get('cor','')).casefold(); p=1 if 'azul' in cor else 2 if 'verde' in cor else 3 if 'amarelo' in cor else 4 if 'vermelho' in cor else 5 if 'roxo' in cor else 3
+                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//4)%len(dias)],"materia":normalizar_area(t.get('materia'),'{}'),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
+                        batch.commit(); st.session_state.prints_colados=[]; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
+                    else: st.warning("Não foi possível encontrar metas nas imagens.")
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
@@ -1950,7 +1772,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
                     st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
             with col_gh2:
-                todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
+                todas_questoes_hiit_grafico = [{"area": normalizar_area(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": normalizar_area(r.get('area'), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
                 df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
                 if not df_rh.empty:
                     df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
@@ -2033,7 +1855,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     lista_hiit.append({
                         "Data_obj": parse_data(b.get('data')),
                         "Data": formatar_data_br(b.get('data')),
-                        "Área": b.get('area'),
+                        "Área": normalizar_area(b.get('area'), mapa_aulas),
                         "Subtema": limpar_texto(b.get('subtema')),
                         "Acertos": acertos,
                         "Erros": erros,
@@ -2061,7 +1883,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     for q_item in dados_questoes_hiit:
                         data_formatada = formatar_data_br(q_item.get('data'))
                         q_id = str(q_item.get('id', '0000'))
-                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
+                        chave = f"{data_formatada} | {normalizar_area(q_item.get('area'), mapa_aulas)} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
                         opcoes_edicao_h[chave] = q_item
                         
                     if opcoes_edicao_h:
@@ -2122,7 +1944,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                 r = dict(r_orig)
                 r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
                 r['tema'] = limpar_texto(r.get('tema', 'Sem título'))
-                r['area'] = r.get('area', 'Geral')
+                r['area'] = normalizar_area(r.get('area', 'Geral'), mapa_aulas)
                 todas_pendentes_hiit.append(r)
 
             if 'cal_mes_hiit' not in st.session_state: st.session_state.cal_mes_hiit = hoje.month
@@ -2156,7 +1978,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
             if not lista_pendentes_h: st.success("🎉 Tudo em dia no seu projeto HIIT!")
             for r in lista_pendentes_h:
                 with st.container(border=True):
-                    st.markdown(f"**<span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {r['tema']}**", unsafe_allow_html=True)
+                    st.markdown(f"**<span style='color:{cor_area(r['area'], mapa_aulas)};'>⬤</span> {r['tema']}**", unsafe_allow_html=True)
                     st.caption(f"Status: {r.get('ciclo','')} | Agendado: {formatar_data_br(r['data_agendada_obj'])}")
                     with st.expander("✅ Registrar Desempenho e Concluir"):
                         with st.form(f"form_concluir_hiit_{r['id']}", clear_on_submit=True):
@@ -2168,7 +1990,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                             if st.form_submit_button("✅ Marcar Concluída e Agendar Próxima", use_container_width=True):
                                 original_doc = next((doc for doc in st.session_state.dados["revisoes_hiit"] if str(doc['id']) == str(r['id'])), r)
                                 tema_salvar = original_doc.get('tema', r.get('tema'))
-                                area_salvar = original_doc.get('area', r.get('area'))
+                                area_salvar = original_doc.get('area', normalizar_area(r.get('area'), mapa_aulas))
                                 
                                 db_update("revisoes_hiit", "revisoes_hiit", r['id'], {
                                     "status": "Concluída", 
@@ -2349,7 +2171,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                                                                     batch = db.batch()
                                                                     for fc in fcs:
                                                                         doc_ref = db.collection("flashcards_hiit").document()
-                                                                        n_fc = {"usuario_id": u_id, "area": nh.get('area'), "tema": limpar_texto(nh.get('subtema')), "frente": fc.get('frente'), "verso": fc.get('verso'), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
+                                                                        n_fc = {"usuario_id": u_id, "area": normalizar_area(nh.get('area'), mapa_aulas), "tema": limpar_texto(nh.get('subtema')), "frente": fc.get('frente'), "verso": fc.get('verso'), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
                                                                         batch.set(doc_ref, n_fc)
                                                                         n_fc["id"] = doc_ref.id
                                                                         st.session_state.dados["flashcards_hiit"].append(n_fc)
@@ -2416,7 +2238,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                                             st.markdown("#### ✍️ Editar Texto")
                                             
                                             col_eah, col_esh = st.columns(2)
-                                            edit_ah = col_eah.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nh.get('area')) if nh.get('area') in AREAS_MED else 0, key=f"ea_h_{id_nh}")
+                                            edit_ah = col_eah.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(normalizar_area(nh.get('area'), mapa_aulas)) if normalizar_area(nh.get('area'), mapa_aulas) in AREAS_MED else 0, key=f"ea_h_{id_nh}")
                                             sub_eah = ""
                                             if edit_ah == "Clínica Médica":
                                                 sub_eah = col_esh.selectbox("Subespecialidade", SUB_CM, key=f"sub_eah_cm_{id_nh}")
@@ -2459,7 +2281,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                 # Agrupa os cartões vencidos por Grande Área e depois por Tema
                 deck_organizado = {}
                 for card in cards_vencidos:
-                    area = card.get('area', 'Geral')
+                    area = normalizar_area(card.get('area', 'Geral'), mapa_aulas)
                     tema = limpar_texto(card.get('tema', 'Sem Tema'))
                     if area not in deck_organizado: deck_organizado[area] = {}
                     if tema not in deck_organizado[area]: deck_organizado[area][tema] = []
@@ -2608,7 +2430,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     lista_q.append({
                         "Data_obj": parse_data(b.get('data')),
                         "Data": formatar_data_br(b.get('data')),
-                        "Área": b.get('area'),
+                        "Área": normalizar_area(b.get('area'), mapa_aulas),
                         "Subtema": limpar_texto(b.get('subtema')),
                         "Acertos": acertos,
                         "Erros": erros,
@@ -2642,7 +2464,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     for q_item in dados_questoes:
                         data_formatada = formatar_data_br(q_item.get('data'))
                         q_id = str(q_item.get('id', '0000'))
-                        chave = f"{data_formatada} | {q_item.get('area')} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
+                        chave = f"{data_formatada} | {normalizar_area(q_item.get('area'), mapa_aulas)} - {limpar_texto(q_item.get('subtema'))} (ID: {q_id[:4]})"
                         opcoes_edicao[chave] = q_item
                         
                     if opcoes_edicao:
@@ -2676,7 +2498,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
         with aba_erros:
             baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
             if baterias_erros:
-                erro_escolhido = st.selectbox("Escolha um conceito que você errou:", reversed([f"{b.get('area')} - {limpar_texto(b.get('subtema'))}: {b.get('conceito_chave')}" for b in baterias_erros]))
+                erro_escolhido = st.selectbox("Escolha um conceito que você errou:", reversed([f"{normalizar_area(b.get('area'), mapa_aulas)} - {limpar_texto(b.get('subtema'))}: {b.get('conceito_chave')}" for b in baterias_erros]))
                 conceito_alvo = erro_escolhido.split(": ")[1]
                 area_alvo = erro_escolhido.split(" - ")[0]
                 tema_alvo = erro_escolhido.split(" - ")[1].split(":")[0]
@@ -2706,7 +2528,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
             
             historico_dict = {}
             for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
-                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                t_str = f"{normalizar_area(q.get('area'), mapa_aulas)} - {limpar_texto(q.get('subtema'))}"
                 if t_str not in historico_dict: historico_dict[t_str] = []
                 if len(historico_dict[t_str]) < 3:
                     historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
@@ -2773,7 +2595,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     c_data = cards_hoje[0]
                     c_data_id = str(c_data.get("id", "000"))
                     with st.container(border=True):
-                        st.markdown(f"<span style='color:{CORES_AREAS.get(c_data.get('area', 'Geral'), '#64748b')};'>⬤</span> **{c_data.get('area', 'Geral')}** | Tema: {limpar_texto(c_data.get('tema', 'Sem Tema'))}", unsafe_allow_html=True)
+                        st.markdown(f"<span style='color:{CORES_AREAS.get(normalizar_area(c_data.get('area', 'Geral'), mapa_aulas), '#64748b')};'>⬤</span> **{normalizar_area(c_data.get('area', 'Geral'), mapa_aulas)}** | Tema: {limpar_texto(c_data.get('tema', 'Sem Tema'))}", unsafe_allow_html=True)
                         st.markdown(f"### ❔ {c_data.get('frente', '')}")
                         if 'ans' not in st.session_state: st.session_state.ans = False
                         if st.button("Revelar Resposta"): st.session_state.ans = True
@@ -2915,8 +2737,8 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
             aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
             for al in aulas_exibir:
                 with st.container(border=True):
-                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
-                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
+                    st.markdown(f"#### <span style='color:{cor_area(al.get('area'), mapa_aulas)};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
+                    st.caption(f"{normalizar_area(al.get('area', ''), mapa_aulas)} | Data: {formatar_data_br(al.get('data_aula'))}")
 
     elif menu == "⏱️ Modo Foco":
         st.header("Concentração Pomodoro")
@@ -3289,7 +3111,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
                 # --- SEPARAR POR ÁREA EM ABAS (NOVO LAYOUT) ---
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
+                areas_presentes = sorted(list(set([normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in notas_exibir])))
                 
                 if not notas_exibir:
                     st.warning("Nenhuma anotação encontrada para esta pesquisa.")
@@ -3297,7 +3119,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                     abas_areas = st.tabs(areas_presentes)
                     for i, area_tab in enumerate(areas_presentes):
                         with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
+                            notas_area = [n for n in notas_exibir if normalizar_area(n.get('area', 'Geral'), mapa_aulas) == area_tab]
                             
                             for nota in notas_area:
                                 nota_id = str(nota.get('id', '0000'))
@@ -3315,7 +3137,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                                     
                                     # Renderização permitindo HTML e Markdown Nativo (Títulos e Tópicos)
                                     conteudo_nota = nota.get('pontos_chave', '')
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='border-left: 3px solid {cor_area(nota.get('area'), mapa_aulas)}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
                                     # Exibindo as imagens de forma organizada (Grade)
                                     imgs_exibir = list(nota.get('imagens_b64', []))
@@ -3376,7 +3198,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                                         st.markdown("#### ✍️ Editar Texto")
                                         
                                         col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
+                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(normalizar_area(nota.get('area'), mapa_aulas)) if normalizar_area(nota.get('area'), mapa_aulas) in AREAS_MED else 0, key=f"ea_{nota_id}")
                                         sub_ea = ""
                                         if edit_a == "Clínica Médica":
                                             sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
@@ -3455,7 +3277,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                 r = dict(r_orig)
                 r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
                 r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
+                r['area'] = normalizar_area(r.get('area'), mapa_aulas) or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
                 r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
                 todas_pendentes.append(r)
             
@@ -3510,7 +3332,7 @@ MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINI
                 with st.container(border=True):
                     c1_card, c2_card = st.columns([0.8, 0.2])
                     with c1_card:
-                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
+                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{cor_area(r['area'], mapa_aulas)};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
                         st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
                     with c2_card:
                         st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
