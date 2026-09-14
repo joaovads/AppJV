@@ -1035,6 +1035,42 @@ def resolver_area_grafico(valor, mapa_aulas=None):
 def cor_area(valor, mapa_aulas=None):
     return CORES_AREAS.get(normalizar_area(valor, mapa_aulas), CORES_AREAS["Geral"])
 
+def normalizar_tema_comparacao(valor):
+    """Normaliza temas apenas para identificar uma aula correspondente no cronograma."""
+    txt = limpar_texto(valor or "")
+    txt = unicodedata.normalize("NFKD", txt).encode("ascii", "ignore").decode("ascii")
+    txt = re.sub(r"[^a-z0-9]+", " ", txt.casefold())
+    return re.sub(r"\s+", " ", txt).strip()
+
+def remover_aula_do_cronograma(area_aula, tema_aula):
+    """Remove do cronograma a meta correspondente à aula recém-registrada."""
+    tema_ref = normalizar_tema_comparacao(tema_aula)
+    if not tema_ref:
+        return 0
+    removidos = []
+    area_ref = normalizar_area(area_aula, mapa_aulas)
+    for item in list(st.session_state.dados.get("cronogramas", [])):
+        if bool(item.get("concluido")):
+            continue
+        tema_crono = normalizar_tema_comparacao(item.get("tema"))
+        area_crono = normalizar_area(item.get("materia"), mapa_aulas)
+        if not tema_crono:
+            continue
+        mesma_area = area_crono == area_ref or area_crono == "Geral" or area_ref == "Geral"
+        # Aceita correspondência exata ou quando um tema é uma versão expandida do outro.
+        mesmo_tema = (tema_crono == tema_ref or tema_crono in tema_ref or tema_ref in tema_crono)
+        if mesma_area and mesmo_tema:
+            tid = str(item.get("id", "")).strip()
+            if tid:
+                db.collection("cronogramas").document(tid).delete()
+                removidos.append(tid)
+    if removidos:
+        st.session_state.dados["cronogramas"] = [
+            x for x in st.session_state.dados.get("cronogramas", [])
+            if str(x.get("id", "")) not in set(removidos)
+        ]
+    return len(removidos)
+
 def get_user_docs(collection_name, user_id):
     try:
         todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
@@ -1762,7 +1798,7 @@ else:
                         batch=db.batch()
                         for i,t in enumerate(tarefas):
                             cor=str(t.get('cor','')).casefold(); p=1 if 'azul' in cor else 2 if 'verde' in cor else 3 if 'amarelo' in cor else 4 if 'vermelho' in cor else 5 if 'roxo' in cor else 3
-                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//4)%len(dias)],"materia":normalizar_area(t.get('materia'), mapa_aulas),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"criado_em":get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
+                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//5)%len(dias)],"materia":normalizar_area(t.get('materia'), mapa_aulas),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"criado_em":get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
                         batch.commit(); st.session_state.prints_colados=[]; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
                     else: st.warning("Não foi possível encontrar metas nas imagens.")
 
@@ -2716,7 +2752,11 @@ else:
                     doc_a.set(n_aula)
                     n_aula["id"] = doc_a.id
                     st.session_state.dados["aulas"].append(n_aula)
-                    st.toast("Aula registrada com sucesso!", icon="📚")
+                    removidas_crono = remover_aula_do_cronograma(a, n_aula["tema"])
+                    if removidas_crono:
+                        st.toast(f"Aula registrada! {removidas_crono} item(ns) removido(s) do cronograma.", icon="📚")
+                    else:
+                        st.toast("Aula registrada com sucesso!", icon="📚")
                     time.sleep(0.5)
                     st.rerun()
                     
