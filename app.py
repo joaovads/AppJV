@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.5", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 2.6", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -198,7 +198,7 @@ def aplicar_css_tema(modo):
 # DESIGN PREMIUM 2.0 — CAMADA VISUAL NÃO INTRUSIVA
 # ==========================================
 def aplicar_ui_premium(modo):
-    """Residência PRO 2.4 — linguagem visual de produto profissional.
+    """Residência PRO 2.6 — linguagem visual de produto profissional.
     Camada exclusivamente visual: não altera banco, chaves ou regras de negócio.
     """
     dark = modo == "Escuro"
@@ -337,7 +337,105 @@ def aplicar_ui_premium(modo):
         color:{text} !important;
     }}
 
-    /* ===== DASHBOARD 2.5 ===== */
+    /* ===== THEME SHIELD — COMPONENTES BASEWEB / STREAMLIT ===== */
+    /* O tema do aplicativo nunca deve vazar para os campos nativos. */
+    [data-testid="stTextInput"] [data-baseweb="input"],
+    [data-testid="stTextInput"] [data-baseweb="input"] > div,
+    [data-testid="stTextInput"] [data-baseweb="input"] > div > div,
+    [data-testid="stNumberInput"] [data-baseweb="input"],
+    [data-testid="stNumberInput"] [data-baseweb="input"] > div,
+    [data-testid="stNumberInput"] [data-baseweb="input"] > div > div,
+    [data-testid="stDateInput"] [data-baseweb="input"],
+    [data-testid="stDateInput"] [data-baseweb="input"] > div,
+    [data-testid="stDateInput"] [data-baseweb="input"] > div > div,
+    [data-testid="stTimeInput"] [data-baseweb="input"],
+    [data-testid="stTimeInput"] [data-baseweb="input"] > div,
+    [data-testid="stTimeInput"] [data-baseweb="input"] > div > div,
+    [data-testid="stTextArea"] [data-baseweb="textarea"],
+    [data-testid="stTextArea"] [data-baseweb="textarea"] > div,
+    [data-testid="stTextArea"] [data-baseweb="textarea"] > div > div,
+    [data-testid="stSelectbox"] [data-baseweb="select"],
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"],
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div > div,
+    [data-testid="stSelectSlider"] [data-baseweb="select"],
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div > div {
+        background-color:{input_bg} !important;
+        background:{input_bg} !important;
+        color:{text} !important;
+        border-color:{border} !important;
+        box-shadow:none !important;
+        opacity:1 !important;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTimeInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background-color:{input_bg} !important;
+        background:{input_bg} !important;
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+        opacity:1 !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    [data-testid="stSelectbox"] [data-baseweb="select"] div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] span,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] div,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] span,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] div {
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] svg,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] svg,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] svg {
+        fill:{muted} !important;
+        color:{muted} !important;
+    }
+    [data-testid="stNumberInput"] button {
+        background:{surface2} !important;
+        color:{text} !important;
+        border-color:{border} !important;
+    }
+    [data-testid="stNumberInput"] button svg { fill:{text} !important; color:{text} !important; }
+    [data-testid="stDateInput"] button,
+    [data-testid="stTimeInput"] button { background:transparent !important; color:{muted} !important; }
+    [data-testid="stDateInput"] button svg,
+    [data-testid="stTimeInput"] button svg { fill:{muted} !important; }
+
+    /* Menus e popovers vivem fora do bloco principal no DOM. */
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    [data-baseweb="popover"] [role="listbox"],
+    [data-baseweb="popover"] ul,
+    ul[data-baseweb="menu"],
+    [role="listbox"] {
+        background:{surface} !important;
+        background-color:{surface} !important;
+        color:{text} !important;
+        border-color:{border} !important;
+    }
+    [data-baseweb="popover"] [role="option"],
+    [data-baseweb="popover"] [role="option"] *,
+    ul[data-baseweb="menu"] li,
+    ul[data-baseweb="menu"] li * {
+        background:transparent !important;
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+    }
+    [data-baseweb="popover"] [role="option"]:hover,
+    [data-baseweb="popover"] [role="option"][aria-selected="true"],
+    ul[data-baseweb="menu"] li:hover { background:{hover} !important; }
+
+    /* Placeholder e texto desabilitado continuam legíveis no modo claro. */
+    input::placeholder, textarea::placeholder { color:{muted} !important; -webkit-text-fill-color:{muted} !important; opacity:1 !important; }
+    input:disabled, textarea:disabled { background:{surface2} !important; color:{muted} !important; -webkit-text-fill-color:{muted} !important; }
+
+    /* ===== DASHBOARD 2.6 ===== */
     .rp-dash-hero {{
         display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
         padding:4px 0 18px; margin-bottom:18px; border-bottom:1px solid {border};
@@ -359,7 +457,7 @@ def aplicar_ui_premium(modo):
     .rp-dash-section::before {{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}
     .rp-chart-title {{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}
 
-    /* ===== CRONOGRAMA 2.5 ===== */
+    /* ===== CRONOGRAMA 2.6 ===== */
     .rp-crono-hero {{
         padding:2px 0 16px; border-bottom:1px solid {border}; margin-bottom:16px;
     }}
@@ -1206,7 +1304,7 @@ else:
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
-        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.3</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.6</div></div>", unsafe_allow_html=True)
         if user_settings.get('foto_perfil_b64'):
             st.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
@@ -1336,26 +1434,55 @@ else:
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_g['Taxa'] = np.where((df_g['acertos'] + df_g['erros']) > 0, df_g['acertos'] / (df_g['acertos'] + df_g['erros']) * 100, 0)
                     df_g = df_g.sort_values('Taxa')
-                    # As cores abaixo são deliberadamente as cores de desempenho solicitadas.
+                    # A COR DA BARRA IDENTIFICA A MATÉRIA. A COR DO % IDENTIFICA O DESEMPENHO.
+                    # Assim as duas informações permanecem independentes e não se misturam.
                     def cor_taxa(v):
                         if v < 60: return "#ef4444"
                         if v < 70: return "#3b82f6"
                         if v <= 80: return "#eab308"
                         return "#22c55e"
+
+                    cores_materias = [CORES_AREAS.get(str(area), "#64748b") for area in df_g['area']]
                     fig_bar1 = go.Figure(go.Bar(
                         x=df_g['Taxa'], y=df_g['area'], orientation='h',
-                        marker_color=[cor_taxa(v) for v in df_g['Taxa']],
-                        text=[f"{v:.1f}%" for v in df_g['Taxa']], textposition='outside',
-                        hovertemplate="%{y}: %{x:.1f}%<extra></extra>"
+                        marker_color=cores_materias,
+                        marker_line_color=cores_materias,
+                        marker_line_width=0,
+                        hovertemplate="<b>%{y}</b><br>Aproveitamento: %{x:.1f}%<extra></extra>",
+                        cliponaxis=False
                     ))
-                    fig_bar1.update_xaxes(range=[0, 100], ticksuffix="%", gridcolor="rgba(128,128,128,.12)")
+                    # O percentual continua usando a escala de desempenho, sem alterar a cor da matéria.
+                    for _, row in df_g.iterrows():
+                        taxa = float(row['Taxa'])
+                        fig_bar1.add_annotation(
+                            x=min(taxa + 2.2, 108), y=row['area'],
+                            text=f"<b>{taxa:.1f}%</b>",
+                            showarrow=False,
+                            xanchor="left", yanchor="middle",
+                            font=dict(size=12, color=cor_taxa(taxa)),
+                            bgcolor="rgba(0,0,0,0)",
+                            border_width=0
+                        )
+                    fig_bar1.update_xaxes(range=[0, 110], ticksuffix="%", gridcolor="rgba(128,128,128,.12)")
                     fig_bar1.update_layout(
                         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                         font_color=modo_grafico_font, showlegend=False,
-                        margin=dict(t=8,b=8,l=8,r=45), height=max(300, 42 * len(df_g))
+                        margin=dict(t=8,b=8,l=8,r=48), height=max(300, 42 * len(df_g))
                     )
                     st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
-                    st.caption("🔴 <60%  ·  🔵 60–69%  ·  🟡 70–80%  ·  🟢 >80%")
+                    legenda_materias = " · ".join([
+                        f"<span style='color:{CORES_AREAS.get(a, '#64748b')};font-weight:700'>●</span> {a}"
+                        for a in AREAS_MED if a in set(df_g['area'])
+                    ])
+                    st.markdown(
+                        f"<div style='font-size:11px;line-height:1.7;margin-top:-4px'>{legenda_materias}</div>"
+                        f"<div style='font-size:11px;line-height:1.7;color:{modo_grafico_font};opacity:.82'>"
+                        f"% de acertos: <span style='color:#ef4444;font-weight:700'>● &lt;60%</span> · "
+                        f"<span style='color:#3b82f6;font-weight:700'>● 60–69%</span> · "
+                        f"<span style='color:#eab308;font-weight:700'>● 70–80%</span> · "
+                        f"<span style='color:#22c55e;font-weight:700'>● &gt;80%</span></div>",
+                        unsafe_allow_html=True
+                    )
                 else:
                     st.info("Ainda não há dados suficientes por matéria.")
 
