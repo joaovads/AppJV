@@ -2038,10 +2038,13 @@ else:
                         valor = "" if pd.isna(row[c]) else str(row[c])
                         if c == "% Acertos":
                             cor_pct = cor_percentual_acerto(valor)
+                            # Badge com fundo sólido: não depende do CSS do Streamlit.
                             conteudo = (
-                                f"<span style='color:{cor_pct} !important;"
-                                f"-webkit-text-fill-color:{cor_pct} !important;"
-                                f"font-weight:900 !important;'>{html.escape(valor)}</span>"
+                                f"<span style='display:inline-block;min-width:58px;text-align:center;"
+                                f"padding:4px 9px;border-radius:999px;background:{cor_pct} !important;"
+                                f"border:1px solid {cor_pct} !important;color:#ffffff !important;"
+                                f"-webkit-text-fill-color:#ffffff !important;font-weight:900 !important;"
+                                f"line-height:1.2;'>{html.escape(valor)}</span>"
                             )
                         else:
                             conteudo = html.escape(valor)
@@ -2057,10 +2060,10 @@ else:
                 st.markdown(
                     "<div style='font-size:11px;margin-top:8px;color:var(--rp-muted);'>"
                     "<b>Desempenho:</b> "
-                    "<span style='color:#ef4444 !important;font-weight:800;'>● &lt;60%</span> · "
-                    "<span style='color:#3b82f6 !important;font-weight:800;'>● 60–69%</span> · "
-                    "<span style='color:#eab308 !important;font-weight:800;'>● 70–80%</span> · "
-                    "<span style='color:#22c55e !important;font-weight:800;'>● &gt;80%</span>"
+                    "<span style='display:inline-block;background:#ef4444;color:#fff !important;padding:3px 7px;border-radius:999px;font-weight:800;'> &lt;60% </span> · "
+                    "<span style='display:inline-block;background:#3b82f6;color:#fff !important;padding:3px 7px;border-radius:999px;font-weight:800;'> 60–69% </span> · "
+                    "<span style='display:inline-block;background:#eab308;color:#fff !important;padding:3px 7px;border-radius:999px;font-weight:800;'> 70–80% </span> · "
+                    "<span style='display:inline-block;background:#22c55e;color:#fff !important;padding:3px 7px;border-radius:999px;font-weight:800;'> &gt;80% </span>"
                     "</div>",
                     unsafe_allow_html=True
                 )
