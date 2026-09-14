@@ -3,18 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date, timezone
-import tempfile
-import zipfile
-import os
-import time
-import hashlib
-import uuid
-import base64
-import json
-import calendar
-import re
-import math
-import io
+import os, time, hashlib, uuid, base64, json, calendar, re, io
 import numpy as np
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -97,10 +86,10 @@ ativar_pwa()
 # ==========================================
 def aplicar_css_tema(modo):
     if modo == "Escuro":
-        bg_color = "#0f172a"          # Slate 900
-        text_color = "#f8fafc"        # Slate 50
-        metric_bg = "#1e293b"         # Slate 800
-        metric_border = "#334155"     # Slate 700
+        bg_color = "#0f172a"          
+        text_color = "#f8fafc"        
+        metric_bg = "#1e293b"         
+        metric_border = "#334155"     
         sidebar_bg = "#0f172a"
         input_bg = "#1e293b"
         input_text = "#f8fafc"
@@ -111,15 +100,15 @@ def aplicar_css_tema(modo):
         cor_texto_tabela = "#e2e8f0"
         shadow = "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)"
         shadow_hover = "0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4)"
-        blue_accent = "#4f46e5"       # Indigo 600
+        blue_accent = "#4f46e5"       
         blue_hover = "#4338ca"
     else:
-        bg_color = "#f8fafc"          # Slate 50
-        text_color = "#0f172a"        # Slate 900
-        metric_bg = "#ffffff"         # White
-        metric_border = "#e2e8f0"     # Slate 200
+        bg_color = "#f8fafc"          
+        text_color = "#0f172a"        
+        metric_bg = "#ffffff"         
+        metric_border = "#e2e8f0"     
         sidebar_bg = "#ffffff"
-        input_bg = "#f1f5f9"          # Slate 100
+        input_bg = "#f1f5f9"          
         input_text = "#0f172a"
         menu_text = "#64748b"
         menu_hover = "#f1f5f9"
@@ -128,22 +117,23 @@ def aplicar_css_tema(modo):
         cor_texto_tabela = "#334155"
         shadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05)"
         shadow_hover = "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
-        blue_accent = "#4f46e5"       # Indigo 600
+        blue_accent = "#4f46e5"       
         blue_hover = "#4338ca"
 
     css_str = f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    html, body, [class*="css"], .stApp, .main, p, h1, h2, h3, h4, h5, h6, span, label {{ 
-        font-family: 'Inter', sans-serif !important; 
+    /* Protegendo a fonte Inter apenas onde importa, sem quebrar os ícones do Streamlit (keyboard_double) */
+    .stApp, [data-testid="stAppViewContainer"], .main {{ 
+        background-color: {bg_color} !important; 
+        color: {text_color} !important; 
+        font-family: 'Inter', sans-serif; 
     }}
-    
-    @keyframes fadeUp {{ from {{ opacity: 0; transform: translateY(15px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-    .main {{ animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }}
-    
-    .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
-    h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; }}
+    h1, h2, h3, h4, h5, h6, p, .stMarkdown, label {{ 
+        font-family: 'Inter', sans-serif !important; 
+        color: {text_color} !important; 
+    }}
     
     ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
     ::-webkit-scrollbar-track {{ background: transparent; }}
@@ -160,7 +150,10 @@ def aplicar_css_tema(modo):
         border-color: {blue_accent} !important;
         box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2) !important;
     }}
-    input, textarea, div[data-baseweb="select"] span {{ color: {input_text} !important; -webkit-text-fill-color: {input_text} !important; }}
+    input, textarea, div[data-baseweb="select"] span {{ 
+        color: {input_text} !important; 
+        -webkit-text-fill-color: {input_text} !important; 
+    }}
     
     button[kind="primary"], button[kind="secondary"], button[kind="formSubmit"], div[data-testid="stFormSubmitButton"] > button {{
         background-color: {blue_accent} !important; 
@@ -169,65 +162,68 @@ def aplicar_css_tema(modo):
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
         box-shadow: 0 4px 6px rgba(79, 70, 229, 0.25) !important;
     }}
-    button[kind="primary"]:hover, button[kind="secondary"]:hover, button[kind="formSubmit"]:hover {{
+    button[kind="primary"]:hover, button[kind="formSubmit"]:hover {{
         background-color: {blue_hover} !important;
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(79, 70, 229, 0.35) !important;
     }}
-    .stButton > button {{ border-radius: 10px !important; background-color: {blue_accent} !important; color: white !important; border: none !important; transition: all 0.2s ease !important; }}
-    .stButton > button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3) !important; }}
-    button p, button span, button div {{ color: white !important; font-weight: 600 !important; letter-spacing: 0.3px; }}
+    .stButton > button {{ 
+        border-radius: 10px !important; 
+        background-color: {blue_accent} !important; 
+        color: white !important; 
+        border: none !important; 
+        transition: all 0.2s ease !important; 
+    }}
+    .stButton > button:hover {{ transform: translateY(-2px); }}
     
     [data-baseweb="tab-list"] {{
         background-color: {input_bg} !important;
         border-radius: 14px;
         padding: 6px;
         border: 1px solid {metric_border};
-        gap: 6px;
     }}
-    button[data-baseweb="tab"] {{ border-radius: 10px !important; border: none !important; background: transparent !important; padding-top: 8px !important; padding-bottom: 8px !important; }}
+    button[data-baseweb="tab"] {{ border-radius: 10px !important; border: none !important; background: transparent !important; padding: 8px !important; }}
     button[data-baseweb="tab"][aria-selected="true"] {{ background: {metric_bg} !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }}
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {{ color: {menu_text} !important; font-weight: 600 !important; transition: color 0.3s; }}
-    button[data-baseweb="tab"][aria-selected="true"] p, button[data-baseweb="tab"][aria-selected="true"] span {{ color: {text_color} !important; }}
     
-    [data-testid="stVerticalBlockBorderWrapper"] {{ border-radius: 16px !important; border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; box-shadow: {shadow} !important; transition: transform 0.2s ease, box-shadow 0.2s ease !important; }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{ transform: translateY(-2px); box-shadow: {shadow_hover} !important; }}
-    div[data-testid='stExpander'] {{ border: 1px solid {metric_border} !important; background-color: {metric_bg} !important; border-radius: 12px; transition: all 0.3s ease; }}
+    [data-testid="stVerticalBlockBorderWrapper"], [data-testid="stMetric"] {{ 
+        background-color: {metric_bg} !important; 
+        border: 1px solid {metric_border} !important; 
+        border-radius: 16px !important; 
+        box-shadow: {shadow} !important; 
+        transition: transform 0.2s ease !important; 
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover, [data-testid="stMetric"]:hover {{ transform: translateY(-3px); }}
     
-    [data-testid="stMetric"] {{ background-color: {metric_bg} !important; border: 1px solid {metric_border} !important; padding: 20px !important; border-radius: 16px !important; box-shadow: {shadow} !important; transition: transform 0.2s ease !important; }}
-    [data-testid="stMetric"]:hover {{ transform: translateY(-3px); box-shadow: {shadow_hover} !important; }}
-    [data-testid="stMetricValue"] {{ font-weight: 800 !important; font-size: 2.2rem !important; color: {blue_accent} !important; }}
-    [data-testid="stMetricLabel"] {{ font-weight: 500 !important; color: {menu_text} !important; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.85rem; }}
-
     [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; border-right: 1px solid {metric_border} !important; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {{ display: none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; background-color: transparent; transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{ padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; transition: all 0.2s ease; cursor: pointer; border: 1px solid transparent; }}
     [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background-color: {menu_hover} !important; transform: translateX(4px); border-color: {metric_border}; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label p {{ color: {menu_text} !important; font-weight: 600; font-size: 15px; letter-spacing: 0.2px; }}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{ background-color: {blue_accent} !important; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); border-color: {blue_accent}; }}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color: white !important; font-weight: 700 !important; }}
     
-    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 140px; height: 140px; display: block; margin: 0 auto; box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }}
-    .profile-img:hover {{ transform: scale(1.05) rotate(-2deg); }}
+    .profile-img {{ border-radius: 50%; object-fit: cover; border: 4px solid {blue_accent}; width: 140px; height: 140px; display: block; margin: 0 auto; box-shadow: 0 8px 20px rgba(0,0,0,0.25); }}
     </style>
     """
     st.markdown(css_str, unsafe_allow_html=True)
     st.session_state["graph_bg"] = bg_color
     st.session_state["graph_font"] = text_color
-    st.session_state["graph_paper"] = metric_bg
 
-try: CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
-except Exception: CHAVE_GROQ_FIXA = ""
+# ==========================================
+# CHAVES DE ACESSO E CONEXÃO FIREBASE
+# ==========================================
+try:
+    CHAVE_GROQ_FIXA = st.secrets.get("GROQ_KEY", st.secrets.get("GROQ_API_KEY", "")) 
+except Exception:
+    CHAVE_GROQ_FIXA = ""
 
 @st.cache_resource
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            firebase_secrets = st.secrets["textkey"] 
-            schema = dict(firebase_secrets)
-            if "private_key" in schema:
-                schema["private_key"] = schema["private_key"].strip().replace('"', '').replace("'", "").replace("\\n", "\n")
-            cred = credentials.Certificate(schema)
+            firebase_secrets = dict(st.secrets["textkey"])
+            if "private_key" in firebase_secrets:
+                firebase_secrets["private_key"] = firebase_secrets["private_key"].strip().replace('"', '').replace("'", "").replace("\\n", "\n")
+            cred = credentials.Certificate(firebase_secrets)
             firebase_admin.initialize_app(cred)
         except Exception as e:
             st.error(f"Erro ao conectar ao Firebase: {e}")
@@ -237,8 +233,12 @@ def init_firebase():
 db = init_firebase()
 
 for d in ["materiais_estudo", "imagens_flashcards"]:
-    if not os.path.exists(d): os.makedirs(d)
+    if not os.path.exists(d): 
+        os.makedirs(d)
 
+# ==========================================
+# FUNÇÕES DE BANCO OTIMIZADAS
+# ==========================================
 def db_add(col_name, state_key, data):
     doc_ref = db.collection(col_name).document()
     doc_ref.set(data)
@@ -253,8 +253,10 @@ def db_update(col_name, state_key, doc_id, updates):
         for item in st.session_state.dados[state_key]:
             if str(item.get("id")) == str(doc_id):
                 for k, v in updates.items():
-                    if 'Sentinel' in str(type(v)): item.pop(k, None)
-                    else: item[k] = v
+                    if 'Sentinel' in str(type(v)):
+                        item.pop(k, None)
+                    else:
+                        item[k] = v
                 break
 
 def db_delete(col_name, state_key, doc_id):
@@ -264,7 +266,8 @@ def db_delete(col_name, state_key, doc_id):
 
 def invalidar_cache(colecoes=None):
     if colecoes and 'dados' in st.session_state:
-        if isinstance(colecoes, str): colecoes = [colecoes]
+        if isinstance(colecoes, str): 
+            colecoes = [colecoes]
         for colecao in colecoes:
             col_db = "questoes_sessoes" if colecao == "questoes" else ("focus_sessoes" if colecao == "focus" else colecao)
             st.session_state.dados[colecao] = get_user_docs(col_db, st.session_state.user_id)
@@ -275,20 +278,34 @@ def invalidar_cache(colecoes=None):
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None: return ""
     try:
-        if isinstance(img_data, Image.Image): img = img_data.copy()
-        elif isinstance(img_data, bytes): img = Image.open(io.BytesIO(img_data))
-        elif hasattr(img_data, 'getvalue'): img = Image.open(io.BytesIO(img_data.getvalue()))
-        elif hasattr(img_data, 'read'): img_data.seek(0); img = Image.open(io.BytesIO(img_data.read()))
-        else: img = Image.open(img_data)
-        if img.mode != 'RGB': img = img.convert('RGB')
+        if isinstance(img_data, Image.Image): 
+            img = img_data.copy()
+        elif isinstance(img_data, bytes): 
+            img = Image.open(io.BytesIO(img_data))
+        elif hasattr(img_data, 'getvalue'): 
+            img = Image.open(io.BytesIO(img_data.getvalue()))
+        elif hasattr(img_data, 'read'): 
+            img_data.seek(0)
+            img = Image.open(io.BytesIO(img_data.read()))
+        else: 
+            img = Image.open(img_data)
+            
+        if img.mode != 'RGB': 
+            img = img.convert('RGB')
+            
         img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-        buf = io.BytesIO(); img.save(buf, format="JPEG", quality=65)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=65)
         return base64.b64encode(buf.getvalue()).decode('utf-8')
-    except Exception: return ""
+    except Exception: 
+        return ""
 
 def get_ia_client():
     if "model_ia" not in st.session_state:
-        st.session_state.model_ia = Groq(api_key=CHAVE_GROQ_FIXA) if Groq and CHAVE_GROQ_FIXA else None
+        if Groq and CHAVE_GROQ_FIXA:
+            st.session_state.model_ia = Groq(api_key=CHAVE_GROQ_FIXA)
+        else:
+            st.session_state.model_ia = None
     return st.session_state.model_ia
 
 def chamar_ia(client, *, modelo, **kwargs):
@@ -296,12 +313,13 @@ def chamar_ia(client, *, modelo, **kwargs):
     for m in candidatos:
         try:
             call_kwargs = dict(kwargs)
-            if m == "qwen/qwen3.6-27b":
+            if "qwen3.6-27b" in m:
                 call_kwargs.update({"reasoning_effort": "none", "include_reasoning": False})
             call_kwargs.pop("response_format", None)
             return client.chat.completions.create(model=m, **call_kwargs)
         except Exception as exc:
-            if any(token in str(exc).lower() for token in ("model_not_found", "not exist", "access", "404", "403")): continue
+            if any(token in str(exc).lower() for token in ("model_not_found", "not exist", "access", "404", "403")): 
+                continue
             raise
     raise RuntimeError("Nenhum modelo Groq disponível.")
 
@@ -312,8 +330,11 @@ def extrair_json_seguro(texto):
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
     t = t.replace("```json", "").replace("```", "").strip()
     
-    start_obj = t.find('{'); start_arr = t.find('[')
+    start_obj = t.find('{')
+    start_arr = t.find('[')
+    
     if start_obj == -1 and start_arr == -1: return {}
+    
     is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
     t = t[start_obj:] if is_obj else t[start_arr:]
     
@@ -326,11 +347,15 @@ def extrair_json_seguro(texto):
     if fix.count('"') % 2 != 0: fix += '"'
     fix = fix.strip().rstrip(',')
     fix += ']' * (fix.count('[') - fix.count(']')) + '}' * (fix.count('{') - fix.count('}'))
+    
     try:
         parsed = json.loads(fix)
         return {"tarefas": parsed, "questoes": parsed} if isinstance(parsed, list) else parsed
     except: return {}
 
+# ==========================================
+# CONSTANTES E CORES
+# ==========================================
 AREAS_MED = ["Clínica Médica", "Cirurgia Geral", "Pediatria", "Ginecologia e Obstetrícia", "Medicina Preventiva", "Geral"]
 SUB_CM = ["Geral", "Cardiologia", "Nefrologia", "Endocrinologia", "Pneumologia", "Gastroenterologia", "Reumatologia", "Hematologia", "Infectologia", "Neurologia"]
 SUB_CG = ["Geral", "Cirurgia do Trauma", "Cirurgia Vascular", "Cirurgia Plástica", "Cirurgia Torácica", "Cirurgia Pediátrica", "Urologia", "Neurocirurgia", "Ortopedia", "Cirurgia Oncológica", "Cirurgia Cabeça e Pescoço"]
@@ -351,6 +376,7 @@ def renderizar_mensagem_osce(texto):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
     bg_osce = "#1e293b" if modo == "Escuro" else "#ffffff"
     bd_osce = "#334155" if modo == "Escuro" else "#cbd5e1"
+    
     padrao = r"(?i)\[EXAME:\s*([^\]]+)\]"
     partes = re.split(padrao, texto)
     for i, parte in enumerate(partes):
@@ -372,10 +398,14 @@ def renderizar_mensagem_osce(texto):
 def get_agora(): return datetime.now(timezone.utc) - timedelta(hours=3)
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
+
 def safe_int(valor):
     try: return int(float(valor)) if valor else 0
     except: return 0
-def limpar_texto(texto): return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto or "Sem título")).strip()
+
+def limpar_texto(texto):
+    if not texto: return "Sem título"
+    return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto)).strip()
 
 def parse_data(d):
     if not d: return get_agora().date()
@@ -384,78 +414,102 @@ def parse_data(d):
     if isinstance(d, str):
         d_str = d.strip()[:10]
         try:
-            if '-' in d_str: return datetime.strptime(d_str, "%Y-%m-%d" if len(d_str.split('-')[0])==4 else "%d-%m-%Y").date()
-            if '/' in d_str: return datetime.strptime(d_str, "%Y/%m/%d" if len(d_str.split('/')[0])==4 else "%d/%m/%Y").date()
+            if '-' in d_str: 
+                return datetime.strptime(d_str, "%Y-%m-%d" if len(d_str.split('-')[0])==4 else "%d-%m-%Y").date()
+            if '/' in d_str: 
+                return datetime.strptime(d_str, "%Y/%m/%d" if len(d_str.split('/')[0])==4 else "%d/%m/%Y").date()
         except: pass
     return get_agora().date()
 
-def formatar_data_br(d): return parse_data(d).strftime("%d/%m/%Y") if d else "-"
+def formatar_data_br(d): 
+    return parse_data(d).strftime("%d/%m/%Y") if d else "-"
 
 def get_user_docs(collection_name, user_id):
-    try: return [{"id": d.id, **d.to_dict()} for d in db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()]
+    try: 
+        return [{"id": d.id, **d.to_dict()} for d in db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()]
     except Exception: return []
 
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = ("#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569") if modo == "Escuro" else ("#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8")
+    if modo == "Escuro":
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else:
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
+        
     cal = calendar.monthcalendar(ano, mes)
     aulas_dict = {}
     for a in aulas_lista:
         d = parse_data(a.get('data_aula'))
         if d.year == ano and d.month == mes: aulas_dict.setdefault(d.day, []).append(a)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'><tr>"
-    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]: html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; font-size:13px; text-transform: uppercase;'>{dia_sem}</th>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'>"
+    html_code += "<tr>"
+    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
+        html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:13px; text-transform: uppercase; letter-spacing: 0.5px;'>{dia_sem}</th>"
     html_code += "</tr>"
+    
     for week in cal:
         html_code += "<tr>"
         for day in week:
-            if day == 0: html_code += f"<td style='border:1px solid {bd_cl}; background-color:{bg_em} !important; border-radius:8px;'></td>"
+            if day == 0: 
+                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:8px;'></td>"
             else:
                 if day in aulas_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
-                else: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(a.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; font-weight: 500; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px; transition: all 0.2s;' onmouseover=\"this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'\" onmouseout=\"this.style.transform='translateY(0)'; this.style.boxShadow='none'\"><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
+                else: 
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
-    bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = ("#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569") if modo == "Escuro" else ("#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8")
+    if modo == "Escuro":
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#1e293b", "#334155", "#0f172a", "#1e212b", "#94a3b8", "#f8fafc", "#475569"
+    else:
+        bg_ct, bd_cl, bg_em, bg_cl, tc_th, tc_st, tc_em = "#ffffff", "#e2e8f0", "#f8fafc", "#ffffff", "#475569", "#0f172a", "#94a3b8"
+
     cal = calendar.monthcalendar(ano, mes)
     revs_dict = {}
     for r in revisoes_lista:
         d = parse_data(r.get('data_agendada_obj') if 'data_agendada_obj' in r else r.get('data_agendada'))
         if d and d.year == ano and d.month == mes: revs_dict.setdefault(d.day, []).append(r)
         
-    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'><tr>"
-    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]: html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; font-size:13px; text-transform: uppercase;'>{dia_sem}</th>"
+    html_code = f"<div style='background-color:{bg_ct}; padding:25px; border-radius:16px; margin-bottom:25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'><table style='width:100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed;'>"
+    html_code += "<tr>"
+    for dia_sem in ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]:
+        html_code += f"<th style='text-align:center; padding:10px 8px; color:{tc_th}; background-color: transparent !important; border: none !important; font-size:13px; text-transform: uppercase; letter-spacing: 0.5px;'>{dia_sem}</th>"
     html_code += "</tr>"
+    
     for week in cal:
         html_code += "<tr>"
         for day in week:
-            if day == 0: html_code += f"<td style='border:1px solid {bd_cl}; background-color:{bg_em} !important; border-radius:8px;'></td>"
+            if day == 0: 
+                html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:8px;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'>{html.escape(limpar_texto(r.get('tema', '')))} <span style='opacity:0.8;'>({r.get('ciclo').split(' ')[0]})</span></div>" for r in revs_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
-                else: html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
+                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(r.get('area'), '#64748b')}; color:white !important; padding:6px 8px; border-radius:6px; font-size:11px; font-weight: 500; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} <span style='opacity: 0.8; font-size: 9px;'>({r.get('ciclo').split(' ')[0]})</span></div>" for r in revs_dict[day]])
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px; transition: all 0.2s;' onmouseover=\"this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'\" onmouseout=\"this.style.transform='translateY(0)'; this.style.boxShadow='none'\"><strong style='color:{tc_st} !important; font-size:15px;'>{day}</strong><div style='margin-top:10px;'>{temas}</div></td>"
+                else: 
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_cl} !important; vertical-align:top; height:100px; border-radius:8px;'><strong style='color:{tc_em} !important; font-size:15px;'>{day}</strong></td>"
         html_code += "</tr>"
     html_code += "</table></div>"
     return html_code
 
 def render_toolbar():
-    """Barra Dupla V2.0: Fixa In-line + Flutuante Global c/ Auto-Save no Cache do Navegador"""
+    """
+    A Barra Fixa Otimizada.
+    Sem barra flutuante rodando no fundo. Leve, responsiva e com auto-save silencioso no navegador.
+    """
     toolbar_html = """
-    <!-- BARRA FIXA (INLINE) -->
     <div id="inline-toolbar" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: rgba(30, 41, 59, 0.5); padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; width: 100%; box-sizing: border-box; margin-bottom: 10px;">
         <span style="color: #f8fafc; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">🪄 Formatador:</span>
-        <button class="inline-fmt-btn" data-t1="**" data-t2="**" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold; transition: 0.1s;">B</button>
-        <button class="inline-fmt-btn" data-t1="<u>" data-t2="</u>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; text-decoration: underline; transition: 0.1s;">U</button>
-        <button class="inline-fmt-btn" data-t1="<mark>" data-t2="</mark>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: 0.1s;">🖍️ Grifar</button>
-        <button class="inline-fmt-btn" data-t1="\\n- " data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: 0.1s;">📋 Tópico</button>
-        <button class="inline-fmt-btn" data-t1="PASTE" data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: 0.1s; margin-left: auto;">📸 Colar Imagem</button>
+        <button class="inline-fmt-btn" data-t1="**" data-t2="**" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.2s;">B</button>
+        <button class="inline-fmt-btn" data-t1="<u>" data-t2="</u>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; text-decoration: underline; transition: transform 0.1s, background 0.2s;">U</button>
+        <button class="inline-fmt-btn" data-t1="<mark>" data-t2="</mark>" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: transform 0.1s, background 0.2s;">🖍️ Grifar</button>
+        <button class="inline-fmt-btn" data-t1="\\n- " data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #4f46e5; color: white; cursor: pointer; transition: transform 0.1s, background 0.2s;">📋 Tópico</button>
+        <button class="inline-fmt-btn" data-t1="PASTE" data-t2="" style="padding: 6px 12px; border-radius: 8px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; transition: transform 0.1s, background 0.2s; margin-left: auto;">📸 Colar Imagem</button>
     </div>
     
     <script>
@@ -463,23 +517,34 @@ def render_toolbar():
         const parentDoc = window.parent.document;
         const textareas = parentDoc.querySelectorAll('textarea');
         if (textareas.length === 0) return;
+        
         let ta = null;
-        if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') { ta = parentDoc.activeElement; } 
-        else {
+        if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') {
+            ta = parentDoc.activeElement;
+        } else {
             for(let i=textareas.length-1; i>=0; i--){
                 let label = textareas[i].getAttribute('aria-label') || '';
                 if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('Chaves') || label.includes('Verso')) {
-                    ta = textareas[i]; break;
+                    ta = textareas[i];
+                    break;
                 }
             }
             if(!ta) ta = textareas[textareas.length - 1];
         }
+
         if(ta) {
-            const start = ta.selectionStart, end = ta.selectionEnd, text = ta.value, selectedText = text.substring(start, end);
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            const text = ta.value;
+            const selectedText = text.substring(start, end);
             const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
-            Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(ta, newText);
+            
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+            nativeInputValueSetter.call(ta, newText);
             ta.dispatchEvent(new Event('input', { bubbles: true })); 
-            ta.focus(); ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
+            
+            ta.focus();
+            ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
         }
     }
 
@@ -488,121 +553,76 @@ def render_toolbar():
         const pasteFrames = parentDoc.querySelectorAll('iframe[title*="paste"]');
         if (pasteFrames.length > 0) {
             const target = pasteFrames[pasteFrames.length - 1];
-            target.focus(); target.scrollIntoView({behavior: 'smooth', block: 'center'});
+            target.focus();
+            target.scrollIntoView({behavior: 'smooth', block: 'center'});
             const container = target.closest('div[data-testid="stElementContainer"]');
             if (container) {
                 container.style.transition = 'box-shadow 0.3s, transform 0.3s';
                 container.style.boxShadow = '0 0 25px 8px rgba(16, 185, 129, 0.5)';
                 container.style.transform = 'scale(1.02)';
-                setTimeout(() => { container.style.boxShadow = 'none'; container.style.transform = 'scale(1)'; }, 1200);
+                setTimeout(() => {
+                    container.style.boxShadow = 'none';
+                    container.style.transform = 'scale(1)';
+                }, 1200);
             }
+        } else {
+            alert("⚠️ Área de colagem de imagem não encontrada.");
         }
     }
 
+    // Configuração dos botões anti-perda-de-foco
     document.querySelectorAll('.inline-fmt-btn').forEach(btn => {
-        const action = (e) => {
-            e.preventDefault();
-            btn.style.transform = 'scale(0.92)'; setTimeout(() => btn.style.transform = 'scale(1)', 100);
-            let t1 = btn.getAttribute('data-t1'), t2 = btn.getAttribute('data-t2');
-            if (t1 === "PASTE") focusPasteLocal(); else formatTextLocal(t1, t2);
-        };
-        btn.addEventListener('mousedown', action); btn.addEventListener('touchstart', action, {passive: false});
+        if (!btn.dataset.bound) {
+            btn.dataset.bound = "true";
+            const action = (e) => {
+                e.preventDefault(); 
+                btn.style.transform = 'scale(0.92)';
+                setTimeout(() => btn.style.transform = 'scale(1)', 100);
+                
+                let t1 = btn.getAttribute('data-t1');
+                let t2 = btn.getAttribute('data-t2');
+                
+                if (t1 === "PASTE") {
+                    focusPasteLocal();
+                } else {
+                    formatTextLocal(t1, t2);
+                }
+            };
+            btn.addEventListener('mousedown', action);
+            btn.addEventListener('touchstart', action, {passive: false});
+        }
     });
 
-    // AUTO-SAVE NAVEGADOR
-    function initAutoSave() {
-        window.parent.document.querySelectorAll('textarea').forEach((ta, index) => {
+    // Auto-Save super leve no LocalStorage
+    setTimeout(() => {
+        const textareas = window.parent.document.querySelectorAll('textarea');
+        textareas.forEach((ta, index) => {
+            if (ta.dataset.asaveBound) return; 
+            ta.dataset.asaveBound = "true";
+            
             const label = ta.getAttribute('aria-label') || '';
             if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('Chaves')) {
                 const storageKey = 'autosave_nota_' + label.replace(/\\s+/g, '_') + '_' + index;
+                
                 const savedText = window.parent.localStorage.getItem(storageKey);
                 if (savedText && ta.value === "") {
-                    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(ta, savedText);
+                    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+                    nativeInputValueSetter.call(ta, savedText);
                     ta.dispatchEvent(new Event('input', { bubbles: true }));
                 }
-                ta.addEventListener('input', () => window.parent.localStorage.setItem(storageKey, ta.value));
+
+                ta.addEventListener('input', function() {
+                    window.parent.localStorage.setItem(storageKey, ta.value);
+                });
             }
         });
-    }
-    setTimeout(initAutoSave, 1000);
-
-    // BARRA FLUTUANTE (MAC OS DOCK STYLE)
-    const parentDoc = window.parent.document;
-    if (!parentDoc.getElementById('global-floating-toolbar-v2')) {
-        const floatBar = parentDoc.createElement('div'); floatBar.id = 'global-floating-toolbar-v2';
-        floatBar.style.cssText = "position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 999999; background-color: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 1px 3px rgba(255,255,255,0.1) inset; display: flex; flex-wrap: nowrap; justify-content: center; gap: 8px; align-items: center; width: max-content; max-width: 90vw; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);";
-
-        let lastScrollTop = 0;
-        const mainEl = parentDoc.querySelector('.main');
-        if (mainEl) {
-            mainEl.addEventListener('scroll', function() {
-                let st = mainEl.scrollTop;
-                floatBar.style.bottom = (st > lastScrollTop && st > 100) ? '-100px' : '40px';
-                lastScrollTop = st <= 0 ? 0 : st;
-            }, false);
-        }
-
-        floatBar.innerHTML = `
-            <span style="color: #e2e8f0; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-right: 5px;">🪄</span>
-            <button class="float-fmt-btn" data-tag1="**" data-tag2="**" style="padding: 8px 14px; border-radius: 12px; border: none; background: #4f46e5; color: white; cursor: pointer; font-weight: bold;">B</button>
-            <button class="float-fmt-btn" data-tag1="<u>" data-tag2="</u>" style="padding: 8px 14px; border-radius: 12px; border: none; background: #4f46e5; color: white; cursor: pointer; text-decoration: underline;">U</button>
-            <button class="float-fmt-btn" data-tag1="<mark>" data-tag2="</mark>" style="padding: 8px 14px; border-radius: 12px; border: none; background: #4f46e5; color: white; cursor: pointer;">🖍️ Grifar</button>
-            <button class="float-fmt-btn" data-tag1="NL" data-tag2="" style="padding: 8px 14px; border-radius: 12px; border: none; background: #4f46e5; color: white; cursor: pointer;">📋 Tópico</button>
-            <button class="float-paste-btn" style="padding: 8px 14px; border-radius: 12px; border: none; background: #10b981; color: white; cursor: pointer; font-weight: bold; margin-left: 5px;">📸 Colar Imagem</button>
-        `;
-        
-        const actionFormatFloat = function(e) {
-            e.preventDefault();
-            this.style.transform = 'scale(0.92)'; setTimeout(() => this.style.transform = 'scale(1)', 100);
-            let tagStart = this.getAttribute('data-tag1'), tagEnd = this.getAttribute('data-tag2');
-            if (tagStart === "NL") tagStart = "\\n- ";
-            const textareas = parentDoc.querySelectorAll('textarea'); if (textareas.length === 0) return;
-            let ta = null;
-            if (parentDoc.activeElement && parentDoc.activeElement.tagName === 'TEXTAREA') { ta = parentDoc.activeElement; } 
-            else {
-                for(let i=textareas.length-1; i>=0; i--){
-                    let label = textareas[i].getAttribute('aria-label') || '';
-                    if(label.includes('Pontos') || label.includes('Anotação') || label.includes('Resumo') || label.includes('Tópicos') || label.includes('Chaves') || label.includes('Verso')) { ta = textareas[i]; break; }
-                }
-                if(!ta) ta = textareas[textareas.length - 1];
-            }
-            if(ta) {
-                const start = ta.selectionStart, end = ta.selectionEnd, text = ta.value, selectedText = text.substring(start, end);
-                const newText = text.substring(0, start) + tagStart + selectedText + tagEnd + text.substring(end);
-                Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(ta, newText);
-                ta.dispatchEvent(new Event('input', { bubbles: true }));
-                ta.focus(); ta.setSelectionRange(start + tagStart.length, start + tagStart.length + selectedText.length);
-            }
-        };
-
-        floatBar.querySelectorAll('.float-fmt-btn').forEach(btn => {
-            btn.addEventListener('mousedown', actionFormatFloat); btn.addEventListener('touchstart', actionFormatFloat, {passive: false});
-        });
-
-        const pasteBtn = floatBar.querySelector('.float-paste-btn');
-        const actionPasteFloat = function(e) {
-            e.preventDefault();
-            this.style.transform = 'scale(0.92)'; setTimeout(() => this.style.transform = 'scale(1)', 100);
-            const pasteFrames = parentDoc.querySelectorAll('iframe[title*="paste"]');
-            if (pasteFrames.length > 0) {
-                const target = pasteFrames[pasteFrames.length - 1];
-                target.focus(); target.scrollIntoView({behavior: 'smooth', block: 'center'});
-                const container = target.closest('div[data-testid="stElementContainer"]');
-                if (container) {
-                    container.style.transition = 'box-shadow 0.3s, transform 0.3s'; container.style.boxShadow = '0 0 25px 8px rgba(16, 185, 129, 0.5)'; container.style.transform = 'scale(1.02)';
-                    setTimeout(() => { container.style.boxShadow = 'none'; container.style.transform = 'scale(1)'; }, 1200);
-                }
-            }
-        };
-        pasteBtn.addEventListener('mousedown', actionPasteFloat); pasteBtn.addEventListener('touchstart', actionPasteFloat, {passive: false});
-        parentDoc.body.appendChild(floatBar);
-    }
+    }, 1000);
     </script>
     """
-    components.html(toolbar_html, height=85)
+    components.html(toolbar_html, height=75)
 
 # ==========================================
-# GESTÃO DE LOGIN E SEGURANÇA
+# INÍCIO - LOGIN
 # ==========================================
 if 'logado' not in st.session_state: 
     st.session_state.logado = False
@@ -631,12 +651,11 @@ if not st.session_state.logado:
     if "temp_theme" not in st.session_state: st.session_state.temp_theme = "Escuro"
     aplicar_css_tema(st.session_state.temp_theme)
     
-    st.title("🏥 Residência PRO ⚡ 2.0")
+    st.markdown("<h1 style='text-align:center; font-weight:800; font-size:3rem;'>🏥 Residência PRO <span style='color:#4f46e5;'>2.0</span></h1>", unsafe_allow_html=True)
     st.session_state.temp_theme = st.radio("Tema Visual:", ["Escuro", "Claro"], horizontal=True, index=0 if st.session_state.temp_theme == "Escuro" else 1)
     
     aba_l, aba_c = st.tabs(["🔑 Acesso VIP", "📝 Nova Conta"])
     with aba_l:
-        if cookie_controller is None: st.warning("⚠️ Biblioteca 'streamlit-cookies-controller' não detectada.")
         with st.form("login_form"):
             u, p, lembrar = st.text_input("Usuário"), st.text_input("Senha", type="password"), st.checkbox("Manter-me conectado")
             if st.form_submit_button("Entrar no Sistema", use_container_width=True):
@@ -671,28 +690,19 @@ if not st.session_state.logado:
                 if existe: st.error("Usuário já existe.")
                 else:
                     db.collection("usuarios").add({"nome": nu_limpo, "senha": hash_senha(np_limpo), "tema_modo": st.session_state.temp_theme})
-                    st.toast("✅ Conta criada com sucesso!", icon="🎉")
-
-# ==========================================
+                    st.toast("✅ Conta criada com sucesso!", icon="🎉")# ==========================================
 # APLICATIVO LOGADO
 # ==========================================
 else:
     u_id, hoje = str(st.session_state.user_id), get_agora().date()
-    
     if 'dados' not in st.session_state:
-        st.session_state.dados = {
-            "aulas": [], "revisoes": [], "flashcards": [], 
-            "questoes": [], "simulados": [], "focus": [], 
-            "materiais": [], "cronogramas": [], "anotacoes": [],
-            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": [], "flashcards_hiit": []
-        }
+        st.session_state.dados = {"aulas": [], "revisoes": [], "flashcards": [], "questoes": [], "simulados": [], "focus": [], "materiais": [], "cronogramas": [], "anotacoes": [], "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": [], "flashcards_hiit": []}
 
-    if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Carregando seus dados da nuvem..."):
+    if not st.session_state.get('user_data_loaded'):
+        with st.spinner("Carregando dados da nuvem..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
-                
                 st.session_state.dados = {
                     "aulas": get_user_docs("aulas", u_id), "revisoes": get_user_docs("revisoes", u_id), "flashcards": get_user_docs("flashcards", u_id),
                     "questoes": get_user_docs("questoes_sessoes", u_id), "simulados": get_user_docs("simulados", u_id), "focus": get_user_docs("focus_sessoes", u_id),
@@ -704,20 +714,16 @@ else:
             except Exception as e:
                 st.error(f"🚨 Falha de conexão: {str(e)}"); st.stop()
 
-    user_settings = st.session_state.user_settings
-    _dados_cache = st.session_state.get("dados", {})
-    dados_aulas = _dados_cache.get("aulas", []); mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas} 
-    dados_revisoes = _dados_cache.get("revisoes", []); dados_questoes = _dados_cache.get("questoes", [])
-    dados_flashcards = _dados_cache.get("flashcards", []); dados_simulados = _dados_cache.get("simulados", [])
-    dados_focus = _dados_cache.get("focus", []); dados_materiais = _dados_cache.get("materiais", [])
-    dados_cronogramas = _dados_cache.get("cronogramas", []); dados_anotacoes = _dados_cache.get("anotacoes", [])
-    dados_questoes_hiit = _dados_cache.get("questoes_hiit", []); dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
-    dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", []); dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
+    us = st.session_state.user_settings
+    dcache = st.session_state.dados
+    mapa_aulas = {str(a.get("id")).strip(): a for a in dcache["aulas"]} 
 
-    aplicar_css_tema(user_settings.get("tema_modo", "Escuro"))
+    aplicar_css_tema(us.get("tema_modo", "Escuro"))
 
-    if user_settings.get('foto_perfil_b64'): st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img"><h3 style="text-align: center; margin-top: 15px; margin-bottom: 25px;">{st.session_state.user_nome}</h3>', unsafe_allow_html=True)
-    else: st.sidebar.title(f"👤 {st.session_state.user_nome}")
+    if us.get('foto_perfil_b64'):
+        st.sidebar.markdown(f'<img src="data:image/jpeg;base64,{us["foto_perfil_b64"]}" class="profile-img"><h3 style="text-align: center; margin-top: 15px; margin-bottom: 25px;">{st.session_state.user_nome}</h3>', unsafe_allow_html=True)
+    else: 
+        st.sidebar.markdown(f"<h2 style='text-align:center;'>👤 {st.session_state.user_nome}</h2>", unsafe_allow_html=True)
 
     if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
         db.collection("usuarios").document(u_id).update({"token_sessao": None})
@@ -725,1785 +731,693 @@ else:
         time.sleep(0.5); st.session_state.clear(); st.rerun()
     st.sidebar.markdown("---")
 
-    opcoes_menu = [
-        "🏠 Dashboard", "🗓️ Cronograma IA", "⚡ Revisão HIIT", "🎯 Questões", "📚 Registro de Aulas", "📝 Anotações Rápidas", 
-        "📅 Agenda de Revisões", "✨ AI Tutor & Flashcards", "📁 Materiais e Simulados", "🏥 Simulados & OSCE", "📍 GPS da Aprovação", 
-        "⏱️ Modo Foco", "⚙️ Configurações", "📱 Instalar App"
-    ]
+    opcoes_menu = ["🏠 Dashboard", "🗓️ Cronograma IA", "⚡ Revisão HIIT", "🎯 Questões", "📚 Registro de Aulas", "📝 Anotações Rápidas", "📅 Agenda de Revisões", "✨ AI Tutor & Flashcards", "📁 Materiais e Simulados", "🏥 Simulados & OSCE", "📍 GPS da Aprovação", "⏱️ Modo Foco", "⚙️ Configurações", "📱 Instalar App"]
     if is_super_admin(st.session_state.user_nome): opcoes_menu.append("👑 Admin")
-    menu = st.sidebar.radio("Navegação Principal", opcoes_menu)# ==========================================
-    # TELAS
-    # ==========================================
+    menu = st.sidebar.radio("Navegação Principal", opcoes_menu)
+    
     if menu == "🏠 Dashboard":
-        st.header("Painel de Desempenho Global")
-        
-        # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
-        revs_pendentes_dash = [r for r in dados_revisoes + dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
-        prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
-        
-        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
-        if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba de Revisões.")
-        else:
-            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
+        st.header("Painel Global 2.0")
+        rp = [r for r in dcache["revisoes"] + dcache["revisoes_hiit"] if str(r.get('status','')).lower() in ['pendente', 'pendentes']]
+        rhoje = [r for r in rp if parse_data(r.get('data_agendada')) <= hoje]
+        rfut = sorted([r for r in rp if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {formatar_data_br(rfut[0].get('data_agendada')) if rfut else '-'}")
+        if rhoje: st.warning(f"🚨 **Atenção:** Você tem **{len(rhoje)}** revisões para fazer HOJE. Vá na aba de Revisões.")
+        else: st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
         st.divider()
-        # --------------------------------------------------------
         
-        qs_sess_all = [dict(q) for q in dados_questoes]
-        qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
-        qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
-        revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
-        aba_geral, aba_detalhada = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
-        with aba_geral:
-            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
-            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
-            t_questoes_g = t_acertos_g + t_erros_g
-            
+        a1, a2 = st.tabs(["📊 Resumo Geral", "📈 Análise por Matéria"])
+        with a1:
+            ac_g = sum(safe_int(q.get('acertos')) for q in dcache["questoes"] + dcache["questoes_hiit"] + [r for r in dcache["revisoes"]+dcache["revisoes_hiit"] if r.get('status')=='Concluída'])
+            er_g = sum(safe_int(q.get('erros')) for q in dcache["questoes"] + dcache["questoes_hiit"] + [r for r in dcache["revisoes"]+dcache["revisoes_hiit"] if r.get('status')=='Concluída'])
+            tg = ac_g + er_g
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Questões Totais", t_questoes_g)
-            c2.metric("🟢 Acertos", t_acertos_g)
-            c3.metric("🔴 Erros", t_erros_g)
-            c4.metric("🎯 Taxa de Acerto", f"{(t_acertos_g / t_questoes_g * 100) if t_questoes_g > 0 else 0:.1f}%")
-            
-            st.divider()
-            col_g1, col_g2 = st.columns([1, 1.5])
-            
-            modo_grafico_font = st.session_state.get("g_txt", "#f8fafc")
-            modo_grafico_bg = st.session_state.get("g_bg", "#0f172a")
-            
-            with col_g1:
-                if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
-                    fig_pie1.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_grafico_bg, width=3)))
-                    fig_pie1.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
-                        margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão Global", title_x=0.5
-                    )
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False})
-            with col_g2:
-                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula', r.get('area')), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all] + [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
-                df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
-                if not df_r.empty:
-                    df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
-                    df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
-                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
-                    fig_bar1.update_traces(textposition="outside", cliponaxis=False)
-                    fig_bar1.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
-                        showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5,
-                        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False)
-                    )
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False})
-
-        with aba_detalhada:
-            filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
-            qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
-            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula', r.get('area')) == filtro_dash]
-            qs_hiit_f = [q for q in qs_hiit_all if q.get('area') == filtro_dash]
-            revs_hiit_f = [r for r in revs_hiit_all if r.get('area') == filtro_dash]
-            
-            t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f) + sum(safe_int(q.get('acertos')) for q in qs_hiit_f) + sum(safe_int(r.get('acertos')) for r in revs_hiit_f)
-            t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f) + sum(safe_int(q.get('erros')) for q in qs_hiit_f) + sum(safe_int(r.get('erros')) for r in revs_hiit_f)
-            t_questoes_f = t_acertos_f + t_erros_f
-            
-            c1_f, c2_f, c3_f = st.columns(3)
-            c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
-            c2_f.metric("🟢 Acertos", t_acertos_f)
-            c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
-
-    elif menu == "📱 Instalar App":
-        st.header("Transforme o sistema em um Aplicativo Nativo")
-        col1, col2 = st.columns(2)
-        with col1: 
-            with st.container(border=True):
-                st.subheader("🤖 No Android (Chrome)"); st.markdown("1. Toque nos **3 pontinhos**.\n2. Selecione **Adicionar à tela inicial**.\n3. Confirme.")
-        with col2: 
-            with st.container(border=True):
-                st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
+            c1.metric("Questões Totais", tg); c2.metric("🟢 Acertos", ac_g); c3.metric("🔴 Erros", er_g); c4.metric("🎯 Taxa de Acerto", f"{(ac_g/tg*100) if tg>0 else 0:.1f}%")
+            col1, col2 = st.columns([1, 1.5])
+            modo_g_font = st.session_state.get("graph_font", "#f8fafc")
+            modo_g_bg = st.session_state.get("graph_bg", "#0f172a")
+            with col1:
+                if tg > 0:
+                    fig = px.pie(names=['Acertos', 'Erros'], values=[ac_g, er_g], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
+                    fig.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_g_bg, width=3)))
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, margin=dict(t=30,b=10,l=0,r=0), showlegend=False, title_text="Precisão Global", title_x=0.5)
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar':False})
+            with col2:
+                ld = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in dcache["questoes"]+dcache["questoes_hiit"]+[r for r in dcache["revisoes"]+dcache["revisoes_hiit"] if r.get('status')=='Concluída']]
+                df = pd.DataFrame(ld).dropna(subset=['area'])
+                if not df.empty:
+                    dfg = df.groupby('area')[['acertos','erros']].sum().reset_index()
+                    dfg['Taxa'] = (dfg['acertos'] / (dfg['acertos']+dfg['erros'])) * 100
+                    fig2 = px.bar(dfg.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
+                    fig2.update_traces(textposition="outside", cliponaxis=False)
+                    fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, showlegend=False, margin=dict(t=30,b=0,l=0,r=20), title_text="Desempenho por Matéria", title_x=0.5, xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False))
+                    st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar':False})
+        with a2:
+            f = st.selectbox("Selecione a Especialidade:", AREAS_MED)
+            ac_f = sum(safe_int(q.get('acertos')) for q in dcache["questoes"]+dcache["questoes_hiit"]+[r for r in dcache["revisoes"]+dcache["revisoes_hiit"] if r.get('status')=='Concluída'] if q.get('area')==f)
+            er_f = sum(safe_int(q.get('erros')) for q in dcache["questoes"]+dcache["questoes_hiit"]+[r for r in dcache["revisoes"]+dcache["revisoes_hiit"] if r.get('status')=='Concluída'] if q.get('area')==f)
+            t_f = ac_f + er_f
+            c1, c2, c3 = st.columns(3); c1.metric(f"Questões ({f})", t_f); c2.metric("🟢 Acertos", ac_f); c3.metric("🎯 Aproveitamento", f"{(ac_f/t_f*100) if t_f>0 else 0:.1f}%")
 
     elif menu == "🗓️ Cronograma IA":
         st.header("Cronograma Inteligente da Semana")
-        
-        if 'prints_colados' not in st.session_state: st.session_state.prints_colados = []
-        
+        if 'p_cols' not in st.session_state: st.session_state.p_cols = []
         aba_lista, aba_importar, aba_manual = st.tabs(["✅ Minhas Metas", "📸 Extrair com IA", "➕ Adicionar Manualmente"])
-        
         with aba_importar:
-            nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
-            col_btn, col_arq = st.columns(2)
-            
-            with col_btn:
+            ns = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
+            c1, c2 = st.columns(2)
+            with c1:
                 st.markdown("### 📋 Colar Prints (Suporta Múltiplos)")
-                st.caption("Clique no botão azul abaixo e aperte Ctrl+V várias vezes para colar vários prints seguidos.")
                 if paste_image_button is not None:
-                    paste_result = paste_image_button(
-                        label="CLIQUE AQUI E APERTE Ctrl+V",
-                        background_color="#4f46e5",
-                        hover_background_color="#4338ca",
-                        key="paste_crono"
-                    )
-                    if paste_result.image_data is not None:
-                        img = paste_result.image_data
-                        buf = io.BytesIO()
-                        img.save(buf, format="PNG")
+                    rp = paste_image_button("CLIQUE AQUI E APERTE Ctrl+V", "#4f46e5", "#4338ca", "paste_crono")
+                    if rp.image_data is not None:
+                        buf = io.BytesIO(); rp.image_data.save(buf, format="PNG")
                         img_hash = hashlib.md5(buf.getvalue()).hexdigest()
-                        
-                        if not any(item['hash'] == img_hash for item in st.session_state.prints_colados):
-                            st.session_state.prints_colados.append({'hash': img_hash, 'img': img, 'bytes': buf.getvalue()})
-                            st.rerun()
-                else:
-                    st.warning("⚠️ Para habilitar o botão de colar mágico, adicione `streamlit-paste-button` no requirements.txt.")
-                
-                if st.session_state.prints_colados:
-                    st.toast(f"{len(st.session_state.prints_colados)} print(s) na fila para extração.", icon="📸")
-                    if st.button("Limpar Fila de Prints"):
-                        st.session_state.prints_colados = []
-                        st.rerun()
-                        
-            with col_arq:
-                st.markdown("### 📂 Enviar Arquivos Tradicional")
-                st.caption("Ou anexe múltiplos arquivos de imagem aqui.")
+                        if not any(item['hash'] == img_hash for item in st.session_state.p_cols):
+                            st.session_state.p_cols.append({'hash': img_hash, 'img': rp.image_data, 'bytes': buf.getvalue()}); st.rerun()
+                if st.session_state.p_cols:
+                    st.toast(f"{len(st.session_state.p_cols)} print(s) na fila para extração.", icon="📸")
+                    if st.button("Limpar Fila"): st.session_state.p_cols = []; st.rerun()
+            with c2:
+                st.markdown("### 📂 Enviar Arquivos")
                 imgs_crono = st.file_uploader("Selecione os arquivos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True, label_visibility="collapsed")
-            
             st.divider()
-            
-            if (imgs_crono or st.session_state.prints_colados) and nome_semana and st.button("🪄 Extrair Metas com IA", use_container_width=True):
-                client_ia = get_ia_client()
-                if not client_ia: st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
-                else:
-                    with st.spinner("Visão Computacional analisando imagens uma a uma para evitar bloqueios de limite..."):
-                        
-                        todas_imagens_b64 = []
-                        if imgs_crono:
-                            for img in imgs_crono:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=720))
-                        
-                        if st.session_state.prints_colados:
-                            for item in st.session_state.prints_colados:
-                                todas_imagens_b64.append(otimizar_imagem_para_api(item['img'], max_size=720))
-                        
-                        tarefas_totais = []
-                        if todas_imagens_b64:
-                            barra_progresso = st.progress(0)
-                            prompt_visao = """[SISTEMA NÍVEL 5] Extraia RIGOROSAMENTE TODAS as tarefas visíveis na imagem, do início ao fim (não pule nenhuma). 
-                            Crie um objeto JSON com formato: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]}
-                            MUITO IMPORTANTE: Para economizar limite da API, retorne APENAS o JSON puro MINIFICADO (sem quebras de linha e sem espaços). PROIBIDO usar <think> ou explicar."""
-                            
-                            for idx_img, img_b64 in enumerate(todas_imagens_b64):
-                                conteudo_api = [
-                                    {"type": "text", "text": prompt_visao},
-                                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                                ]
-                                try:
-                                    try:
-                                        resposta = chamar_ia(client_ia, 
-                                            modelo=MODELO_VISAO, 
-                                            messages=[{"role": "user", "content": conteudo_api}], 
-                                            temperature=0.1,
-                                            max_tokens=2500
-                                        )
-                                    except Exception as e_api:
-                                        if "rate" in str(e_api).lower() or "429" in str(e_api) or "413" in str(e_api):
-                                            time.sleep(12) 
-                                            resposta = chamar_ia(client_ia, 
-                                                modelo=MODELO_VISAO, 
-                                                messages=[{"role": "user", "content": conteudo_api}], 
-                                                temperature=0.1,
-                                                max_tokens=2500
-                                            )
-                                        else:
-                                            raise e_api
-                                    
-                                    tarefas_lote = extrair_json_seguro(resposta.choices[0].message.content).get("tarefas", [])
-                                    tarefas_totais.extend(tarefas_lote)
-                                except Exception as e:
-                                    st.warning(f"Aviso na imagem {idx_img+1}: {e}")
-                                barra_progresso.progress((idx_img + 1) / len(todas_imagens_b64))
-                        
-                        if not tarefas_totais:
-                            st.warning("A IA processou as imagens, mas não encontrou tarefas no formato esperado.")
-                        else:
-                            batch = db.batch()
-                            
-                            for t in tarefas_totais:
-                                c = str(t.get("cor", "")).lower()
-                                p = 3
-                                if "azul" in c: p = 1
-                                elif "verde" in c: p = 2
-                                elif "amarelo" in c: p = 3
-                                elif "vermelho" in c: p = 4
-                                elif "roxo" in c: p = 5
-                                t["prioridade"] = p
-                                
-                            tarefas_totais.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                            dias_semana = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"]
-                            
-                            for i, t in enumerate(tarefas_totais):
-                                dia_idx = (i // 4) % len(dias_semana)
-                                t_dia = dias_semana[dia_idx]
-                                
-                                doc_ref = db.collection("cronogramas").document()
-                                nova_tarefa = {
-                                    "usuario_id": u_id,
-                                    "semana": nome_semana,
-                                    "dia": t_dia,
-                                    "materia": t.get("materia", ""),
-                                    "tema": t.get("tema", ""),
-                                    "prioridade": safe_int(t.get("prioridade", 3)),
-                                    "concluido": False,
-                                    "data_importacao": str(hoje),
-                                    "data_conclusao": None
-                                }
-                                batch.set(doc_ref, nova_tarefa)
-                                nova_tarefa["id"] = doc_ref.id
-                                st.session_state.dados["cronogramas"].append(nova_tarefa)
-                            batch.commit()
-                            
-                            st.session_state.prints_colados = []
-                            st.toast(f"✅ {len(tarefas_totais)} metas importadas e distribuídas!", icon="🎉")
-                            time.sleep(1)
-                            st.rerun()
-
-        with aba_manual:
-            st.markdown("### ➕ Inserir Aula Manualmente")
-            c3, c4 = st.columns(2)
-            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="crono_mat")
-            sub_m = ""
-            if m_materia == "Clínica Médica":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="crono_sub_cm")
-            elif m_materia == "Cirurgia Geral":
-                sub_m = c4.selectbox("Subespecialidade", SUB_CG, key="crono_sub_cg")
-                
-            with st.form("form_crono_manual", clear_on_submit=True):
-                c1, c2 = st.columns(2)
-                m_semana = c1.text_input("Nome da Semana (Ex: Semana 1)")
-                m_dia = c2.selectbox("Dia da Semana", ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"])
-                
-                m_tema = st.text_input("Tema da Aula")
-                m_prio = st.selectbox("Prioridade (Cor)", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
-                
-                if st.form_submit_button("Adicionar Meta ao Cronograma", use_container_width=True):
-                    if not m_semana or not m_tema:
-                        st.error("Preencha a Semana e o Tema para adicionar.")
-                    else:
-                        tema_final = f"{sub_m} - {m_tema}" if sub_m and sub_m != "Geral" else m_tema
-                        db_add("cronogramas", "cronogramas", {
-                            "usuario_id": u_id,
-                            "semana": m_semana,
-                            "dia": m_dia,
-                            "materia": m_materia,
-                            "tema": tema_final,
-                            "prioridade": m_prio,
-                            "concluido": False,
-                            "data_importacao": str(hoje),
-                            "data_conclusao": None
-                        })
-                        st.toast("✅ Meta adicionada com sucesso!", icon="🎯")
-                        time.sleep(0.5)
-                        st.rerun()
-
-        with aba_lista:
-            meu_crono = dados_cronogramas
-            def sort_key_week(sem):
-                dates = [parse_data(c.get("data_importacao", str(hoje))) for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                max_d = max(dates) if dates else parse_data(None)
-                nums = re.findall(r'\d+', sem)
-                num = int(nums[0]) if nums else 0
-                return (max_d, num)
-                
-            semanas_unicas = sorted(list(set([c.get("semana", "Semana Geral") for c in meu_crono])), key=sort_key_week, reverse=True)
-            
-            if not meu_crono: 
-                st.info("Você ainda não tem nenhum cronograma. Vá na aba 'Adicionar Cronograma' para começar!")
-            else:
-                termo_pesquisa = st.text_input("🔍 Pesquisar aula, tema ou matéria...", "")
-            
-            for sem in semanas_unicas:
-                tarefas_semana = [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]
-                if termo_pesquisa:
-                    termo_pesquisa_lower = termo_pesquisa.lower()
-                    tarefas_semana = [c for c in tarefas_semana if termo_pesquisa_lower in str(c.get('tema', '')).lower() or termo_pesquisa_lower in str(c.get('materia', '')).lower()]
-                
-                if termo_pesquisa and not tarefas_semana: continue
-
-                st.write("---")
-                col_titulo, col_del_sem = st.columns([0.7, 0.3])
-                with col_titulo: st.subheader(f"📂 {sem}")
-                with col_del_sem:
-                    if st.button("🗑️ Excluir Semana Toda", key=f"del_sem_{sem}"):
-                        batch = db.batch()
-                        ids_del = []
-                        for t_del in [c for c in meu_crono if c.get("semana", "Semana Geral") == sem]: 
-                            t_id = str(t_del.get('id', '0'))
-                            if t_id != '0':
-                                batch.delete(db.collection("cronogramas").document(t_id))
-                                ids_del.append(t_id)
-                        batch.commit()
-                        st.session_state.dados["cronogramas"] = [c for c in st.session_state.dados["cronogramas"] if str(c.get('id')) not in ids_del]
-                        st.rerun()
-
-                pendentes = [c for c in tarefas_semana if not c.get("concluido", False)]
-                concluidos = [c for c in tarefas_semana if c.get("concluido", False)]
-                pendentes.sort(key=lambda x: safe_int(x.get("prioridade", 3)))
-                
-                if pendentes:
-                    for t in pendentes:
-                        t_id = str(t.get('id', uuid.uuid4()))
-                        with st.container(border=True):
-                            col1, col2, col3, col4 = st.columns([0.1, 0.55, 0.25, 0.1])
-                            with col1:
-                                if st.button("✔️", key=f"btn_{t_id}"):
-                                    db_update("cronogramas", "cronogramas", t_id, {"concluido": True, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                    st.toast("Mandou bem! Mais uma concluída.", icon="🔥")
-                                    st.rerun()
-                            with col2: st.markdown(f"**{t.get('dia', '')}**: {t.get('materia', '')} - {t.get('tema', '')}")
-                            with col3:
-                                p_val = safe_int(t.get('prioridade', 3))
-                                novo_p = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x, "🟨 Amarelo"), index=[1,2,3,4,5].index(p_val) if p_val in [1,2,3,4,5] else 2, key=f"pri_{t_id}", label_visibility="collapsed")
-                                if novo_p != p_val: 
-                                    db_update("cronogramas", "cronogramas", t_id, {"prioridade": novo_p})
-                                    st.rerun()
-                            with col4:
-                                if st.button("🗑️", key=f"del_p_{t_id}"): 
-                                    db_delete("cronogramas", "cronogramas", t_id)
-                                    st.rerun()
-                elif not termo_pesquisa:
-                    st.success("🎉 Nenhuma aula pendente nesta semana!")
-
-                if concluidos:
-                    st.divider()
-                    with st.expander(f"✅ Histórico ({len(concluidos)})"):
-                        for t in reversed(concluidos):
-                            dc = t.get('data_conclusao', '')
+            if (imgs_crono or st.session_state.p_cols) and ns and st.button("🪄 Extrair Metas com IA", use_container_width=True):
+                cli = get_ia_client()
+                if cli:
+                    with st.spinner("Visão Computacional analisando imagens..."):
+                        t_imgs = [otimizar_imagem_para_api(i, 720) for i in imgs_crono] + [otimizar_imagem_para_api(i['img'], 720) for i in st.session_state.p_cols]
+                        tot = []
+                        pb = st.progress(0)
+                        for i, ib in enumerate(t_imgs):
+                            p = """Extraia TODAS as tarefas visíveis. Retorne JSON puro: {"tarefas": [{"materia": "...", "tema": "...", "cor": "..."}]} Sem markdown, sem texto extra."""
                             try:
-                                dc_fmt = datetime.strptime(str(dc), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M") if len(str(dc)) > 10 else formatar_data_br(dc)
-                            except: dc_fmt = formatar_data_br(dc)
-                            st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Check: {dc_fmt})*")
+                                res = chamar_ia(cli, modelo=MODELO_VISAO, messages=[{"role": "user", "content": [{"type": "text", "text": p}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{ib}"}}]}], temperature=0.1, max_tokens=2500)
+                                tot.extend(extrair_json_seguro(res.choices[0].message.content).get("tarefas", []))
+                            except Exception as e: st.warning(f"Aviso na imagem {i+1}: {e}")
+                            pb.progress((i + 1) / len(t_imgs))
+                        if tot:
+                            b = db.batch()
+                            for t in tot:
+                                c = str(t.get("cor", "")).lower(); p_val = 1 if "azul" in c else (2 if "verde" in c else (4 if "vermelho" in c else (5 if "roxo" in c else 3)))
+                                t["prioridade"] = p_val
+                            for i, t in enumerate(sorted(tot, key=lambda x: x.get("prioridade", 3))):
+                                ref = db.collection("cronogramas").document()
+                                nt = {"usuario_id": u_id, "semana": ns, "dia": ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][i%6], "materia": t.get("materia", ""), "tema": t.get("tema", ""), "prioridade": t.get("prioridade", 3), "concluido": False, "data_importacao": str(hoje), "data_conclusao": None}
+                                b.set(ref, nt); nt["id"] = ref.id; dcache["cronogramas"].append(nt)
+                            b.commit()
+                            st.session_state.p_cols = []; st.toast(f"✅ {len(tot)} metas importadas!", icon="🎉"); time.sleep(1); st.rerun()
+                        else: st.warning("A IA não encontrou tarefas no formato esperado.")
+        with aba_manual:
+            st.markdown("### ➕ Inserir Manualmente")
+            c3, c4 = st.columns(2)
+            m_materia = c3.selectbox("Matéria", AREAS_MED + ["Outra"], key="c_mat")
+            sub_m = c4.selectbox("Subespecialidade", SUB_CM, key="c_sub") if m_materia == "Clínica Médica" else (c4.selectbox("Subespecialidade", SUB_CG, key="c_sub_cg") if m_materia == "Cirurgia Geral" else "")
+            with st.form("cm", clear_on_submit=True):
+                c1, c2 = st.columns(2); ms = c1.text_input("Semana"); md = c2.selectbox("Dia", ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"])
+                mt = st.text_input("Tema"); mp = st.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x))
+                if st.form_submit_button("Adicionar", use_container_width=True) and ms and mt:
+                    db_add("cronogramas", "cronogramas", {"usuario_id": u_id, "semana": ms, "dia": md, "materia": m_materia, "tema": f"{sub_m} - {mt}" if sub_m and sub_m != "Geral" else mt, "prioridade": mp, "concluido": False, "data_importacao": str(hoje), "data_conclusao": None})
+                    st.toast("Adicionado!", icon="🎯"); time.sleep(0.5); st.rerun()
+        with aba_lista:
+            def sk(sem):
+                ds = [parse_data(c.get("data_importacao", str(hoje))) for c in dcache["cronogramas"] if c.get("semana", "Semana Geral") == sem]
+                ns = re.findall(r'\d+', sem)
+                return (max(ds) if ds else parse_data(None), int(ns[0]) if ns else 0)
+            su = sorted(list(set(c.get("semana", "Semana Geral") for c in dcache["cronogramas"])), key=sk, reverse=True)
+            if not dcache["cronogramas"]: st.info("Nenhum cronograma.")
+            else:
+                tp = st.text_input("🔍 Pesquisar...", "").lower()
+                for sem in su:
+                    ts = [c for c in dcache["cronogramas"] if c.get("semana", "Semana Geral") == sem]
+                    if tp: ts = [c for c in ts if tp in str(c.get('tema','')).lower() or tp in str(c.get('materia','')).lower()]
+                    if tp and not ts: continue
+                    st.write("---")
+                    c_t, c_d = st.columns([0.7, 0.3])
+                    c_t.subheader(f"📂 {sem}")
+                    if c_d.button("🗑️ Excluir Semana", key=f"ds_{sem}"):
+                        b = db.batch(); d_ids = []
+                        for td in [c for c in dcache["cronogramas"] if c.get("semana", "Semana Geral") == sem]:
+                            if td.get('id'): b.delete(db.collection("cronogramas").document(td['id'])); d_ids.append(td['id'])
+                        b.commit(); dcache["cronogramas"] = [c for c in dcache["cronogramas"] if c.get('id') not in d_ids]; st.rerun()
+                    
+                    pdts = sorted([c for c in ts if not c.get("concluido")], key=lambda x: safe_int(x.get("prioridade", 3)))
+                    conc = [c for c in ts if c.get("concluido")]
+                    
+                    for t in pdts:
+                        tid = str(t.get('id', uuid.uuid4()))
+                        with st.container(border=True):
+                            c1, c2, c3, c4 = st.columns([0.1, 0.55, 0.25, 0.1])
+                            if c1.button("✔️", key=f"b_{tid}"): db_update("cronogramas", "cronogramas", tid, {"concluido": True, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")}); st.rerun()
+                            c2.markdown(f"**{t.get('dia','')}**: {t.get('materia','')} - {t.get('tema','')}")
+                            pv = safe_int(t.get('prioridade', 3))
+                            nv = c3.selectbox("Prioridade", options=[1, 2, 3, 4, 5], format_func=lambda x: PRIORIDADES.get(x), index=[1,2,3,4,5].index(pv) if pv in [1,2,3,4,5] else 2, key=f"p_{tid}", label_visibility="collapsed")
+                            if nv != pv: db_update("cronogramas", "cronogramas", tid, {"prioridade": nv}); st.rerun()
+                            if c4.button("🗑️", key=f"dp_{tid}"): db_delete("cronogramas", "cronogramas", tid); st.rerun()
+                    if conc:
+                        st.divider()
+                        with st.expander(f"✅ Histórico ({len(conc)})"):
+                            for t in reversed(conc):
+                                dc = t.get('data_conclusao', '')
+                                dcf = datetime.strptime(str(dc), "%Y-%m-%d %H:%M:%S").strftime("%d/%m/%Y às %H:%M") if len(str(dc)) > 10 else formatar_data_br(dc)
+                                st.markdown(f"~~[{PRIORIDADES.get(safe_int(t.get('prioridade', 3)), '')}] {t.get('dia')}: {t.get('materia')} - {t.get('tema')}~~ *(Check: {dcf})*")
 
     elif menu == "⚡ Revisão HIIT":
         st.header("⚡ Revisão Intensiva (HIIT MedCof)")
         aba_dash_hiit, aba_reg_hiit, aba_cal_hiit, aba_notas_hiit, aba_fc_hiit = st.tabs(["⚡ Dashboard HIIT", "📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT", "📚 Flashcards HIIT"])
-
         with aba_dash_hiit:
             st.markdown("### ⚡ Desempenho Exclusivo HIIT")
-            
-            qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
-            revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-            
-            t_acertos_h = sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
-            t_erros_h = sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
+            t_acertos_h = sum(safe_int(q.get('acertos')) for q in dcache["questoes_hiit"]) + sum(safe_int(r.get('acertos')) for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída")
+            t_erros_h = sum(safe_int(q.get('erros')) for q in dcache["questoes_hiit"]) + sum(safe_int(r.get('erros')) for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída")
             t_questoes_h = t_acertos_h + t_erros_h
-            
             c1_h, c2_h, c3_h, c4_h = st.columns(4)
-            c1_h.metric("Questões HIIT", t_questoes_h)
-            c2_h.metric("🟢 Acertos", t_acertos_h)
-            c3_h.metric("🔴 Erros", t_erros_h)
-            c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
-            
-            st.divider()
-            col_gh1, col_gh2 = st.columns([1, 1.5])
-            
-            modo_grafico_font = st.session_state.get("g_txt", "#f8fafc")
-            modo_grafico_bg = st.session_state.get("g_bg", "#0f172a")
-            
+            c1_h.metric("Questões HIIT", t_questoes_h); c2_h.metric("🟢 Acertos", t_acertos_h); c3_h.metric("🔴 Erros", t_erros_h); c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
+            st.divider(); col_gh1, col_gh2 = st.columns([1, 1.5])
+            modo_g_font, modo_g_bg = st.session_state.get("graph_font", "#f8fafc"), st.session_state.get("graph_bg", "#0f172a")
             with col_gh1:
                 if t_questoes_h > 0: 
                     fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
-                    fig_pie_h.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_grafico_bg, width=3)))
-                    fig_pie_h.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
-                        margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão HIIT", title_x=0.5
-                    )
+                    fig_pie_h.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_g_bg, width=3)))
+                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão HIIT", title_x=0.5)
                     st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False})
             with col_gh2:
-                todas_questoes_hiit_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
-                df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
+                th_graf = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in dcache["questoes_hiit"]] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída"]
+                df_rh = pd.DataFrame(th_graf).dropna(subset=['area'])
                 if not df_rh.empty:
                     df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
                     fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
                     fig_bar_h.update_traces(textposition="outside", cliponaxis=False)
-                    fig_bar_h.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, 
-                        showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5,
-                        xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False)
-                    )
+                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5, xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False))
                     st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False})
-
         with aba_reg_hiit:
-            col_a, col_sub = st.columns(2)
-            a = col_a.selectbox("Área", AREAS_MED, key="hiit_area")
-            sub_q = ""
-            if a == "Clínica Médica": sub_q = col_sub.selectbox("Subespecialidade", SUB_CM, key="hiit_sub_cm")
-            elif a == "Cirurgia Geral": sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="hiit_sub_cg")
-
-            with st.form("hiit_form", clear_on_submit=True):
-                st.info("Registre o desempenho do seu bloco HIIT. As revisões serão agendadas num calendário isolado.")
-                c1, c2 = st.columns(2)
-                s = c1.text_input("Tema da Revisão HIIT")
-                d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
-                ac, er = st.columns(2)
-                acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
-                
-                if st.form_submit_button("Registrar e Agendar HIIT", use_container_width=True):
-                    s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
-                    db_add("questoes_hiit", "questoes_hiit", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err})
-                    
-                    total_q = acc + err
-                    if total_q > 0:
-                        taxa_acerto = acc / total_q
-                        if taxa_acerto < 0.60: ciclo_nome, dias_prox = "🔴 HIIT Alerta (7d)", 7
-                        elif taxa_acerto < 0.80: ciclo_nome, dias_prox = "🟡 HIIT Reforço (14d)", 14
-                        else: ciclo_nome, dias_prox = "🟢 HIIT Domínio (30d)", 30
-                            
-                        nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
-                        
-                        batch = db.batch(); set_ids = set()
-                        for r_pend in st.session_state.dados.get("revisoes_hiit", []):
-                            if str(r_pend.get('status')).lower() in ['pendente', 'pendentes'] and str(r_pend.get('tema')) == s_final:
-                                batch.delete(db.collection("revisoes_hiit").document(r_pend['id'])); set_ids.add(r_pend['id'])
-                        
-                        doc_rev = db.collection("revisoes_hiit").document()
-                        nova_rev = {"usuario_id": u_id, "area": a, "tema": s_final, "ciclo": ciclo_nome, "data_agendada": str(nova_data), "status": "Pendente"}
-                        batch.set(doc_rev, nova_rev)
-                        batch.commit()
-                        
-                        st.session_state.dados["revisoes_hiit"] = [r for r in st.session_state.dados.get("revisoes_hiit", []) if r['id'] not in set_ids]
-                        nova_rev['id'] = doc_rev.id
-                        st.session_state.dados["revisoes_hiit"].append(nova_rev)
-                        st.toast(f"Revisão HIIT agendada para {formatar_data_br(nova_data)}!", icon="⚡")
+            c_a, c_sub = st.columns(2)
+            a = c_a.selectbox("Área", AREAS_MED, key="h_a")
+            sq = c_sub.selectbox("Subespecialidade", SUB_CM, key="h_cm") if a == "Clínica Médica" else (c_sub.selectbox("Subespecialidade", SUB_CG, key="h_cg") if a == "Cirurgia Geral" else "")
+            with st.form("h_f", clear_on_submit=True):
+                c1, c2 = st.columns(2); s = c1.text_input("Tema"); d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
+                ac, er = st.columns(2); acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
+                if st.form_submit_button("Registrar e Agendar", use_container_width=True) and s:
+                    sf = f"{sq} - {s}" if sq and sq != "Geral" else s
+                    db_add("questoes_hiit", "questoes_hiit", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": sf, "acertos": acc, "erros": err})
+                    tq = acc + err
+                    if tq > 0:
+                        tx = acc / tq; cn, dp = ("🔴 HIIT Alerta (7d)", 7) if tx < 0.6 else (("🟡 HIIT Reforço (14d)", 14) if tx < 0.8 else ("🟢 HIIT Domínio (30d)", 30))
+                        nd = parse_data(str(d)) + timedelta(days=dp)
+                        b = db.batch(); ids_d = set()
+                        for r in dcache["revisoes_hiit"]:
+                            if str(r.get('status')).lower() == 'pendente' and str(r.get('tema')) == sf:
+                                b.delete(db.collection("revisoes_hiit").document(r['id'])); ids_d.add(r['id'])
+                        nr = {"usuario_id": u_id, "area": a, "tema": sf, "ciclo": cn, "data_agendada": str(nd), "status": "Pendente"}
+                        dr = db.collection("revisoes_hiit").document(); b.set(dr, nr); b.commit()
+                        dcache["revisoes_hiit"] = [r for r in dcache["revisoes_hiit"] if r['id'] not in ids_d]; nr['id'] = dr.id; dcache["revisoes_hiit"].append(nr)
+                        st.toast(f"Agendado para {formatar_data_br(nd)}!", icon="⚡")
                     st.rerun()
-
-            if dados_questoes_hiit:
-                st.write("---")
-                st.markdown("#### Histórico de Sessões HIIT")
-                lista_hiit = []
-                for b in dados_questoes_hiit:
-                    acertos, erros = safe_int(b.get('acertos')), safe_int(b.get('erros'))
-                    total = acertos + erros
-                    lista_hiit.append({
-                        "Data_obj": parse_data(b.get('data')),
-                        "Data": formatar_data_br(b.get('data')),
-                        "Área": b.get('area'),
-                        "Subtema": limpar_texto(b.get('subtema')),
-                        "Acertos": acertos, "Erros": erros,
-                        "% Acertos": f"{(acertos / total * 100):.1f}%" if total > 0 else "0.0%",
-                        "ID": b.get('id')
-                    })
-                df_h = pd.DataFrame(lista_hiit).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
-                st.dataframe(df_h, use_container_width=True, hide_index=True)
-                    
-                st.write("---")
-                with st.expander("✏️ Editar ou Excluir Histórico HIIT"):
-                    opcoes_edicao_h = {f"{formatar_data_br(q.get('data'))} | {q.get('area')} - {limpar_texto(q.get('subtema'))} (ID: {str(q.get('id', '0000'))[:4]})": q for q in dados_questoes_hiit}
-                    if opcoes_edicao_h:
-                        qh_selec = st.selectbox("Selecione o registro HIIT que deseja alterar:", list(opcoes_edicao_h.keys()))
-                        qh_dados = opcoes_edicao_h[qh_selec]
-                        qh_id_alvo = str(qh_dados.get('id', '0000'))
-                        
-                        col_e1h, col_e2h = st.columns(2)
-                        novo_ac_h = col_e1h.number_input("Editar Acertos HIIT", min_value=0, value=safe_int(qh_dados.get('acertos')), key=f"ac_h_{qh_id_alvo}")
-                        novo_er_h = col_e2h.number_input("Editar Erros HIIT", min_value=0, value=safe_int(qh_dados.get('erros')), key=f"er_h_{qh_id_alvo}")
-                        
-                        col_btn1h, col_btn2h = st.columns(2)
-                        if col_btn1h.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_h_{qh_id_alvo}"):
-                            db_update("questoes_hiit", "questoes_hiit", qh_id_alvo, {"acertos": novo_ac_h, "erros": novo_er_h})
-                            st.toast("Registro HIIT atualizado com sucesso!", icon="✅"); time.sleep(0.5); st.rerun()
-                            
-                        if col_btn2h.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_h_{qh_id_alvo}"):
-                            db_delete("questoes_hiit", "questoes_hiit", qh_id_alvo)
-                            st.toast("Registro HIIT excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
-
+            if dcache["questoes_hiit"]:
+                l_h = [{"Data_obj": parse_data(b.get('data')), "Data": formatar_data_br(b.get('data')), "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')), "Acertos": safe_int(b.get('acertos')), "Erros": safe_int(b.get('erros')), "% Acertos": f"{(safe_int(b.get('acertos')) / (safe_int(b.get('acertos')) + safe_int(b.get('erros'))) * 100):.1f}%" if (safe_int(b.get('acertos')) + safe_int(b.get('erros'))) > 0 else "0.0%", "ID": b.get('id')} for b in dcache["questoes_hiit"]]
+                st.dataframe(pd.DataFrame(l_h).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore'), use_container_width=True, hide_index=True)
+                with st.expander("✏️ Editar Histórico"):
+                    oe_h = {f"{formatar_data_br(q.get('data'))} | {q.get('area')} - {limpar_texto(q.get('subtema'))}": q for q in dcache["questoes_hiit"]}
+                    if oe_h:
+                        qhs = st.selectbox("Registro:", list(oe_h.keys()))
+                        qhd = oe_h[qhs]; qhi = str(qhd.get('id', '0'))
+                        ce1, ce2 = st.columns(2); na = ce1.number_input("Acertos", min_value=0, value=safe_int(qhd.get('acertos'))); ne = ce2.number_input("Erros", min_value=0, value=safe_int(qhd.get('erros')))
+                        cb1, cb2 = st.columns(2)
+                        if cb1.button("Salvar", use_container_width=True): db_update("questoes_hiit", "questoes_hiit", qhi, {"acertos": na, "erros": ne}); st.rerun()
+                        if cb2.button("Excluir", use_container_width=True): db_delete("questoes_hiit", "questoes_hiit", qhi); st.rerun()elif menu == "⚡ Revisão HIIT":
+        st.header("⚡ Revisão Intensiva (HIIT MedCof)")
+        aba_dash_hiit, aba_reg_hiit, aba_cal_hiit, aba_notas_hiit, aba_fc_hiit = st.tabs(["⚡ Dashboard HIIT", "📝 Registrar Questões", "📅 Calendário", "📓 Anotações HIIT", "📚 Flashcards HIIT"])
+        
+        with aba_dash_hiit:
+            st.markdown("### ⚡ Desempenho Exclusivo HIIT")
+            t_acertos_h = sum(safe_int(q.get('acertos')) for q in dcache["questoes_hiit"]) + sum(safe_int(r.get('acertos')) for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída")
+            t_erros_h = sum(safe_int(q.get('erros')) for q in dcache["questoes_hiit"]) + sum(safe_int(r.get('erros')) for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída")
+            t_questoes_h = t_acertos_h + t_erros_h
+            c1_h, c2_h, c3_h, c4_h = st.columns(4)
+            c1_h.metric("Questões HIIT", t_questoes_h); c2_h.metric("🟢 Acertos", t_acertos_h); c3_h.metric("🔴 Erros", t_erros_h); c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
+            st.divider(); col_gh1, col_gh2 = st.columns([1, 1.5])
+            modo_g_font, modo_g_bg = st.session_state.get("graph_font", "#f8fafc"), st.session_state.get("graph_bg", "#0f172a")
+            with col_gh1:
+                if t_questoes_h > 0: 
+                    fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.65, color_discrete_sequence=["#10b981", '#ef4444'])
+                    fig_pie_h.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color=modo_g_bg, width=3)))
+                    fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, margin=dict(t=30, b=10, l=0, r=0), showlegend=False, title_text="Precisão HIIT", title_x=0.5)
+                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False})
+            with col_gh2:
+                th_graf = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in dcache["questoes_hiit"]] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() == "concluída"]
+                df_rh = pd.DataFrame(th_graf).dropna(subset=['area'])
+                if not df_rh.empty:
+                    df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
+                    df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
+                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS, text_auto='.1f')
+                    fig_bar_h.update_traces(textposition="outside", cliponaxis=False)
+                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_g_font, showlegend=False, margin=dict(t=30, b=0, l=0, r=20), title_text="Desempenho por Matéria", title_x=0.5, xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False), yaxis=dict(showgrid=False))
+                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False})
+        
+        with aba_reg_hiit:
+            c_a, c_sub = st.columns(2)
+            a = c_a.selectbox("Área", AREAS_MED, key="h_a")
+            sq = c_sub.selectbox("Subespecialidade", SUB_CM, key="h_cm") if a == "Clínica Médica" else (c_sub.selectbox("Subespecialidade", SUB_CG, key="h_cg") if a == "Cirurgia Geral" else "")
+            with st.form("h_f", clear_on_submit=True):
+                c1, c2 = st.columns(2); s = c1.text_input("Tema"); d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
+                ac, er = st.columns(2); acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
+                if st.form_submit_button("Registrar e Agendar", use_container_width=True) and s:
+                    sf = f"{sq} - {s}" if sq and sq != "Geral" else s
+                    db_add("questoes_hiit", "questoes_hiit", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": sf, "acertos": acc, "erros": err})
+                    tq = acc + err
+                    if tq > 0:
+                        tx = acc / tq; cn, dp = ("🔴 HIIT Alerta (7d)", 7) if tx < 0.6 else (("🟡 HIIT Reforço (14d)", 14) if tx < 0.8 else ("🟢 HIIT Domínio (30d)", 30))
+                        nd = parse_data(str(d)) + timedelta(days=dp)
+                        b = db.batch(); ids_d = set()
+                        for r in dcache["revisoes_hiit"]:
+                            if str(r.get('status')).lower() == 'pendente' and str(r.get('tema')) == sf:
+                                b.delete(db.collection("revisoes_hiit").document(r['id'])); ids_d.add(r['id'])
+                        nr = {"usuario_id": u_id, "area": a, "tema": sf, "ciclo": cn, "data_agendada": str(nd), "status": "Pendente"}
+                        dr = db.collection("revisoes_hiit").document(); b.set(dr, nr); b.commit()
+                        dcache["revisoes_hiit"] = [r for r in dcache["revisoes_hiit"] if r['id'] not in ids_d]; nr['id'] = dr.id; dcache["revisoes_hiit"].append(nr)
+                        st.toast(f"Agendado para {formatar_data_br(nd)}!", icon="⚡")
+                    st.rerun()
+            if dcache["questoes_hiit"]:
+                l_h = [{"Data_obj": parse_data(b.get('data')), "Data": formatar_data_br(b.get('data')), "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')), "Acertos": safe_int(b.get('acertos')), "Erros": safe_int(b.get('erros')), "% Acertos": f"{(safe_int(b.get('acertos')) / (safe_int(b.get('acertos')) + safe_int(b.get('erros'))) * 100):.1f}%" if (safe_int(b.get('acertos')) + safe_int(b.get('erros'))) > 0 else "0.0%", "ID": b.get('id')} for b in dcache["questoes_hiit"]]
+                st.dataframe(pd.DataFrame(l_h).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore'), use_container_width=True, hide_index=True)
+                with st.expander("✏️ Editar Histórico"):
+                    oe_h = {f"{formatar_data_br(q.get('data'))} | {q.get('area')} - {limpar_texto(q.get('subtema'))}": q for q in dcache["questoes_hiit"]}
+                    if oe_h:
+                        qhs = st.selectbox("Registro:", list(oe_h.keys()))
+                        qhd = oe_h[qhs]; qhi = str(qhd.get('id', '0'))
+                        ce1, ce2 = st.columns(2); na = ce1.number_input("Acertos", min_value=0, value=safe_int(qhd.get('acertos'))); ne = ce2.number_input("Erros", min_value=0, value=safe_int(qhd.get('erros')))
+                        cb1, cb2 = st.columns(2)
+                        if cb1.button("Salvar", use_container_width=True): db_update("questoes_hiit", "questoes_hiit", qhi, {"acertos": na, "erros": ne}); st.rerun()
+                        if cb2.button("Excluir", use_container_width=True): db_delete("questoes_hiit", "questoes_hiit", qhi); st.rerun()
+        
         with aba_cal_hiit:
-            todas_pendentes_hiit_cru = [r for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-            atrasadas_h = [r for r in todas_pendentes_hiit_cru if parse_data(r.get('data_agendada')) < hoje]
-            hoje_h = [r for r in todas_pendentes_hiit_cru if parse_data(r.get('data_agendada')) == hoje]
-            futuras_h = sorted([r for r in todas_pendentes_hiit_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+            tph = [r for r in dcache["revisoes_hiit"] if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
+            atr = [r for r in tph if parse_data(r.get('data_agendada')) < hoje]; hj = [r for r in tph if parse_data(r.get('data_agendada')) == hoje]; fut = sorted([r for r in tph if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
+            ch1, ch2, ch3 = st.columns(3); ch1.metric("Atrasados", len(atr)); ch2.metric("Para Hoje", len(hj)); ch3.metric("Próximo", formatar_data_br(fut[0].get('data_agendada')) if fut else "Nenhum")
+            if atr and st.button("🧹 Limpar Atrasados", type="primary", use_container_width=True):
+                b = db.batch(); d_i = set()
+                for r in atr: b.delete(db.collection("revisoes_hiit").document(r['id'])); d_i.add(r['id'])
+                b.commit(); dcache["revisoes_hiit"] = [r for r in dcache["revisoes_hiit"] if r['id'] not in d_i]; st.rerun()
+            st.divider(); cv, co = st.columns(2)
+            vh = cv.radio("Filtro:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras"], horizontal=True)
+            oh = co.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
+            for r in tph: r['data_agendada_obj'] = parse_data(r.get('data_agendada')); r['tema'] = limpar_texto(r.get('tema', '')); r['area'] = r.get('area', 'Geral')
+            if 'c_m_h' not in st.session_state: st.session_state.c_m_h = hoje.month
+            if 'c_a_h' not in st.session_state: st.session_state.c_a_h = hoje.year
+            n1, n2, n3 = st.columns([1,2,1])
+            if n1.button("⬅️ Mês", key="ph"): st.session_state.c_m_h, st.session_state.c_a_h = (12, st.session_state.c_a_h-1) if st.session_state.c_m_h==1 else (st.session_state.c_m_h-1, st.session_state.c_a_h); st.rerun()
+            with n2: st.markdown(f"<h3 style='text-align:center;'>📅 {MESES_PT[st.session_state.c_m_h]} {st.session_state.c_a_h}</h3>", unsafe_allow_html=True)
+            if n3.button("Mês ➡️", key="nh"): st.session_state.c_m_h, st.session_state.c_a_h = (1, st.session_state.c_a_h+1) if st.session_state.c_m_h==12 else (st.session_state.c_m_h+1, st.session_state.c_a_h); st.rerun()
+            st.markdown(gerar_calendario_revisoes_html(tph, st.session_state.c_a_h, st.session_state.c_m_h), unsafe_allow_html=True); st.divider()
             
-            col_h1, col_h2, col_h3 = st.columns(3)
-            with col_h1: st.metric("🚨 HIITs Atrasados", len(atrasadas_h))
-            with col_h2: st.metric("🎯 HIITs Para Hoje", len(hoje_h))
-            with col_h3: st.metric("📅 Próximo HIIT", formatar_data_br(futuras_h[0].get('data_agendada')) if futuras_h else "Nenhum")
-
-            if atrasadas_h:
-                if st.button("🧹 Limpar HIITs Atrasados (Recomeçar a partir de Hoje)", type="primary", use_container_width=True):
-                    with st.spinner("Limpando..."):
-                        batch = db.batch(); ids_del = set()
-                        for r in atrasadas_h:
-                            batch.delete(db.collection("revisoes_hiit").document(r['id'])); ids_del.add(r['id'])
-                        batch.commit()
-                        st.session_state.dados["revisoes_hiit"] = [r for r in st.session_state.dados.get("revisoes_hiit", []) if r['id'] not in ids_del]
-                        st.rerun()
-            st.divider()
-
-            c_v_h, c_o_h = st.columns(2)
-            visao_h = c_v_h.radio("Filtro:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras"], horizontal=True, key="vh")
-            ordem_h = c_o_h.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True, key="oh")
-
-            todas_pendentes_hiit = []
-            for r_orig in dados_revisoes_hiit:
-                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                r = dict(r_orig)
-                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                r['tema'] = limpar_texto(r.get('tema', 'Sem título'))
-                r['area'] = r.get('area', 'Geral')
-                todas_pendentes_hiit.append(r)
-
-            if 'cal_mes_hiit' not in st.session_state: st.session_state.cal_mes_hiit = hoje.month
-            if 'cal_ano_hiit' not in st.session_state: st.session_state.cal_ano_hiit = hoje.year
-            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
-            with nav_r1:
-                if st.button("⬅️ Mês Anterior", key="prev_hiit"):
-                    if st.session_state.cal_mes_hiit == 1: st.session_state.cal_mes_hiit, st.session_state.cal_ano_hiit = 12, st.session_state.cal_ano_hiit - 1
-                    else: st.session_state.cal_mes_hiit -= 1
-                    st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_hiit]} {st.session_state.cal_ano_hiit}</h3>", unsafe_allow_html=True)
-            with nav_r3:
-                if st.button("Próximo Mês ➡️", key="next_hiit"):
-                    if st.session_state.cal_mes_hiit == 12: st.session_state.cal_mes_hiit, st.session_state.cal_ano_hiit = 1, st.session_state.cal_ano_hiit + 1
-                    else: st.session_state.cal_mes_hiit += 1
-                    st.rerun()
-
-            st.markdown(gerar_calendario_revisoes_html(todas_pendentes_hiit, st.session_state.cal_ano_hiit, st.session_state.cal_mes_hiit), unsafe_allow_html=True)
-            st.divider()
-
-            if visao_h == "📆 Para Hoje": lista_pendentes_h = [r for r in todas_pendentes_hiit if r['data_agendada_obj'] == hoje]
-            elif visao_h == "🗓️ Próximos 7 Dias": lista_pendentes_h = [r for r in todas_pendentes_hiit if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
-            else: lista_pendentes_h = [r for r in todas_pendentes_hiit if r['data_agendada_obj'] >= hoje]
+            lph = [r for r in tph if r['data_agendada_obj'] == hoje] if vh == "📆 Para Hoje" else ([r for r in tph if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))] if vh == "🗓️ Próximos 7 Dias" else [r for r in tph if r['data_agendada_obj'] >= hoje])
+            lph.sort(key=lambda x: x['data_agendada_obj'], reverse=("Atuais" in oh)) if "Urgência" not in oh else lph.sort(key=lambda x: x['data_agendada_obj'])
             
-            if "Urgência" in ordem_h: lista_pendentes_h.sort(key=lambda x: x['data_agendada_obj'])
-            else: lista_pendentes_h.sort(key=lambda x: x['data_agendada_obj'], reverse=("Atuais" in ordem_h))
-
-            if not lista_pendentes_h: st.success("🎉 Tudo em dia no seu projeto HIIT!")
-            for r in lista_pendentes_h:
+            if not lph: st.success("🎉 Tudo em dia!")
+            for r in lph:
                 with st.container(border=True):
-                    st.markdown(f"**<span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {r['tema']}**", unsafe_allow_html=True)
-                    st.caption(f"Status: {r.get('ciclo','')} | Agendado: {formatar_data_br(r['data_agendada_obj'])}")
-                    with st.expander("✅ Registrar Desempenho e Concluir"):
-                        with st.form(f"form_concluir_hiit_{r['id']}", clear_on_submit=True):
-                            st.info("Registre seus acertos para gerar a próxima meta de revisão.")
-                            col_ac, col_er = st.columns(2)
-                            acertos_h = col_ac.number_input("🟢 Acertos", min_value=0, key=f"ac_{r['id']}")
-                            erros_h = col_er.number_input("🔴 Erros", min_value=0, key=f"er_{r['id']}")
-                            
-                            if st.form_submit_button("✅ Marcar Concluída e Agendar Próxima", use_container_width=True):
-                                original_doc = next((doc for doc in st.session_state.dados["revisoes_hiit"] if str(doc['id']) == str(r['id'])), r)
-                                tema_salvar = original_doc.get('tema', r.get('tema'))
-                                area_salvar = original_doc.get('area', r.get('area'))
-                                
-                                db_update("revisoes_hiit", "revisoes_hiit", r['id'], {"status": "Concluída", "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S"), "acertos": acertos_h, "erros": erros_h})
-                                
-                                total_h = acertos_h + erros_h
-                                if total_h > 0:
-                                    taxa = acertos_h / total_h
-                                    if taxa < 0.60: ciclo_nome, dias_prox = "🔴 HIIT Alerta (7d)", 7
-                                    elif taxa < 0.80: ciclo_nome, dias_prox = "🟡 HIIT Reforço (14d)", 14
-                                    else: ciclo_nome, dias_prox = "🟢 HIIT Domínio (30d)", 30
-                                        
-                                    nova_data = parse_data(str(get_agora().date())) + timedelta(days=dias_prox)
-                                    
-                                    doc_rev = db.collection("revisoes_hiit").document()
-                                    nova_rev = {"usuario_id": u_id, "area": area_salvar, "tema": tema_salvar, "ciclo": ciclo_nome, "data_agendada": str(nova_data), "status": "Pendente"}
-                                    doc_rev.set(nova_rev)
-                                    nova_rev['id'] = doc_rev.id
-                                    st.session_state.dados["revisoes_hiit"].append(nova_rev)
-                                    st.toast(f"✅ Concluído! Próxima revisão agendada para {formatar_data_br(nova_data)}", icon="🚀")
-                                else:
-                                    st.toast("✅ Sessão Concluída!", icon="🚀")
-                                time.sleep(1); st.rerun()
-
+                    st.markdown(f"**<span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {r['tema']}**", unsafe_allow_html=True); st.caption(f"Status: {r.get('ciclo','')} | Agendado: {formatar_data_br(r['data_agendada_obj'])}")
+                    with st.expander("Concluir"):
+                        with st.form(f"fch_{r['id']}", clear_on_submit=True):
+                            ca, ce = st.columns(2); ah = ca.number_input("Acertos", 0); eh = ce.number_input("Erros", 0)
+                            if st.form_submit_button("Marcar Concluída", use_container_width=True):
+                                db_update("revisoes_hiit", "revisoes_hiit", r['id'], {"status": "Concluída", "data_conclusao": str(get_agora()), "acertos": ah, "erros": eh})
+                                th = ah + eh
+                                if th > 0:
+                                    cn, dp = ("🔴 HIIT Alerta (7d)", 7) if ah/th < 0.6 else (("🟡 HIIT Reforço (14d)", 14) if ah/th < 0.8 else ("🟢 HIIT Domínio (30d)", 30))
+                                    nd = parse_data(str(get_agora().date())) + timedelta(days=dp)
+                                    nr = {"usuario_id": u_id, "area": r['area'], "tema": r['tema'], "ciclo": cn, "data_agendada": str(nd), "status": "Pendente"}
+                                    db_add("revisoes_hiit", "revisoes_hiit", nr)
+                                st.rerun()
+        
         with aba_notas_hiit:
-            if 'hiit_nota_imgs_temp' not in st.session_state: st.session_state.hiit_nota_imgs_temp = []
-            
-            # GATILHO PARA LIMPAR O CACHE DO NAVEGADOR COM SEGURANÇA
-            if st.session_state.get('limpar_nova_nota_hiit', False):
-                st.session_state.hiit_nota_imgs_temp = []
-                st.session_state.limpar_nova_nota_hiit = False
-                components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('asave_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
-                st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
-                
-            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
-            with aba_hn1:
-                st.markdown("### ⚡ Laboratório de Resumos HIIT")
-                st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
-                
+            if 'h_img_tmp' not in st.session_state: st.session_state.h_img_tmp = []
+            if st.session_state.get('limpa_h_n', False): st.session_state.h_img_tmp = []; st.session_state.limpa_h_n = False; components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0); st.toast("✅ Salvo!", icon="📝")
+            an1, an2 = st.tabs(["➕ Novo Resumo", "📖 Cadernos"])
+            with an1:
                 with st.container(border=True):
-                    col_b, col_i = st.columns([1, 2])
-                    with col_b:
-                        st.markdown("#### 📸 1. Anexos Visuais")
-                        st.caption("Tabelas, fluxogramas ou o print do seu erro.")
-                        if paste_image_button is not None:
-                            res_paste_hiit = paste_image_button(
-                                label="Colar Imagem (Ctrl+V)",
-                                background_color="#4f46e5", hover_background_color="#4338ca",
-                                key="paste_hiit_nota"
-                            )
-                            if res_paste_hiit.image_data is not None:
-                                ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
-                                if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
-                                    st.session_state.hiit_nota_imgs_temp.append(ib64)
-                                    st.rerun()
-                    with col_i:
-                        if st.session_state.hiit_nota_imgs_temp:
-                            cols = st.columns(3)
-                            for idx, img_b64 in enumerate(st.session_state.hiit_nota_imgs_temp):
-                                with cols[idx % 3]:
-                                    if isinstance(img_b64, str) and len(img_b64)>50:
-                                        try: st.image(base64.b64decode(img_b64), use_container_width=True)
-                                        except: pass
-                                    if st.button("🗑️ Remover", key=f"rm_hiit_img_{idx}"):
-                                        st.session_state.hiit_nota_imgs_temp.pop(idx)
-                                        st.rerun()
-                
-                st.markdown("#### ✍️ 2. Estruturar o Resumo")
-                col_ah, col_sh = st.columns(2)
-                area_h = col_ah.selectbox("Grande Área", AREAS_MED, key="sel_bloco_hiit")
-                sub_ah = ""
-                if area_h == "Clínica Médica": sub_ah = col_sh.selectbox("Subespecialidade", SUB_CM, key="hiit_sub_cm_nota")
-                elif area_h == "Cirurgia Geral": sub_ah = col_sh.selectbox("Subespecialidade", SUB_CG, key="hiit_sub_cg_nota")
-
-                sub_h = st.text_input("Tema / Assunto", key="hiit_input_tema")
-                
+                    cb, ci = st.columns([1, 2])
+                    with cb:
+                        if paste_image_button:
+                            rp = paste_image_button("📸 Colar Imagem", "#4f46e5", "#4338ca", "p_h_n")
+                            if rp.image_data: 
+                                ib = otimizar_imagem_para_api(rp.image_data, 1024)
+                                if ib and ib not in st.session_state.h_img_tmp: st.session_state.h_img_tmp.append(ib); st.rerun()
+                    with ci:
+                        if st.session_state.h_img_tmp:
+                            cc = st.columns(3)
+                            for idx, img in enumerate(st.session_state.h_img_tmp):
+                                with cc[idx % 3]:
+                                    st.image(base64.b64decode(img)); 
+                                    if st.button("🗑️", key=f"rm_h_{idx}"): st.session_state.h_img_tmp.pop(idx); st.rerun()
+                cah, csh = st.columns(2); ah = cah.selectbox("Área", AREAS_MED, key="s_a_h")
+                sh = csh.selectbox("Sub", SUB_CM, key="s_cm_h") if ah == "Clínica Médica" else (csh.selectbox("Sub", SUB_CG, key="s_cg_h") if ah == "Cirurgia Geral" else "")
+                th = st.text_input("Tema", key="h_t")
                 with st.container(border=True):
-                    render_toolbar()
-                    if "draft_hiit_txt" not in st.session_state: st.session_state.draft_hiit_txt = ""
-                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, key="draft_hiit_txt_key")
-
-                if st.button("💾 Salvar Resumo HIIT", use_container_width=True, type="primary"):
-                    if sub_h and txt_h:
-                        s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
-                        db_add("anotacoes_hiit", "anotacoes_hiit", {
-                            "usuario_id": u_id, "area": area_h, "subtema": s_final_h, "pontos_chave": txt_h,
-                            "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
-                        })
-                        st.session_state.limpar_nova_nota_hiit = True
-                        st.session_state.draft_hiit_txt = "" 
-                        time.sleep(0.5); st.rerun()
-                    else: st.error("Preencha o tema e a anotação.")
-                            
-            with aba_hn2:
-                if not dados_anotacoes_hiit:
-                    st.info("Nenhum resumo HIIT cadastrado.")
+                    render_toolbar(); txh = st.text_area("Anotação", height=200, key="d_h_txt")
+                if st.button("💾 Salvar", type="primary", use_container_width=True) and th and txh:
+                    db_add("anotacoes_hiit", "anotacoes_hiit", {"usuario_id": u_id, "area": ah, "subtema": f"{sh} - {th}" if sh and sh != "Geral" else th, "pontos_chave": txh, "imagens_b64": st.session_state.h_img_tmp, "data_criacao": str(hoje)})
+                    st.session_state.limpa_h_n = True; st.rerun()
+            with an2:
+                nh = dcache["anotacoes_hiit"]
+                if not nh: st.info("Nenhum resumo.")
                 else:
-                    pesq_h = st.text_input("🔍 Pesquisar...", key="pesq_hiit")
-                    notas_h_exibir = list(dados_anotacoes_hiit)
-                    if pesq_h:
-                        t_low = pesq_h.lower()
-                        notas_h_exibir = [n for n in notas_h_exibir if t_low in str(n.get('subtema','')).lower() or t_low in str(n.get('pontos_chave','')).lower()]
-                    notas_h_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                    
-                    blocos_presentes = sorted(list(set([n.get('area', 'Clínica Médica') for n in notas_h_exibir])))
-                    if not notas_h_exibir:
-                        st.warning("Nada encontrado.")
+                    pq = st.text_input("🔍 Buscar...").lower()
+                    nhe = [n for n in nh if pq in str(n.get('subtema','')).lower() or pq in str(n.get('pontos_chave','')).lower()] if pq else list(nh)
+                    nhe.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
+                    bp = sorted(list(set([n.get('area', 'Clínica Médica') for n in nhe])))
+                    if not nhe: st.warning("Nada encontrado.")
                     else:
-                        abas_b = st.tabs(blocos_presentes)
-                        for i, bl in enumerate(blocos_presentes):
-                            with abas_b[i]:
-                                for nh in [x for x in notas_h_exibir if x.get('area') == bl]:
-                                    id_nh = str(nh.get('id', '00'))
-                                    with st.expander(f"📝 {limpar_texto(nh.get('subtema'))} - {formatar_data_br(nh.get('data_criacao'))}"):
-                                        c_d1, c_d2 = st.columns([0.85, 0.15])
-                                        with c_d2:
-                                            if st.button("🗑️ Excluir", key=f"del_h_{id_nh}", use_container_width=True):
-                                                db_delete("anotacoes_hiit", "anotacoes_hiit", id_nh)
-                                                st.toast("Anotação excluída!", icon="🗑️"); time.sleep(0.5); st.rerun()
-                                                
-                                        st.markdown(f"<div style='border-left: 3px solid #4f46e5; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
-                                        
-                                        imgs_exibir = list(nh.get('imagens_b64', []))
-                                        if imgs_exibir:
-                                            st.write("") 
-                                            cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                            for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                                with cols_view[idx_v % 4]:
-                                                    if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                        try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                        except: pass
-
+                        ab = st.tabs(bp)
+                        for i, b in enumerate(bp):
+                            with ab[i]:
+                                for n in [x for x in nhe if x.get('area') == b]:
+                                    idn = str(n.get('id', '0'))
+                                    with st.expander(f"📝 {limpar_texto(n.get('subtema'))} - {formatar_data_br(n.get('data_criacao'))}"):
+                                        cd1, cd2 = st.columns([0.85, 0.15])
+                                        if cd2.button("🗑️", key=f"del_hn_{idn}"): db_delete("anotacoes_hiit", "anotacoes_hiit", idn); st.rerun()
+                                        st.markdown(f"<div style='border-left: 3px solid #4f46e5; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{n.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
+                                        ie = list(n.get('imagens_b64', []))
+                                        if ie:
+                                            cv = st.columns(max(1, min(len(ie), 4)))
+                                            for ix, im in enumerate(ie):
+                                                with cv[ix % 4]: st.image(base64.b64decode(im))
                                         st.divider()
-                                        
                                         with st.container(border=True):
-                                            st.markdown("#### 🧠 Gerar Revisão Ativa (IA)")
-                                            col_ia1, col_ia2 = st.columns(2)
-                                            with col_ia1:
-                                                if st.button("🪄 Extrair Flashcards Atômicos", key=f"fc_ia_{id_nh}", use_container_width=True):
-                                                    client_ia = get_ia_client()
-                                                    if client_ia:
-                                                        with st.spinner("Gerando flashcards atômicos..."):
-                                                            try:
-                                                                prompt_fc = f"""[SISTEMA NÍVEL 5] Transforme TODA a anotação abaixo em flashcards. Crie um flashcard para CADA tópico, conceito ou detalhe presente no texto, garantindo que absolutamente NADA fique de fora. Crie um objeto JSON: {{"flashcards": [{{"frente": "...", "verso": "..."}}]}}
-                                                                Retorne APENAS o JSON puro. Não explique.
-                                                                Resumo: {nh.get('pontos_chave', '')}"""
-                                                                r_fc = chamar_ia_json_estrito(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_fc}], max_completion_tokens=2000)
-                                                                fcs = extrair_json_seguro(r_fc.choices[0].message.content).get("flashcards", [])
-                                                                if fcs:
-                                                                    batch = db.batch()
-                                                                    for fc in fcs:
-                                                                        doc_ref = db.collection("flashcards_hiit").document()
-                                                                        n_fc = {"usuario_id": u_id, "area": nh.get('area'), "tema": limpar_texto(nh.get('subtema')), "frente": fc.get('frente'), "verso": fc.get('verso'), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
-                                                                        batch.set(doc_ref, n_fc); n_fc["id"] = doc_ref.id; st.session_state.dados["flashcards_hiit"].append(n_fc)
-                                                                    batch.commit(); st.success(f"✅ {len(fcs)} Flashcards HIIT gerados e adicionados ao deck HIIT!")
-                                                                else: st.warning("IA não conseguiu extrair cartões válidos.")
-                                                            except Exception as e: st.error(f"Erro IA: {e}")
-                                            with col_ia2:
-                                                if st.button("🔥 Criar Bateria de Questões", key=f"q_ia_{id_nh}", use_container_width=True):
-                                                    client_ia = get_ia_client()
-                                                    if client_ia:
-                                                        with st.spinner("Construindo caso clínico estilo banca..."):
-                                                            try:
-                                                                prompt_q = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. Use os conceitos DESTE resumo para criar um mini-simulado de 3 questões de caso clínico. Inclua alternativas e gabarito comentado focado em explicar o conceito.\nResumo: {nh.get('pontos_chave', '')}"
-                                                                r_q = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_q}], temperature=0.4, max_tokens=3000)
-                                                                st.session_state[f"q_gerada_{id_nh}"] = r_q.choices[0].message.content
-                                                            except Exception as e: st.error(f"Erro IA: {e}")
-                                            if st.session_state.get(f"q_gerada_{id_nh}"): st.markdown(st.session_state[f"q_gerada_{id_nh}"])
-
+                                            ci1, ci2 = st.columns(2)
+                                            if ci1.button("🪄 Extrair Flashcards", key=f"fc_ia_{idn}", use_container_width=True):
+                                                cli = get_ia_client()
+                                                if cli:
+                                                    with st.spinner("Gerando..."):
+                                                        res = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": f"Transforme a anotação em flashcards. Retorne JSON: {{\"flashcards\": [{{\"frente\": \"...\", \"verso\": \"...\"}}]}} Resumo: {n.get('pontos_chave','')}"}], max_tokens=2000)
+                                                        fcs = extrair_json_seguro(res.choices[0].message.content).get("flashcards", [])
+                                                        if fcs:
+                                                            ba = db.batch()
+                                                            for fc in fcs:
+                                                                dr = db.collection("flashcards_hiit").document()
+                                                                nf = {"usuario_id": u_id, "area": n.get('area'), "tema": limpar_texto(n.get('subtema')), "frente": fc.get('frente'), "verso": fc.get('verso'), "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
+                                                                ba.set(dr, nf); nf["id"] = dr.id; dcache["flashcards_hiit"].append(nf)
+                                                            ba.commit(); st.success(f"✅ {len(fcs)} Cards gerados!")
+                                            if ci2.button("🔥 Criar Bateria", key=f"q_ia_{idn}", use_container_width=True):
+                                                cli = get_ia_client()
+                                                if cli:
+                                                    with st.spinner("Construindo..."):
+                                                        res = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": f"Crie 3 questões de caso clínico baseadas no resumo com alternativas e gabarito comentado.\nResumo: {n.get('pontos_chave','')}"}], temperature=0.4, max_tokens=3000)
+                                                        st.session_state[f"qg_{idn}"] = res.choices[0].message.content
+                                            if st.session_state.get(f"qg_{idn}"): st.markdown(st.session_state[f"qg_{idn}"])
                                         st.divider()
-                                        
-                                        # --- BOTÃO DE EDITAR INDIVIDUAL (HIIT) ---
-                                        if st.session_state.get('nota_hiit_em_edicao') != id_nh:
-                                            if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_h_{id_nh}"): st.session_state.nota_hiit_em_edicao = id_nh; st.rerun()
+                                        if st.session_state.get('nhe_e') != idn:
+                                            if st.button("✏️ Editar", key=f"be_{idn}"): st.session_state.nhe_e = idn; st.rerun()
                                         else:
-                                            if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_h_{id_nh}"): st.session_state.nota_hiit_em_edicao = None; st.rerun()
-                                                
-                                            st.markdown("#### 🖼️ Imagens da Anotação")
-                                            col_ebtn, col_eimg = st.columns([1, 2])
-                                            with col_ebtn:
-                                                st.markdown("➕ **Adicionar Mais Imagens:**")
-                                                if paste_image_button is not None:
-                                                    res_paste_edit = paste_image_button("Colar Imagem (Ctrl+V)", "#4f46e5", "#4338ca", key=f"paste_edit_h_{id_nh}")
-                                                    if res_paste_edit.image_data is not None:
-                                                        img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                        if img_eb64 and img_eb64 not in imgs_exibir:
-                                                            imgs_exibir.append(img_eb64)
-                                                            db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir}); st.rerun()
-                                            with col_eimg:
-                                                if imgs_exibir:
-                                                    cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                    for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                        with cols_e[idx_e % 3]:
-                                                            if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                                try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                                except: pass
-                                                            if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}"):
-                                                                imgs_exibir.pop(idx_e)
-                                                                db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir}); st.rerun()
-
-                                            st.markdown("#### ✍️ Editar Texto")
-                                            col_eah, col_esh = st.columns(2)
-                                            edit_ah = col_eah.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nh.get('area')) if nh.get('area') in AREAS_MED else 0, key=f"ea_h_{id_nh}")
-                                            sub_eah = ""
-                                            if edit_ah == "Clínica Médica": sub_eah = col_esh.selectbox("Subespecialidade", SUB_CM, key=f"sub_eah_cm_{id_nh}")
-                                            elif edit_ah == "Cirurgia Geral": sub_eah = col_esh.selectbox("Subespecialidade", SUB_CG, key=f"sub_eah_cg_{id_nh}")
-
-                                            s_puro_h = nh.get('subtema', '')
-                                            if " - " in s_puro_h and s_puro_h.split(" - ")[0] in SUB_CM: s_puro_h = " - ".join(s_puro_h.split(" - ")[1:])
-                                            elif " - " in s_puro_h and s_puro_h.split(" - ")[0] in SUB_CG: s_puro_h = " - ".join(s_puro_h.split(" - ")[1:])
-                                                
-                                            with st.form(f"form_edicao_h_{id_nh}", clear_on_submit=False):
-                                                edit_sh = st.text_input("Subtema", value=s_puro_h)
+                                            if st.button("❌ Cancelar", key=f"bc_{idn}"): st.session_state.nhe_e = None; st.rerun()
+                                            ceb, cei = st.columns([1, 2])
+                                            with ceb:
+                                                if paste_image_button:
+                                                    rp = paste_image_button("📸 Adicionar", "#4f46e5", "#4338ca", f"pe_{idn}")
+                                                    if rp.image_data:
+                                                        ib = otimizar_imagem_para_api(rp.image_data, 1024)
+                                                        if ib and ib not in ie: ie.append(ib); db_update("anotacoes_hiit", "anotacoes_hiit", idn, {"imagens_b64": ie}); st.rerun()
+                                            with cei:
+                                                if ie:
+                                                    cle = st.columns(max(1, min(len(ie), 3)))
+                                                    for ix, im in enumerate(ie):
+                                                        with cle[ix % 3]:
+                                                            st.image(base64.b64decode(im))
+                                                            if st.button("🗑️", key=f"rme_{idn}_{ix}"): ie.pop(ix); db_update("anotacoes_hiit", "anotacoes_hiit", idn, {"imagens_b64": ie}); st.rerun()
+                                            cea, ces = st.columns(2)
+                                            eda = cea.selectbox("Área", AREAS_MED, index=AREAS_MED.index(n.get('area')) if n.get('area') in AREAS_MED else 0, key=f"ea_{idn}")
+                                            eds = ces.selectbox("Sub", SUB_CM, key=f"es_cm_{idn}") if eda == "Clínica Médica" else (ces.selectbox("Sub", SUB_CG, key=f"es_cg_{idn}") if eda == "Cirurgia Geral" else "")
+                                            sp = n.get('subtema', '')
+                                            if " - " in sp and sp.split(" - ")[0] in SUB_CM + SUB_CG: sp = " - ".join(sp.split(" - ")[1:])
+                                            with st.form(f"fe_{idn}", clear_on_submit=False):
+                                                ed_s = st.text_input("Subtema", value=sp)
                                                 with st.container(border=True):
-                                                    render_toolbar()
-                                                    edit_ph = st.text_area("Anotação / Tópicos Chaves", value=nh.get('pontos_chave', ''), height=200)
-                                                
-                                                if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                    if edit_sh and edit_ph:
-                                                        edit_sh_final = f"{sub_eah} - {edit_sh}" if sub_eah and sub_eah != "Geral" else edit_sh
-                                                        db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"area": edit_ah, "subtema": edit_sh_final, "pontos_chave": edit_ph})
-                                                        st.session_state.nota_hiit_em_edicao = None
-                                                        st.toast("✅ Anotação atualizada!", icon="📝"); time.sleep(0.5); st.rerun()
-                                                    else: st.error("Preencha o subtema e a anotação para salvar.")
-
+                                                    render_toolbar(); ed_p = st.text_area("Anotação", value=n.get('pontos_chave', ''), height=200)
+                                                if st.form_submit_button("Salvar Alterações", use_container_width=True) and ed_s and ed_p:
+                                                    db_update("anotacoes_hiit", "anotacoes_hiit", idn, {"area": eda, "subtema": f"{eds} - {ed_s}" if eds and eds != "Geral" else ed_s, "pontos_chave": ed_p})
+                                                    st.session_state.nhe_e = None; st.rerun()
+        
         with aba_fc_hiit:
             st.markdown("### 📚 Modo Estudo - Flashcards HIIT")
-            cards_vencidos = [d for d in dados_flashcards_hiit if parse_data(d.get('data_prox_revisao')) <= hoje]
-            
-            if not cards_vencidos: st.success("🎉 Você zerou o deck HIIT de hoje. Parabéns!")
+            cvs = [d for d in dcache["flashcards_hiit"] if parse_data(d.get('data_prox_revisao')) <= hoje]
+            if not cvs: st.success("🎉 Deck zerado!")
             else:
-                deck_organizado = {}
-                for card in cards_vencidos:
-                    area = card.get('area', 'Geral')
-                    tema = limpar_texto(card.get('tema', 'Sem Tema'))
-                    if area not in deck_organizado: deck_organizado[area] = {}
-                    if tema not in deck_organizado[area]: deck_organizado[area][tema] = []
-                    deck_organizado[area][tema].append(card)
-                
-                areas_pendentes = sorted(list(deck_organizado.keys()))
-                abas_areas_fc = st.tabs(areas_pendentes)
-                
-                for idx_aba, area_atual in enumerate(areas_pendentes):
-                    with abas_areas_fc[idx_aba]:
-                        st.markdown(f"#### <span style='color:{CORES_AREAS.get(area_atual, '#64748b')};'>⬤</span> Cartões de {area_atual}", unsafe_allow_html=True)
-                        temas_da_area = sorted(list(deck_organizado[area_atual].keys()))
-                        tema_ativo = temas_da_area[0]
-                        cartoes_do_tema = deck_organizado[area_atual][tema_ativo]
-                        c_data_h = cartoes_do_tema[0]
-                        c_data_id_h = str(c_data_h.get("id", "000"))
-                        
-                        st.caption(f"**Progresso na Área:** Restam {sum(len(deck_organizado[area_atual][t]) for t in temas_da_area)} cartões hoje.")
+                do = {}
+                for c in cvs:
+                    a, t = c.get('area', 'Geral'), limpar_texto(c.get('tema', 'Sem Tema'))
+                    do.setdefault(a, {}).setdefault(t, []).append(c)
+                aps = sorted(list(do.keys()))
+                abas = st.tabs(aps)
+                for ix, aa in enumerate(aps):
+                    with abas[ix]:
+                        st.markdown(f"#### <span style='color:{CORES_AREAS.get(aa, '#64748b')};'>⬤</span> Cartões de {aa}", unsafe_allow_html=True)
+                        ta = sorted(list(do[aa].keys()))[0]; cd = do[aa][ta][0]; cdi = str(cd.get("id", "0"))
+                        st.caption(f"**Progresso na Área:** Restam {sum(len(do[aa][t]) for t in do[aa])} cartões hoje.")
                         with st.container(border=True):
-                            st.markdown(f"**Tema:** {tema_ativo}"); st.markdown(f"### ❔ {c_data_h.get('frente', '')}")
-                            
-                            chave_ans = f"ans_hiit_{c_data_id_h}"
-                            if chave_ans not in st.session_state: st.session_state[chave_ans] = False
-                            
-                            if st.button("Revelar Resposta", key=f"rev_ans_hiit_{c_data_id_h}"): st.session_state[chave_ans] = True; st.rerun()
-                                
-                            if st.session_state[chave_ans]:
-                                st.info(f"**💡 Resposta:** {c_data_h.get('verso', '')}")
-                                b1_h, b2_h, b3_h = st.columns(3)
-                                
-                                def avaliar_hiit(peso, cid=c_data_id_h, c_dict=c_data_h, k_ans=chave_ans): 
-                                    facil, interv = float(c_dict.get('facilidade', 2.5)), safe_int(c_dict.get('intervalo'))
-                                    if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
-                                    elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
-                                    else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
-                                    db_update("flashcards_hiit", "flashcards_hiit", cid, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
-                                    st.session_state[k_ans] = False
-                                    
-                                if b1_h.button("🔴 Errei (1d)", use_container_width=True, key=f"btn_err_h_{c_data_id_h}"): avaliar_hiit('err'); st.rerun()
-                                if b2_h.button("🟡 Bom", use_container_width=True, key=f"btn_bom_h_{c_data_id_h}"): avaliar_hiit('bom'); st.rerun()
-                                if b3_h.button("🟢 Fácil", use_container_width=True, key=f"btn_facil_h_{c_data_id_h}"): avaliar_hiit('facil'); st.rerun()
-            
-            st.divider()
-            with st.expander("Gerenciar Flashcards HIIT"):
-                if dados_flashcards_hiit:
-                    df_fcs_h = pd.DataFrame(dados_flashcards_hiit)
-                    st.dataframe(df_fcs_h[['area', 'tema', 'frente', 'data_prox_revisao']], use_container_width=True, hide_index=True)
-                    del_fc_h = st.selectbox("Selecione para excluir:", [f"{f.get('id')} | {f.get('frente')[:30]}..." for f in dados_flashcards_hiit], key="del_fc_hiit_sel")
-                    if st.button("🗑️ Excluir Flashcard", key="btn_del_fc_h"):
-                        db_delete("flashcards_hiit", "flashcards_hiit", del_fc_h.split(" | ")[0])
-                        st.toast("Excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
+                            st.markdown(f"**Tema:** {ta}"); st.markdown(f"### ❔ {cd.get('frente', '')}")
+                            ka = f"ah_{cdi}"
+                            if ka not in st.session_state: st.session_state[ka] = False
+                            if st.button("Revelar Resposta", key=f"rr_{cdi}"): st.session_state[ka] = True; st.rerun()
+                            if st.session_state[ka]:
+                                st.info(f"**💡 Resposta:** {cd.get('verso', '')}")
+                                b1, b2, b3 = st.columns(3)
+                                def ah(p, i=cdi, d=cd, k=ka): 
+                                    f, iv = float(d.get('facilidade', 2.5)), safe_int(d.get('intervalo'))
+                                    if p=='e': ni, nf = 1, max(1.3, f - 0.2)
+                                    elif p=='b': ni, nf = max(1, int((iv or 1) * f)), f
+                                    else: ni, nf = max(1, int((iv or 1) * f * 1.3)), f + 0.15
+                                    db_update("flashcards_hiit", "flashcards_hiit", i, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))}); st.session_state[k] = False
+                                if b1.button("🔴 Errei", use_container_width=True, key=f"e_{cdi}"): ah('e'); st.rerun()
+                                if b2.button("🟡 Bom", use_container_width=True, key=f"b_{cdi}"): ah('b'); st.rerun()
+                                if b3.button("🟢 Fácil", use_container_width=True, key=f"f_{cdi}"): ah('f'); st.rerun()
+                with st.expander("Gerenciar"):
+                    if dcache["flashcards_hiit"]:
+                        st.dataframe(pd.DataFrame(dcache["flashcards_hiit"])[['area', 'tema', 'frente', 'data_prox_revisao']], use_container_width=True, hide_index=True)
+                        dfc = st.selectbox("Excluir:", [f"{f.get('id')} | {f.get('frente')[:30]}..." for f in dcache["flashcards_hiit"]])
+                        if st.button("🗑️ Excluir Flashcard"): db_delete("flashcards_hiit", "flashcards_hiit", dfc.split(" | ")[0]); st.rerun()
 
     elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
-        if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
-            
-        if st.session_state.get('limpar_nova_nota', False):
-            st.session_state.nota_imgs_temp = []
-            st.session_state.limpar_nova_nota = False
-            components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('asave_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
-            st.toast("✅ Anotação salva com sucesso!", icon="📝")
-            
-        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
-        with aba_nova:
-            st.markdown("### ⚡ Laboratório de Resumos")
-            st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
-            
+        st.header("Cadernos de Resumos")
+        if 'ntmp' not in st.session_state: st.session_state.ntmp = []
+        if st.session_state.get('limpa_n', False): st.session_state.ntmp = []; st.session_state.limpa_n = False; components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0); st.toast("✅ Salvo!", icon="📝")
+        a1, a2 = st.tabs(["➕ Nova", "📖 Resumos"])
+        with a1:
             with st.container(border=True):
-                col_btn, col_img = st.columns([1, 2])
-                with col_btn:
-                    st.markdown("#### 📸 1. Anexos Visuais")
-                    st.caption("Tabelas, fluxogramas ou o print do seu erro.")
-                    if paste_image_button is not None:
-                        res_paste_nota = paste_image_button("CLIQUE AQUI E APERTE Ctrl+V", "#4f46e5", "#4338ca", key="paste_nota_nova")
-                        if res_paste_nota.image_data is not None:
-                            img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
-                            if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                                st.session_state.nota_imgs_temp.append(img_b64); st.rerun()
-                    else: st.warning("Biblioteca de colar imagem não detectada.")
-                        
-                with col_img:
-                    if st.session_state.nota_imgs_temp:
-                        st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
-                        cols = st.columns(3)
-                        for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
-                            with cols[idx % 3]:
-                                if isinstance(img_b64, str) and len(img_b64) > 50:
-                                    try: st.image(base64.b64decode(img_b64), use_container_width=True)
-                                    except: pass
-                                if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"): st.session_state.nota_imgs_temp.pop(idx); st.rerun()
-
-            st.markdown("#### ✍️ 2. Estruturar o Resumo")
-            col_a, col_s = st.columns(2)
-            a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
-            sub_a = ""
-            if a == "Clínica Médica": sub_a = col_a.selectbox("Subespecialidade", SUB_CM, key="n_sub_cm")
-            elif a == "Cirurgia Geral": sub_a = col_a.selectbox("Subespecialidade", SUB_CG, key="n_sub_cg")
-                
-            with st.form("form_nova_nota", clear_on_submit=True):
-                s = st.text_input("Subtema (Ex: Insuficiência Cardíaca)")
-                with st.container(border=True):
-                    render_toolbar()
-                    if "draft_nota_txt" not in st.session_state: st.session_state.draft_nota_txt = ""
-                    p = st.text_area("Pontos Chave / Resumo", height=200, value=st.session_state.draft_nota_txt, help="Anote aqui os tópicos mais relevantes. Use os comandos de formatação acima.")
-                
-                if st.form_submit_button("💾 Salvar Anotação", use_container_width=True, type="primary"):
-                    if s and p:
-                        s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {"usuario_id": u_id, "area": a, "subtema": s_final, "pontos_chave": p, "imagens_b64": st.session_state.nota_imgs_temp, "data_criacao": str(hoje)})
-                        st.session_state.limpar_nova_nota = True; st.session_state.draft_nota_txt = ""; time.sleep(0.5); st.rerun()
-                    else: st.error("Preencha o subtema e a anotação para salvar.")
-
-        with aba_lista:
-            minhas_anotacoes = dados_anotacoes
-            if not minhas_anotacoes: st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
-            else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
-                notas_exibir = list(minhas_anotacoes)
-                if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
-                
-                notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
-                areas_presentes = sorted(list(set([n.get('area', 'Geral') for n in notas_exibir])))
-                
-                if not notas_exibir: st.warning("Nenhuma anotação encontrada para esta pesquisa.")
-                else:
-                    abas_areas = st.tabs(areas_presentes)
-                    for i, area_tab in enumerate(areas_presentes):
-                        with abas_areas[i]:
-                            notas_area = [n for n in notas_exibir if n.get('area', 'Geral') == area_tab]
-                            for nota in notas_area:
-                                nota_id = str(nota.get('id', '0000')); subtema_str = limpar_texto(nota.get('subtema')); data_str = formatar_data_br(nota.get('data_criacao'))
-                                with st.expander(f"📝 {subtema_str} - {data_str}"):
-                                    c_del1, c_del2 = st.columns([0.85, 0.15])
-                                    with c_del2:
-                                        if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
-                                            db_delete("anotacoes", "anotacoes", nota_id); st.toast("Anotação excluída!", icon="🗑️"); st.rerun()
-                                    
-                                    st.markdown(f"<div style='border-left: 3px solid {CORES_AREAS.get(nota.get('area'), '#64748b')}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nota.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
-                                    
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir: imgs_exibir.insert(0, nota['imagem_b64'])
-                                        
-                                    if imgs_exibir:
-                                        st.write("") 
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: st.image(base64.b64decode(img_b64_v), use_container_width=True)
-                                                    except: pass
-                                    st.divider()
-                                    
-                                    if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"): st.session_state.nota_em_edicao = nota_id; st.rerun()
-                                    else:
-                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"): st.session_state.nota_em_edicao = None; st.rerun()
-                                            
-                                        st.markdown("#### 🖼️ Imagens da Anotação")
-                                        col_ebtn, col_eimg = st.columns([1, 2])
-                                        with col_ebtn:
-                                            st.markdown("➕ **Adicionar Mais Imagens:**")
-                                            if paste_image_button is not None:
-                                                res_paste_edit = paste_image_button("Colar Imagem (Ctrl+V)", "#4f46e5", "#4338ca", key=f"paste_edit_{nota_id}")
-                                                if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD}); st.rerun()
-                                        with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
-                                                    with cols_e[idx_e % 3]:
-                                                        if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
-                                                            except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD}); st.rerun()
-
-                                        st.markdown("#### ✍️ Editar Texto")
-                                        col_ea, col_es = st.columns(2)
-                                        edit_a = col_ea.selectbox("Grande Área", AREAS_MED, index=AREAS_MED.index(nota.get('area')) if nota.get('area') in AREAS_MED else 0, key=f"ea_{nota_id}")
-                                        sub_ea = ""
-                                        if edit_a == "Clínica Médica": sub_ea = col_ea.selectbox("Subespecialidade", SUB_CM, key=f"sub_ea_cm_{nota_id}")
-                                        elif edit_a == "Cirurgia Geral": sub_ea = col_ea.selectbox("Subespecialidade", SUB_CG, key=f"sub_ea_cg_{nota_id}")
-                                        
-                                        s_puro = nota.get('subtema', '')
-                                        if " - " in s_puro and s_puro.split(" - ")[0] in SUB_CM: s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                        elif " - " in s_puro and s_puro.split(" - ")[0] in SUB_CG: s_puro = " - ".join(s_puro.split(" - ")[1:])
-                                            
-                                        with st.form(f"form_edicao_{nota_id}", clear_on_submit=False):
-                                            edit_s = st.text_input("Subtema", value=s_puro)
-                                            with st.container(border=True):
-                                                render_toolbar()
-                                                edit_p = st.text_area("Pontos Chave / Resumo", value=nota.get('pontos_chave', ''), height=200)
-                                            
-                                            if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                                                if edit_s and edit_p:
-                                                    edit_s_final = f"{sub_ea} - {edit_s}" if sub_ea and sub_ea != "Geral" else edit_s
-                                                    db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
-                                                    st.session_state.nota_em_edicao = None
-                                                    st.toast("✅ Anotação atualizada!", icon="📝"); time.sleep(0.5); st.rerun()
-                                                else: st.error("Preencha o subtema e a anotação para salvar.")
+                c1, c2 = st.columns([1, 2])
+                with c1:
+                    if paste_image_button:
+                        rp = paste_image_button("📸 Colar", "#4f46e5", "#4338ca", "pn")
+                        if rp.image_data: st.session_state.ntmp.append(otimizar_imagem_para_api(rp.image_data, 1024)); st.rerun()
+                with c2:
+                    if st.session_state.ntmp:
+                        cc = st.columns(3)
+                        for i, img in enumerate(st.session_state.ntmp):
+                            with cc[i%3]:
+                                st.image(base64.b64decode(img)); 
+                                if st.button("Remover", key=f"rn_{i}"): st.session_state.ntmp.pop(i); st.rerun()
+            ca, cs = st.columns(2); ar = ca.selectbox("Área", AREAS_MED, key="na"); tm = st.text_input("Tema", key="ntm")
+            with st.container(border=True):
+                render_toolbar(); txt = st.text_area("Texto", height=200, key="ntxt")
+            if st.button("💾 Salvar", type="primary", use_container_width=True) and tm and txt:
+                db_add("anotacoes", "anotacoes", {"usuario_id":u_id, "area":ar, "subtema":tm, "pontos_chave":txt, "imagens_b64":st.session_state.ntmp, "data_criacao":str(hoje)})
+                st.session_state.limpa_n = True; st.rerun()
+        with a2:
+            for n in sorted(dcache["anotacoes"], key=lambda x: parse_data(x.get('data_criacao')), reverse=True):
+                with st.expander(f"📝 {n.get('subtema')} - {formatar_data_br(n.get('data_criacao'))}"):
+                    st.markdown(n.get('pontos_chave'))
+                    for img in n.get('imagens_b64',[]): st.image(base64.b64decode(img))
+                    if st.button("Excluir", key=f"dn_{n['id']}"): db_delete("anotacoes", "anotacoes", n['id']); st.rerun()
 
     elif menu == "🎯 Questões":
-        aba_reg, aba_erros, aba_alvos = st.tabs(["📝 Registrar & Agendar Revisão", "🧠 Caderno de Erros Ativo", "🚨 Alvos Críticos"])
-        with aba_reg:
-            col_a, col_sub = st.columns(2)
-            a = col_a.selectbox("Área", AREAS_MED, key="q_area")
-            sub_q = ""
-            if a == "Clínica Médica": sub_q = col_sub.selectbox("Subespecialidade", SUB_CM, key="q_sub_cm")
-            elif a == "Cirurgia Geral": sub_q = col_sub.selectbox("Subespecialidade", SUB_CG, key="q_sub_cg")
-                
-            with st.form("q_form", clear_on_submit=True):
-                st.info("Ao registrar suas questões, o sistema irá recalcular o seu desempenho e reagendar a sua próxima revisão automaticamente.")
-                c1, c2 = st.columns(2); s = c1.text_input("Subtema (Ex: Insuficiência Cardíaca)"); d = c2.date_input("Data", hoje, format="DD/MM/YYYY")
-                ac, er = st.columns(2); acc, err = ac.number_input("🟢 Acertos", min_value=0), er.number_input("🔴 Erros", min_value=0)
-                cc = st.text_input("Conceito Chave (Motivo de algum erro)")
-                
-                if st.form_submit_button("Registrar e Agendar Revisão Inteligente", use_container_width=True):
-                    s_final = f"{sub_q} - {s}" if sub_q and sub_q != "Geral" else s
-                    db_add("questoes_sessoes", "questoes", {"usuario_id": u_id, "data": str(d), "area": a, "subtema": s_final, "acertos": acc, "erros": err, "conceito_chave": cc})
-                    
-                    total_q = acc + err
-                    if total_q > 0:
-                        taxa_acerto = acc / total_q
-                        if taxa_acerto < 0.60: ciclo_nome, dias_prox = "🔴 Crítico (Rever em 1d)", 1
-                        elif taxa_acerto < 0.80: ciclo_nome, dias_prox = "🟡 Reforço (Rever em 7d)", 7
-                        else: ciclo_nome, dias_prox = "🟢 Domínio (Rever em 15d)", 15
-                            
-                        nova_data = parse_data(str(d)) + timedelta(days=dias_prox)
-                        
-                        batch = db.batch(); ids_del = set()
-                        for r_pend in st.session_state.dados["revisoes"]:
-                            if str(r_pend.get('status')).lower() in ['pendente', 'pendentes'] and str(r_pend.get('tema')) == s_final:
-                                batch.delete(db.collection("revisoes").document(r_pend['id'])); ids_del.add(r_pend['id'])
-                        
-                        doc_rev = db.collection("revisoes").document()
-                        nova_rev = {"usuario_id": u_id, "area": a, "tema": s_final, "ciclo": ciclo_nome, "data_agendada": str(nova_data), "status": "Pendente"}
-                        batch.set(doc_rev, nova_rev); batch.commit()
-                        
-                        st.session_state.dados["revisoes"] = [r for r in st.session_state.dados["revisoes"] if r['id'] not in ids_del]
-                        nova_rev['id'] = doc_rev.id; st.session_state.dados["revisoes"].append(nova_rev)
-                        st.toast(f"Revisão agendada para {formatar_data_br(nova_data)}!", icon="📅")
-                    st.toast("Questões registradas!", icon="✅"); time.sleep(1); st.rerun()
-            
-            if dados_questoes: 
-                lista_q = []
-                for b in dados_questoes:
-                    acertos, erros = safe_int(b.get('acertos')), safe_int(b.get('erros'))
-                    total = acertos + erros
-                    lista_q.append({
-                        "Data_obj": parse_data(b.get('data')), "Data": formatar_data_br(b.get('data')),
-                        "Área": b.get('area'), "Subtema": limpar_texto(b.get('subtema')),
-                        "Acertos": acertos, "Erros": erros,
-                        "% Acertos": f"{(acertos / total * 100):.1f}%" if total > 0 else "0.0%", "ID": b.get('id')
-                    })
-                df_q = pd.DataFrame(lista_q).sort_values(by="Data_obj", ascending=False).drop(columns=["Data_obj", "ID"], errors='ignore')
-                st.dataframe(df_q, use_container_width=True, hide_index=True)
-                
-                st.write("---")
-                with st.expander("✏️ Editar ou Excluir Registro de Questões"):
-                    opcoes_edicao = {f"{formatar_data_br(q.get('data'))} | {q.get('area')} - {limpar_texto(q.get('subtema'))} (ID: {str(q.get('id', '0000'))[:4]})": q for q in dados_questoes}
-                    if opcoes_edicao:
-                        q_selec = st.selectbox("Selecione o registro que deseja alterar:", list(opcoes_edicao.keys()))
-                        q_dados = opcoes_edicao[q_selec]; q_id_alvo = str(q_dados.get('id', '0000'))
-                        col_e1, col_e2 = st.columns(2)
-                        novo_ac = col_e1.number_input("Editar Acertos", min_value=0, value=safe_int(q_dados.get('acertos')), key=f"ac_{q_id_alvo}")
-                        novo_er = col_e2.number_input("Editar Erros", min_value=0, value=safe_int(q_dados.get('erros')), key=f"er_{q_id_alvo}")
-                        
-                        col_btn1, col_btn2 = st.columns(2)
-                        if col_btn1.button("💾 Salvar Alterações", use_container_width=True, key=f"sv_{q_id_alvo}"):
-                            db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er}); st.toast("Registro atualizado!", icon="✅"); time.sleep(0.5); st.rerun()
-                        if col_btn2.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_{q_id_alvo}"):
-                            db_delete("questoes_sessoes", "questoes", q_id_alvo); st.toast("Registro excluído!", icon="🗑️"); time.sleep(0.5); st.rerun()
-                
-        with aba_erros:
-            baterias_erros = [b for b in dados_questoes if safe_int(b.get('erros')) > 0 and b.get('conceito_chave')]
-            if baterias_erros:
-                erro_escolhido = st.selectbox("Escolha um conceito que você errou:", reversed([f"{b.get('area')} - {limpar_texto(b.get('subtema'))}: {b.get('conceito_chave')}" for b in baterias_erros]))
-                conceito_alvo = erro_escolhido.split(": ")[1]
-                area_alvo = erro_escolhido.split(" - ")[0]
-                tema_alvo = erro_escolhido.split(" - ")[1].split(":")[0]
-
-                if st.button("🔥 Gerar Questão Inédita via IA", use_container_width=True):
-                    client_ia = get_ia_client()
-                    if client_ia:
-                        with st.spinner("Construindo caso clínico..."):
-                            try:
-                                prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado."
-                                resposta_clone = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
-                                with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
-                            except Exception as e: st.error(str(e))
-                
-                st.write("---")
-                st.write("**Transformar Conceito Errado em Flashcard**")
-                frente_erro = st.text_input("Frente da Carta", value=f"O que devo lembrar sobre: {conceito_alvo}")
-                verso_erro = st.text_area("Verso (Resposta correta)")
-                if st.button("💾 Salvar direto no Deck"):
-                    db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": area_alvo, "tema": tema_alvo, "frente": frente_erro, "verso": verso_erro, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                    st.toast("Flashcard adicionado aos estudos!", icon="🧠")
-            else: st.success("Nenhum erro registrado com Conceito Chave.")
-
-        with aba_alvos:
-            st.markdown("### ⚠️ Mapeamento de Pontos Cegos")
-            st.caption("O sistema calcula a sua média nas últimas 3 baterias de questões de cada subtema. Abaixo de 60%, o tema entra na zona vermelha e a IA pode intervir.")
-            
-            historico_dict = {}
-            for q in sorted(dados_questoes, key=lambda x: parse_data(x.get('data')), reverse=True):
-                t_str = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
-                if t_str not in historico_dict: historico_dict[t_str] = []
-                if len(historico_dict[t_str]) < 3: historico_dict[t_str].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
-            
-            alvos_criticos = []
-            for t_str, sessoes in historico_dict.items():
-                t_ac = sum(s['ac'] for s in sessoes)
-                t_er = sum(s['er'] for s in sessoes)
-                t_total = t_ac + t_er
-                if t_total > 0:
-                    media = t_ac / t_total
-                    if media < 0.6: alvos_criticos.append({"Tema": t_str, "Média": media, "Total": t_total})
-                        
-            if not alvos_criticos: st.success("🎉 Você não tem nenhum Alvo Crítico no momento. Seu desempenho está excelente!")
+        st.header("Sessões & Erros")
+        a1, a2, a3 = st.tabs(["Registrar", "Histórico", "Alvos"])
+        with a1:
+            with st.form("qf", clear_on_submit=True):
+                ca, cs = st.columns(2); ar = ca.selectbox("Área", AREAS_MED); sub = cs.selectbox("Sub", SUB_CM) if ar == "Clínica Médica" else (cs.selectbox("Sub", SUB_CG) if ar == "Cirurgia Geral" else "")
+                tm = st.text_input("Tema"); dt = st.date_input("Data", hoje); c1, c2 = st.columns(2); ac = c1.number_input("Acertos", 0); er = c2.number_input("Erros", 0); cc = st.text_input("Conceito Chave (Erro)")
+                if st.form_submit_button("Salvar") and tm:
+                    tf = f"{sub} - {tm}" if sub and sub != "Geral" else tm
+                    db_add("questoes_sessoes", "questoes", {"usuario_id":u_id, "data":str(dt), "area":ar, "subtema":tf, "acertos":ac, "erros":er, "conceito_chave":cc})
+                    tq = ac+er
+                    if tq>0:
+                        tx = ac/tq; cn, dp = ("🔴 Crítico (1d)", 1) if tx<0.6 else (("🟡 Reforço (7d)", 7) if tx<0.8 else ("🟢 Domínio (15d)", 15))
+                        nd = parse_data(str(dt)) + timedelta(days=dp)
+                        b = db.batch(); dids = set()
+                        for r in dcache["revisoes"]:
+                            if str(r.get('status')).lower() == 'pendente' and str(r.get('tema')) == tf: b.delete(db.collection("revisoes").document(r['id'])); dids.add(r['id'])
+                        nr = {"usuario_id":u_id, "area":ar, "tema":tf, "ciclo":cn, "data_agendada":str(nd), "status":"Pendente"}
+                        dr = db.collection("revisoes").document(); b.set(dr, nr); b.commit()
+                        dcache["revisoes"] = [r for r in dcache["revisoes"] if r['id'] not in dids]; nr['id'] = dr.id; dcache["revisoes"].append(nr)
+                    st.rerun()
+        with a2:
+            if dcache["questoes"]: st.dataframe(pd.DataFrame(dcache["questoes"])[['data','area','subtema','acertos','erros','conceito_chave']], hide_index=True, use_container_width=True)
+        with a3:
+            hd = {}
+            for q in sorted(dcache["questoes"], key=lambda x: parse_data(x.get('data')), reverse=True):
+                ts = f"{q.get('area')} - {limpar_texto(q.get('subtema'))}"
+                hd.setdefault(ts, [])
+                if len(hd[ts]) < 3: hd[ts].append({"ac": safe_int(q.get('acertos')), "er": safe_int(q.get('erros'))})
+            acrit = []
+            for ts, ss in hd.items():
+                tac = sum(s['ac'] for s in ss); ter = sum(s['er'] for s in ss); ttot = tac + ter
+                if ttot > 0 and tac/ttot < 0.6: acrit.append({"Tema": ts, "Média": tac/ttot, "Total": ttot})
+            if not acrit: st.success("Nenhum Alvo Crítico!")
             else:
-                alvos_criticos.sort(key=lambda x: x['Média'])
-                df_alvos = pd.DataFrame([{"Subtema Analisado": a["Tema"], "Desempenho Recente": f"{a['Média']*100:.1f}%", "Questões Base": a["Total"]} for a in alvos_criticos])
-                st.dataframe(df_alvos, use_container_width=True, hide_index=True)
-                
-                st.write("---")
-                if st.button("🔥 Gerar Simulado de Recuperação com IA", use_container_width=True):
-                    client_ia = get_ia_client()
-                    if client_ia:
-                        piores_3 = [a['Tema'] for a in alvos_criticos[:3]]
-                        prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
-                        with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
+                acrit.sort(key=lambda x: x['Média'])
+                st.dataframe(pd.DataFrame([{"Tema": a["Tema"], "Desempenho": f"{a['Média']*100:.1f}%", "Base": a["Total"]} for a in acrit]), use_container_width=True, hide_index=True)
+                if st.button("🔥 Simulado de Recuperação"):
+                    cli = get_ia_client()
+                    if cli:
+                        with st.spinner("Gerando..."):
                             try:
-                                resposta_recup = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
-                                with st.container(border=True): st.markdown(resposta_recup.choices[0].message.content)
-                            except Exception as e: st.error(f"Erro ao gerar simulado: {e}")
+                                res = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": f"Crie um mini-simulado rigoroso para: {', '.join([a['Tema'] for a in acrit[:3]])}. Com alternativas e gabarito comentado."}], max_tokens=3000)
+                                with st.container(border=True): st.markdown(res.choices[0].message.content)
+                            except Exception as e: st.error(str(e))
 
     elif menu == "📅 Agenda de Revisões":
-        st.header("Organizador Adaptativo de Ciclos")
-        
-        todas_pendentes_cru = [r for r in dados_revisoes if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
-        hoje_revs = [r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) == hoje]
-        qtd_hoje = len(hoje_revs)
-        futuras = sorted([r for r in todas_pendentes_cru if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
-        prox_data_str = formatar_data_br(futuras[0].get('data_agendada')) if futuras else "Nenhuma agendada"
-
-        st.markdown("### 🎯 Seu Painel de Missões")
-        col_st1, col_st2 = st.columns(2)
-        with col_st1: st.info(f"**🗓️ Para Hoje:** Você tem **{qtd_hoje}** revisões agendadas.")
-        with col_st2: st.success(f"**⏭️ Próxima Futura:** {prox_data_str}")
-        st.divider()
-        
-        aba_pendentes, aba_historico = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
-        
-        with aba_pendentes:
-            c_v, c_o = st.columns(2)
-            visao = c_v.radio("Filtro Rápido:", ["📆 Para Hoje", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras", "🔎 Data Específica"], horizontal=True)
-            ordem = c_o.radio("Ordem:", ["🚨 Urgência", "🆕 Mais Atuais", "🕰️ Mais Antigas"], horizontal=True)
-            
-            data_filtro_exata = None
-            if visao == "🔎 Data Específica": data_filtro_exata = st.date_input("Filtrar para o dia:", hoje, format="DD/MM/YYYY")
-            
-            desempenho_por_tema = {}
-            for q in dados_questoes:
-                t_str = limpar_texto(q.get('subtema', ''))
-                if t_str not in desempenho_por_tema: desempenho_por_tema[t_str] = {"ac": 0, "er": 0}
-                desempenho_por_tema[t_str]["ac"] += safe_int(q.get('acertos', 0))
-                desempenho_por_tema[t_str]["er"] += safe_int(q.get('erros', 0))
-            
-            todas_pendentes = []
-            for r_orig in dados_revisoes:
-                if str(r_orig.get('status', '')).lower() not in ['pendente', 'pendentes']: continue
-                r = dict(r_orig)
-                r['data_agendada_obj'] = parse_data(r.get('data_agendada'))
-                r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
-                r['data_aula_obj'] = parse_data(mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('data_aula')) if r.get('aula_id') else r['data_agendada_obj']
-                todas_pendentes.append(r)
-            
-            if 'cal_mes_revs' not in st.session_state: st.session_state.cal_mes_revs = hoje.month
-            if 'cal_ano_revs' not in st.session_state: st.session_state.cal_ano_revs = hoje.year
-            nav_r1, nav_r2, nav_r3 = st.columns([1,2,1])
-            with nav_r1:
-                if st.button("⬅️ Mês Anterior", key="prev_rev"):
-                    if st.session_state.cal_mes_revs == 1: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 12, st.session_state.cal_ano_revs - 1
-                    else: st.session_state.cal_mes_revs -= 1
-                    st.rerun()
-            with nav_r2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_revs]} {st.session_state.cal_ano_revs}</h3>", unsafe_allow_html=True)
-            with nav_r3:
-                if st.button("Próximo Mês ➡️", key="next_rev"):
-                    if st.session_state.cal_mes_revs == 12: st.session_state.cal_mes_revs, st.session_state.cal_ano_revs = 1, st.session_state.cal_ano_revs + 1
-                    else: st.session_state.cal_mes_revs += 1
-                    st.rerun()
-
-            st.markdown(gerar_calendario_revisoes_html(todas_pendentes, st.session_state.cal_ano_revs, st.session_state.cal_mes_revs), unsafe_allow_html=True)
-            st.divider()
-
-            if visao == "🔎 Data Específica" and data_filtro_exata: lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == data_filtro_exata]
-            elif visao == "📆 Para Hoje": lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] == hoje]
-            elif visao == "🗓️ Próximos 7 Dias": lista_pendentes = [r for r in todas_pendentes if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))]
-            else: lista_pendentes = [r for r in todas_pendentes if r['data_agendada_obj'] >= hoje]
-            
-            if "Atuais" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'], reverse=True)
-            elif "Antigas" in ordem: lista_pendentes.sort(key=lambda x: x['data_aula_obj'])
-            else: lista_pendentes.sort(key=lambda x: x['data_agendada_obj'])
-
-            if not lista_pendentes: st.success("🎉 Tudo em dia para os filtros selecionados!")
-            
-            for r in lista_pendentes:
-                tema_card = limpar_texto(r['tema'])
-                pct_str = "--"
-                cor_pct = "#94a3b8"
-                if tema_card in desempenho_por_tema:
-                    ac, er = desempenho_por_tema[tema_card]['ac'], desempenho_por_tema[tema_card]['er']
-                    tot = ac + er
-                    if tot > 0:
-                        pct = ac / tot
-                        pct_str = f"{pct*100:.0f}%"
-                        if pct >= 0.8: cor_pct = "#22c55e"
-                        elif pct >= 0.6: cor_pct = "#eab308"
-                        else: cor_pct = "#ef4444"
-
-                with st.container(border=True):
-                    c1_card, c2_card = st.columns([0.8, 0.2])
-                    with c1_card:
-                        st.markdown(f"<h5 style='margin-bottom:0;'><span style='color:{CORES_AREAS.get(r['area'], '#64748b')};'>⬤</span> {tema_card}</h5>", unsafe_allow_html=True)
-                        st.caption(f"Ciclo: **{r.get('ciclo','')}** | Data: **{formatar_data_br(r['data_agendada_obj'])}**")
-                    with c2_card:
-                        st.markdown(f"<div style='text-align:right;'><span style='font-size:11px; color:#94a3b8;'>Sua Taxa de Acertos</span><br><strong style='font-size:18px; color:{cor_pct};'>{pct_str}</strong></div>", unsafe_allow_html=True)
-                        
-                    with st.expander("✅ Concluir Revisão"):
-                        with st.form(f"f_{r['id']}", clear_on_submit=True):
-                            col1, col2, col3 = st.columns(3)
-                            q = col1.number_input("Questões Feitas", 0)
-                            e = col2.number_input("Erros", 0, max_value=max(q,0))
-                            f = col3.number_input("Flashcards Lidos", 0)
-                            if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
-                                db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
-                                st.toast("✅ Revisão Concluída!", icon="🚀"); time.sleep(0.5); st.rerun()
-
-        with aba_historico:
-            conc_docs = [d for d in dados_revisoes if str(d.get('status', '')).lower() in ["concluída", "concluida"]]
-            if conc_docs:
-                dados_h = []
-                for d in conc_docs:
-                    tema = d.get('tema') or mapa_aulas.get(str(d.get('aula_id', '')).strip(), {}).get('tema', 'Sem título')
-                    tema = limpar_texto(tema)
-                    acertos, erros, questoes = safe_int(d.get('acertos')), safe_int(d.get('erros')), safe_int(d.get('questoes_feitas'))
-                    if questoes == 0 and (acertos > 0 or erros > 0): questoes = acertos + erros
-                    dados_h.append({"ID": d['id'], "Conclusão": d.get('data_conclusao'), "Tema": tema, "Ciclo": d.get('ciclo'), "Questões": questoes, "Acertos": acertos, "Erros": erros, "Cards": safe_int(d.get('flashcards_feitas'))})
-                
-                df_h = pd.DataFrame(dados_h)
-                df_h['Conclusão_dt'] = pd.to_datetime(df_h['Conclusão'], errors='coerce')
-                df_h = df_h.dropna(subset=['Conclusão_dt']) 
-                
-                if not df_h.empty:
-                    df_ag = df_h.groupby("Conclusão_dt")[['Acertos', 'Erros', 'Cards']].sum().reset_index()
-                    df_ag["Data"] = df_ag["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    c1g, c2g = st.columns(2)
-                    modo_grafico_font = st.session_state.get("g_txt", "#f8fafc")
-                    
-                    with c1g: 
-                        fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#10b981", "Erros":"#ef4444"})
-                        fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-                    with c2g: 
-                        fig2 = px.bar(df_ag, x="Data", y="Cards")
-                        fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-                    
-                    df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
-                    df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
-                    st.markdown("### 📋 Detalhamento Diário por Matéria")
-                    st.dataframe(df_h[["Data", "Tema", "Ciclo", "Questões", "Acertos", "Erros", "Cards"]], use_container_width=True, hide_index=True)
-                    
-                    st.divider()
-                    with st.expander("⏪ Desfazer Revisão (Voltar para Pendente)"):
-                        opcoes_desfazer = {f"{row['Tema']} - {row['Ciclo']} (Feita em: {row['Data']})": row['ID'] for _, row in df_h.iterrows()}
-                        if opcoes_desfazer:
-                            rev_selecionada = st.selectbox("Selecione a revisão para desfazer:", list(opcoes_desfazer.keys()))
-                            if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
-                                db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
-                                st.toast("Revisão desfeita!", icon="⏪"); time.sleep(0.5); st.rerun()
+        st.header("Agenda SRS")
+        p = [r for r in dcache["revisoes"] if r.get('status')=='Pendente']
+        for r in p:
+            r['data_agendada_obj'] = parse_data(r.get('data_agendada')); r['tema'] = r.get('tema') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('tema', ''); r['area'] = r.get('area') or mapa_aulas.get(str(r.get('aula_id', '')).strip(), {}).get('area', 'Geral')
+        if 'cmr' not in st.session_state: st.session_state.cmr = hoje.month
+        if 'car' not in st.session_state: st.session_state.car = hoje.year
+        n1, n2, n3 = st.columns([1,2,1])
+        if n1.button("⬅️ Mês", key="pr"): st.session_state.cmr, st.session_state.car = (12, st.session_state.car-1) if st.session_state.cmr==1 else (st.session_state.cmr-1, st.session_state.car); st.rerun()
+        with n2: st.markdown(f"<h3 style='text-align:center;'>📅 {MESES_PT[st.session_state.cmr]} {st.session_state.car}</h3>", unsafe_allow_html=True)
+        if n3.button("Mês ➡️", key="nr"): st.session_state.cmr, st.session_state.car = (1, st.session_state.car+1) if st.session_state.cmr==12 else (st.session_state.cmr+1, st.session_state.car); st.rerun()
+        st.markdown(gerar_calendario_revisoes_html(p, st.session_state.car, st.session_state.cmr), unsafe_allow_html=True)
+        cv, co = st.columns(2); vr = cv.radio("Filtro:", ["📆 Hoje", "🗓️ 7 Dias", "♾️ Futuras"], horizontal=True); orr = co.radio("Ordem:", ["🚨 Urgência", "🆕 Atuais", "🕰️ Antigas"], horizontal=True)
+        lp = [r for r in p if r['data_agendada_obj'] == hoje] if vr == "📆 Hoje" else ([r for r in p if hoje <= r['data_agendada_obj'] <= (hoje + timedelta(days=7))] if vr == "🗓️ 7 Dias" else [r for r in p if r['data_agendada_obj'] >= hoje])
+        lp.sort(key=lambda x: x['data_agendada_obj'], reverse=("Atuais" in orr)) if "Urgência" not in orr else lp.sort(key=lambda x: x['data_agendada_obj'])
+        if not lp: st.success("Tudo em dia!")
+        for r in lp:
+            with st.container(border=True):
+                st.markdown(f"**{r['tema']}** ({r.get('ciclo','')})")
+                with st.expander("Concluir"):
+                    with st.form(f"fr_{r['id']}", clear_on_submit=True):
+                        c1, c2 = st.columns(2); a = c1.number_input("Acertos", 0); e = c2.number_input("Erros", 0)
+                        if st.form_submit_button("Salvar"): db_update("revisoes", "revisoes", r['id'], {"status":"Concluída", "acertos":a, "erros":e, "data_conclusao":str(get_agora())}); st.rerun()
 
     elif menu == "✨ AI Tutor & Flashcards":
-        st.header("✨ AI Tutor & Flashcards")
-        aba_chat, aba_flash, aba_feynman = st.tabs(["🧠 Tutor Virtual IA", "📚 Flashcards", "🎙️ Técnica Feynman"])
-        with aba_chat:
-            chat_box = st.container(height=500)
-            if 'chat_ia' not in st.session_state: st.session_state.chat_ia = []
-            with chat_box:
-                for msg in st.session_state.chat_ia: st.chat_message(msg.get("role", "user")).write(msg.get("content", ""))
-            
-            u_in = st.chat_input("Dúvida médica, prescrições...", key="input_tutor")
-            if u_in:
-                client_ia = get_ia_client()
-                if client_ia:
-                    with st.spinner("Analisando..."):
-                        msgs_api = [{"role": "system", "content": "Você é um Preceptor Médico Sênior. Forneça cálculos de doses exatas e diagnósticos diretos. O usuário é um médico."}]
-                        st.session_state.chat_ia.append({"role": "user", "content": u_in})
-                        for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
-                        try:
-                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
-                            st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
-                        except Exception as e: st.error(str(e))
-                        st.rerun()
-
-        with aba_flash:
-            aba_f1, aba_f2, aba_f3 = st.tabs(["Modo Estudo", "Adicionar", "📥 Importar Anki (CSV)"])
-            with aba_f1:
-                cards_vencidos = [d for d in dados_flashcards if parse_data(d.get('data_prox_revisao')) <= hoje]
-                if not cards_vencidos: st.success("🎉 Você zerou o deck de hoje. Parabéns!")
-                else:
-                    deck_organizado = {}
-                    for card in cards_vencidos:
-                        area = card.get('area', 'Geral')
-                        tema = limpar_texto(card.get('tema', 'Sem Tema'))
-                        if area not in deck_organizado: deck_organizado[area] = {}
-                        if tema not in deck_organizado[area]: deck_organizado[area][tema] = []
-                        deck_organizado[area][tema].append(card)
-                    
-                    areas_pendentes = sorted(list(deck_organizado.keys()))
-                    abas_areas_fc = st.tabs(areas_pendentes)
-                    
-                    for idx_aba, area_atual in enumerate(areas_pendentes):
-                        with abas_areas_fc[idx_aba]:
-                            st.markdown(f"#### <span style='color:{CORES_AREAS.get(area_atual, '#64748b')};'>⬤</span> Cartões de {area_atual}", unsafe_allow_html=True)
-                            temas_da_area = sorted(list(deck_organizado[area_atual].keys()))
-                            tema_ativo = temas_da_area[0]
-                            cartoes_do_tema = deck_organizado[area_atual][tema_ativo]
-                            c_data = cartoes_do_tema[0]
-                            c_data_id = str(c_data.get("id", "000"))
-                            
-                            st.caption(f"**Progresso na Área:** Restam {sum(len(deck_organizado[area_atual][t]) for t in temas_da_area)} cartões hoje.")
-                            
-                            with st.container(border=True):
-                                st.markdown(f"**Tema:** {tema_ativo}"); st.markdown(f"### ❔ {c_data.get('frente', '')}")
-                                chave_ans = f"ans_{c_data_id}"
-                                if chave_ans not in st.session_state: st.session_state[chave_ans] = False
-                                
-                                if st.button("Revelar Resposta", key=f"rev_ans_{c_data_id}"): st.session_state[chave_ans] = True; st.rerun()
-                                    
-                                if st.session_state[chave_ans]:
-                                    st.info(f"**💡 Resposta:** {c_data.get('verso', '')}")
-                                    b1, b2, b3 = st.columns(3)
-                                    
-                                    def avaliar_fc(peso, cid=c_data_id, c_dict=c_data, k_ans=chave_ans): 
-                                        facil, interv = float(c_dict.get('facilidade', 2.5)), safe_int(c_dict.get('intervalo'))
-                                        if peso == 'err': ni, nf = 1, max(1.3, facil - 0.2)
-                                        elif peso == 'bom': ni, nf = max(1, int((interv or 1) * facil)), facil
-                                        else: ni, nf = max(1, int((interv or 1) * facil * 1.3)), facil + 0.15
-                                        db_update("flashcards", "flashcards", cid, {"intervalo": ni, "facilidade": nf, "data_prox_revisao": str(get_agora().date() + timedelta(days=ni))})
-                                        st.session_state[k_ans] = False
-                                        
-                                    if b1.button("🔴 Errei (1d)", use_container_width=True, key=f"btn_err_{c_data_id}"): avaliar_fc('err'); st.rerun()
-                                    if b2.button("🟡 Bom", use_container_width=True, key=f"btn_bom_{c_data_id}"): avaliar_fc('bom'); st.rerun()
-                                    if b3.button("🟢 Fácil", use_container_width=True, key=f"btn_facil_{c_data_id}"): avaliar_fc('facil'); st.rerun()
-            
-            with aba_f2:
-                col_a, col_t = st.columns(2)
-                a = col_a.selectbox("Área", AREAS_MED, key="fc_area")
-                sub_f = ""
-                if a == "Clínica Médica": sub_f = col_t.selectbox("Subespecialidade", SUB_CM, key="fc_sub_cm")
-                elif a == "Cirurgia Geral": sub_f = col_t.selectbox("Subespecialidade", SUB_CG, key="fc_sub_cg")
-                    
-                with st.form("add_fc", clear_on_submit=True):
-                    t = st.text_input("Tema"); f = st.text_input("Frente da Carta"); v = st.text_area("Verso da Carta")
-                    if st.form_submit_button("Salvar no Banco", use_container_width=True):
-                        t_final = f"{sub_f} - {t}" if sub_f and sub_f != "Geral" else t
-                        db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t_final or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
-                        st.toast("Flashcard salvo!", icon="📚"); time.sleep(0.5); st.rerun()
-            
-            with aba_f3:
-                st.markdown("### 📥 Importação em Massa")
-                arq_csv = st.file_uploader("Upload do CSV (Anki)", type=["csv"])
-                if arq_csv and st.button("Importar Flashcards", use_container_width=True, type="primary"):
+        st.header("IA & Cards")
+        a1, a2, a3 = st.tabs(["Flashcards", "Tutor", "Feynman"])
+        with a1:
+            venc = [c for c in dcache["flashcards"] if parse_data(c.get('data_prox_revisao')) <= hoje]
+            if not venc: st.success("Deck zerado!")
+            else:
+                c = venc[0]; cid = c['id']
+                with st.container(border=True):
+                    st.markdown(f"**{c.get('frente')}**")
+                    if st.button("Revelar", key=f"r_{cid}"): st.session_state[f"a_{cid}"] = True; st.rerun()
+                    if st.session_state.get(f"a_{cid}"):
+                        st.info(c.get('verso')); c1, c2, c3 = st.columns(3)
+                        def av(p):
+                            f, i = float(c.get('facilidade',2.5)), safe_int(c.get('intervalo',0))
+                            if p=='e': ni, nf = 1, max(1.3, f-0.2)
+                            elif p=='b': ni, nf = max(1, int(max(1,i)*f)), f
+                            else: ni, nf = max(1, int(max(1,i)*f*1.3)), f+0.15
+                            db_update("flashcards", "flashcards", cid, {"intervalo":ni, "facilidade":nf, "data_prox_revisao":str(get_agora().date()+timedelta(days=ni))}); st.session_state[f"a_{cid}"] = False
+                        if c1.button("Errei", key="e"): av('e'); st.rerun()
+                        if c2.button("Bom", key="b"): av('b'); st.rerun()
+                        if c3.button("Fácil", key="f"): av('f'); st.rerun()
+        with a2:
+            if 'chat' not in st.session_state: st.session_state.chat = []
+            for m in st.session_state.chat: st.chat_message(m["role"]).write(m["content"])
+            if u := st.chat_input("Dúvida?"):
+                st.session_state.chat.append({"role":"user","content":u})
+                cli = get_ia_client()
+                if cli:
                     try:
-                        df_anki = pd.read_csv(arq_csv, sep=None, engine='python') 
-                        if all(col in df_anki.columns for col in ['Area', 'Tema', 'Frente', 'Verso']):
-                            with st.spinner("Injetando flashcards..."):
-                                batch = db.batch()
-                                for _, row in df_anki.iterrows():
-                                    doc_ref = db.collection("flashcards").document()
-                                    n_fc = {"usuario_id": u_id, "area": str(row['Area']).strip(), "tema": str(row['Tema']).strip(), "frente": str(row['Frente']).strip(), "verso": str(row['Verso']).strip(), "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5}
-                                    batch.set(doc_ref, n_fc); n_fc["id"] = doc_ref.id; st.session_state.dados["flashcards"].append(n_fc)
-                                batch.commit()
-                            st.toast("✅ Flashcards importados com sucesso!"); st.rerun()
-                    except Exception as e: st.error(f"Erro ao ler o arquivo: {e}")
-
-        with aba_feynman:
-            client_ia = get_ia_client()
-            if client_ia:
-                tema_f = st.text_input("Tema para explicar (Voz):")
-                aud_f = st.audio_input("Gravar")
-                if tema_f and aud_f:
+                        r = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role":"system","content":"Tutor médico."}]+st.session_state.chat, max_tokens=1000)
+                        st.session_state.chat.append({"role":"assistant","content":r.choices[0].message.content})
+                    except Exception as e: st.error(str(e))
+                    st.rerun()
+        with a3:
+            cli = get_ia_client()
+            if cli:
+                tmf = st.text_input("Tema:")
+                aud = st.audio_input("Gravar")
+                if tmf and aud:
                     with st.spinner("Avaliando..."):
                         try:
-                            transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
+                            tr = cli.audio.transcriptions.create(file=("a.wav", aud.getvalue()), model="whisper-large-v3")
+                            r = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role":"system","content":"Avalie rigidamente."}, {"role":"user","content":f"Avalie: '{tmf}'. Transcrição: '{tr.text}'."}], max_tokens=2500)
                             st.success(r.choices[0].message.content)
-                        except Exception as e: st.error(f"Erro: {e}")
+                        except Exception as e: st.error(str(e))
 
     elif menu == "📚 Registro de Aulas":
-        st.header("Biblioteca Pessoal de Conteúdo")
-        col_form, col_lista = st.columns([1, 2.5])
-        with col_form:
-            st.subheader("➕ Adicionar Aula")
-            st.caption("Aulas não geram mais revisões automáticas (Apenas questões).")
-            c_area, c_sub = st.columns(2)
-            a = c_area.selectbox("Especialidade", AREAS_MED, key="aula_area")
-            sub_al = ""
-            if a == "Clínica Médica": sub_al = c_sub.selectbox("Subespecialidade", SUB_CM, key="aula_sub_cm")
-            elif a == "Cirurgia Geral": sub_al = c_sub.selectbox("Subespecialidade", SUB_CG, key="aula_sub_cg")
-                
-            with st.form("n_aula", clear_on_submit=True):
-                t = st.text_input("Assunto da Aula (Tema)"); d = st.date_input("Data Assistida", hoje, format="DD/MM/YYYY")
-                if st.form_submit_button("Registrar Aula no Histórico", use_container_width=True):
-                    doc_a = db.collection("aulas").document()
-                    t_final = f"{sub_al} - {t}" if sub_al and sub_al != "Geral" else t
-                    n_aula = {"usuario_id": u_id, "area": a, "tema": t_final or "Aula", "data_aula": str(d)}
-                    doc_a.set(n_aula); n_aula["id"] = doc_a.id; st.session_state.dados["aulas"].append(n_aula)
-                    st.toast("Aula registrada com sucesso!", icon="📚"); time.sleep(0.5); st.rerun()
-                    
-            with st.expander("🗑️ Excluir Aula do Banco"):
-                opcoes_del_dict = {f"{formatar_data_br(au.get('data_aula'))} - {limpar_texto(au.get('tema'))}": au.get('id') for au in dados_aulas}
-                if opcoes_del_dict:
-                    op_del_chave = st.selectbox("Selecione para apagar:", list(opcoes_del_dict.keys()))
-                    if st.button("Deletar Aula", use_container_width=True) and op_del_chave:
-                        id_del = str(opcoes_del_dict[op_del_chave])
-                        db.collection("aulas").document(id_del).delete()
-                        st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
-                        st.toast("Aula apagada.", icon="🗑️"); time.sleep(0.5); st.rerun()
-
-        with col_lista:
-            if 'cal_mes_aulas' not in st.session_state: st.session_state.cal_mes_aulas = hoje.month
-            if 'cal_ano_aulas' not in st.session_state: st.session_state.cal_ano_aulas = hoje.year
-            nav_a1, nav_a2, nav_a3 = st.columns([1,2,1])
-            with nav_a1:
-                if st.button("⬅️ Mês Anterior", key="prev_aula"):
-                    if st.session_state.cal_mes_aulas == 1: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 12, st.session_state.cal_ano_aulas - 1
-                    else: st.session_state.cal_mes_aulas -= 1
-                    st.rerun()
-            with nav_a2: st.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {MESES_PT[st.session_state.cal_mes_aulas]} {st.session_state.cal_ano_aulas}</h3>", unsafe_allow_html=True)
-            with nav_a3:
-                if st.button("Próximo Mês ➡️", key="next_aula"):
-                    if st.session_state.cal_mes_aulas == 12: st.session_state.cal_mes_aulas, st.session_state.cal_ano_aulas = 1, st.session_state.cal_ano_aulas + 1
-                    else: st.session_state.cal_mes_aulas += 1
-                    st.rerun()
-            
-            st.markdown(gerar_calendario_html(list(dados_aulas), st.session_state.cal_ano_aulas, st.session_state.cal_mes_aulas), unsafe_allow_html=True)
-            
-            col_f1, col_f2 = st.columns([3, 2])
-            with col_f1: st.subheader("Linha do Tempo")
-            with col_f2: filtrar_data_aula = st.checkbox("🔎 Filtrar por Data")
-            
-            aulas_exibir = list(dados_aulas)
-            if filtrar_data_aula:
-                data_alvo = st.date_input("Escolha a data exata", hoje, format="DD/MM/YYYY")
-                aulas_exibir = [a for a in dados_aulas if parse_data(a.get('data_aula')) == data_alvo]
-
-            aulas_exibir.sort(key=lambda x: parse_data(x.get('data_aula')), reverse=True)
-            for al in aulas_exibir:
-                with st.container(border=True):
-                    st.markdown(f"#### <span style='color:{CORES_AREAS.get(al.get('area'), '#64748b')};'>⬤</span> {limpar_texto(al.get('tema', 'Aula sem título'))}", unsafe_allow_html=True)
-                    st.caption(f"{al.get('area', '')} | Data: {formatar_data_br(al.get('data_aula'))}")
+        with st.form("fa"):
+            a = st.selectbox("Área", AREAS_MED); t = st.text_input("Tema"); d = st.date_input("Data", hoje)
+            if st.form_submit_button("Salvar") and t: db_add("aulas", "aulas", {"usuario_id":u_id, "area":a, "tema":t, "data_aula":str(d)}); st.rerun()
+        if 'cma' not in st.session_state: st.session_state.cma = hoje.month
+        if 'caa' not in st.session_state: st.session_state.caa = hoje.year
+        n1, n2, n3 = st.columns([1,2,1])
+        if n1.button("⬅️ Mês", key="pa"): st.session_state.cma, st.session_state.caa = (12, st.session_state.caa-1) if st.session_state.cma==1 else (st.session_state.cma-1, st.session_state.caa); st.rerun()
+        with n2: st.markdown(f"<h3 style='text-align:center;'>📅 {MESES_PT[st.session_state.cma]} {st.session_state.caa}</h3>", unsafe_allow_html=True)
+        if n3.button("Mês ➡️", key="na"): st.session_state.cma, st.session_state.caa = (1, st.session_state.caa+1) if st.session_state.cma==12 else (st.session_state.cma+1, st.session_state.caa); st.rerun()
+        st.markdown(gerar_calendario_html(dcache["aulas"], st.session_state.caa, st.session_state.cma), unsafe_allow_html=True)
+        if dcache["aulas"]: st.dataframe(pd.DataFrame(dcache["aulas"])[['data_aula','area','tema']], hide_index=True, use_container_width=True)
 
     elif menu == "🏥 Simulados & OSCE":
-        st.header("Simulador Interativo")
-        aba_p, aba_simulado, aba_sim_pdf, aba_osce = st.tabs(["📝 Notas", "🤖 Simulado IA (Imagens)", "📄 Simulado de PDF", "🗣️ Consultório OSCE"])
-        
-        with aba_p:
-            with st.form("sim_f", clear_on_submit=True):
-                c1, c2, c3 = st.columns(3)
-                ins = c1.selectbox("Instituição", INSTITUICOES)
-                an = c2.text_input("Ano da Prova")
-                dt = c3.date_input("Data de Resolução", hoje, format="DD/MM/YYYY")
-                co, no = st.columns(2)
-                cor = co.number_input("Nota de Corte (Alvo)", min_value=0.0)
-                notl = no.number_input("Sua Nota Líquida", min_value=0.0)
-                if st.form_submit_button("Inserir Nota no Gráfico", use_container_width=True):
-                    db_add("simulados", "simulados", {"usuario_id": u_id, "instituicao": ins, "ano": an, "data_realizacao": str(dt), "nota_corte": cor, "minha_nota": notl})
-                    st.rerun()
-            if len(dados_simulados) >= 3:
-                dfs = pd.DataFrame([{"D": parse_data(s.get('data_realizacao')), "N": float(s.get('minha_nota',0)), "C": float(s.get('nota_corte',0))} for s in dados_simulados])
-                dfs['DU'] = pd.to_numeric(pd.to_datetime(dfs['D']))
-                if len(dfs['DU'].unique()) > 1:
-                    x_vals = dfs['DU'].values
-                    y_vals = dfs['N'].values
-                    coefs = np.polyfit(x_vals, y_vals, 1)
-                    poly_func = np.poly1d(coefs)
-                    
-                    fut = [dfs['D'].max() + timedelta(days=30*i) for i in range(1, 4)]
-                    fut_x = pd.to_numeric(pd.to_datetime(fut)).values
-                    p = poly_func(fut_x)
-                    
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=dfs['D'], y=dfs['N'], name="Sua Evolução Real", line=dict(color="#4f46e5", width=3)))
-                    fig.add_trace(go.Scatter(x=fut, y=p, name="Projeção IA", line=dict(color="#ef4444", dash='dot')))
-                    
-                    modo_grafico_font = st.session_state.get("g_txt", "#f8fafc")
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-        with aba_simulado:
-            col_sim1, col_sim2 = st.columns(2)
-            colagem_img_sim = None
-            with col_sim1:
-                imgs_prova = st.file_uploader("🖼️ Múltiplas Imagens da Prova", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
-                if paste_image_button is not None:
-                    paste_result_sim = paste_image_button("Colar print de questão (Ctrl+V)", "#4f46e5", "#4338ca", key="paste_sim")
-                    if paste_result_sim.image_data is not None: colagem_img_sim = paste_result_sim.image_data; st.success("Print colado!")
-            with col_sim2: arq_pdf = st.file_uploader("📄 Ou anexe o PDF Completo", type=['pdf'])
-            
-            if (arq_pdf or imgs_prova or colagem_img_sim) and st.button("🚀 Iniciar Motor de Prova Interativo", use_container_width=True):
-                client_ia = get_ia_client()
-                if client_ia:
-                    todas_imagens_b64 = []
-                    with st.spinner("Empacotando arquivos para envio..."):
-                        if arq_pdf:
-                            try:
-                                from pdf2image import convert_from_bytes
-                                imagens_paginas = convert_from_bytes(arq_pdf.read())
-                                for img in imagens_paginas:
-                                    buf_p = io.BytesIO(); img.save(buf_p, format="JPEG")
-                                    todas_imagens_b64.append(otimizar_imagem_para_api(buf_p.getvalue(), max_size=500))
-                            except Exception as e_pdf: st.error(f"Erro no PDF: {e_pdf}")
-                        if imgs_prova:
-                            for img in imgs_prova: todas_imagens_b64.append(otimizar_imagem_para_api(img, max_size=500))
-                        if colagem_img_sim:
-                            buf = io.BytesIO(); colagem_img_sim.save(buf, format="PNG")
-                            todas_imagens_b64.append(otimizar_imagem_para_api(buf.getvalue(), max_size=500))
-
-                    if todas_imagens_b64:
-                        st.session_state.prova_ativa = []
-                        st.session_state.respostas_usuario = {}
-                        barra_progresso = st.progress(0)
-                        
-                        for i in range(len(todas_imagens_b64)):
-                            img_b64 = todas_imagens_b64[i]
-                            prompt = """Extraia as questões da imagem e retorne um JSON no formato {"questoes": [{"num": 1, "texto": "Enunciado...", "opcoes": {"A": "...", "B": "..."}, "correta": "B", "comentario": "..."}]} Retorne apenas o JSON. Não pense, não explique e não use tags markdown."""
-                            try:
-                                msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                                resposta = chamar_ia(client_ia, modelo=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
-                                questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
-                                for q in questoes_lote: q['imagem_fonte'] = img_b64
-                                st.session_state.prova_ativa.extend(questoes_lote)
-                            except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
-                            barra_progresso.progress((i + 1) / len(todas_imagens_b64))
-                        st.toast("🎉 Extração concluída!"); st.rerun()
-
-            if "prova_ativa" in st.session_state and st.session_state.prova_ativa:
-                st.divider(); st.subheader("📝 Resolvendo Simulado")
-                for i, q in enumerate(st.session_state.prova_ativa):
-                    with st.container(border=True):
-                        st.markdown(f"**Questão {q.get('num', i+1)}**")
-                        if q.get('imagem_fonte'):
-                            with st.expander("🖼️ Ver Imagem"): st.image(base64.b64decode(q['imagem_fonte']), use_container_width=True)
-                        st.write(q.get('texto', ''))
-                        opcoes_dict = q.get('opcoes', {})
-                        if opcoes_dict: st.session_state.respostas_usuario[i] = st.radio("Selecione:", options=list(opcoes_dict.keys()), format_func=lambda x: f"{x}) {opcoes_dict.get(x, '')}", key=f"q_radio_{i}", index=None)
-
-                if st.button("🏁 Finalizar e Ver Gabarito", use_container_width=True):
-                    acertos = 0
-                    for idx, questao in enumerate(st.session_state.prova_ativa):
-                        resp_user = st.session_state.respostas_usuario.get(idx)
-                        correta = questao.get('correta', '')
-                        st.write("---")
-                        if resp_user == correta and correta != '': st.success(f"Questão {questao.get('num', idx+1)}: ACERTOU! ({resp_user})"); acertos += 1
-                        else: st.error(f"Questão {questao.get('num', idx+1)}: ERROU. (Sua resposta: {resp_user} | Correta: {correta})")
-                        with st.expander("Comentário"): st.write(questao.get('comentario', 'Sem comentário.'))
-                    
-                    nota_final = (acertos / len(st.session_state.prova_ativa)) * 100 if len(st.session_state.prova_ativa) > 0 else 0
-                    st.balloons(); st.metric("Nota Líquida", f"{nota_final:.1f}%")
-                    db_add("simulados", "simulados", {"usuario_id": u_id, "data_realizacao": str(hoje), "minha_nota": nota_final, "instituicao": "Simulado IA", "nota_corte": 0})
-                    
-                if st.button("Limpar Prova Atual"): st.session_state.pop("prova_ativa"); st.session_state.pop("respostas_usuario"); st.rerun()
-
-        with aba_sim_pdf:
-            st.subheader("Gerar Simulado baseado em seus Materiais (PDF)")
-            if not dados_materiais:
-                st.warning("Você não tem PDFs salvos na aba 'Materiais e Simulados'.")
-            else:
-                mat_escolhido = st.selectbox("Escolha o PDF de Estudo:", [m['titulo'] for m in dados_materiais])
-                qtd_q = st.slider("Quantidade de Questões", 5, 100, 10)
-                st.caption("Atenção: PDFs muito extensos podem ser cortados pela IA devido ao limite de leitura.")
-                
-                if st.button("Gerar Simulado Exclusivo", use_container_width=True):
-                    client_ia = get_ia_client()
-                    if client_ia and PyPDF2:
-                        caminho_pdf = next(m['path'] for m in dados_materiais if m['titulo'] == mat_escolhido)
-                        if os.path.exists(caminho_pdf):
-                            with st.spinner(f"Lendo o material e estruturando {qtd_q} questões..."):
-                                try:
-                                    reader = PyPDF2.PdfReader(caminho_pdf)
-                                    texto_pdf = ""
-                                    for page in reader.pages: texto_pdf += page.extract_text() + "\n"
-                                    texto_pdf = texto_pdf[:20000] # Limite
-                                    
-                                    prompt = f"""Baseado no material fornecido, crie um simulado de {qtd_q} questões. Retorne um JSON no formato: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}} Material: {texto_pdf}"""
-                                    
-                                    resposta = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
-                                    questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
-                                    
-                                    if questoes_pdf:
-                                        st.session_state.prova_ativa = questoes_pdf
-                                        st.session_state.respostas_usuario = {}
-                                        st.toast("Simulado gerado! Acesse a aba 'Simulado IA'", icon="🎉")
-                                except Exception as e:
-                                    st.error(f"Erro ao analisar PDF: {e}")
-                        else: st.error("Arquivo PDF não encontrado no servidor físico.")
-
-        with aba_osce:
-            client_ia = get_ia_client()
-            if client_ia:
-                modo_osce = st.radio("Cenário", ["🎯 Doença Específica", "🎲 Surpresa"])
-                if modo_osce == "🎯 Doença Específica": doenca_alvo = st.text_input("Doença (Ex: Infarto com supra)")
-                else:
-                    col_m, col_t = st.columns(2)
-                    mat_alvo = col_m.selectbox("Área", AREAS_MED, key="osce_mat")
-                    sub_o = ""
-                    if mat_alvo == "Clínica Médica": sub_o = col_t.selectbox("Subespecialidade", SUB_CM, key="osce_sub_cm")
-                    elif mat_alvo == "Cirurgia Geral": sub_o = col_t.selectbox("Subespecialidade", SUB_CG, key="osce_sub_cg")
-                    tema_alvo = st.text_input("Tema", key="osce_tema")
-
-                if st.button("▶️ Abrir Consultório"):
-                    st.session_state.osce_hist, st.session_state.osce_active, st.session_state.osce_finished = [], True, False
-                    base_p = f"""Você é paciente num OSCE de Medicina. Não diga o diagnóstico de cara. Fale os sintomas. Se o médico pedir um exame dessa lista [{", ".join(BANCO_IMAGENS_OSCE.keys())}], responda SOMENTE COM a tag [EXAME: nome_do_exame] sem pontuação."""
-                    tema_final = f"{sub_o} - {tema_alvo}" if modo_osce == "🎲 Surpresa" and sub_o and sub_o != "Geral" else (tema_alvo if modo_osce == "🎲 Surpresa" else "")
-                    st.session_state.osce_sys_prompt = f"{base_p}\nDoença: {doenca_alvo}." if modo_osce == "🎯 Doença Específica" else f"{base_p}\nSorteie para: {mat_alvo} - {tema_final}."
-                    st.rerun()
-
-                if getattr(st.session_state, 'osce_active', False):
-                    chat_box = st.container(height=450)
-                    with chat_box:
-                        for msg in st.session_state.osce_hist:
-                            with st.chat_message(msg["role"]):
-                                if msg["role"] == "assistant": renderizar_mensagem_osce(msg["content"])
-                                else: st.write(msg["content"])
-                    
-                    if not getattr(st.session_state, 'osce_finished', False):
-                        col_t, col_a = st.columns([4, 1])
-                        texto_medico = col_t.chat_input("Fale ou prescreva...", key="input_osce")
-                        audio_medico = col_a.audio_input("Voz", label_visibility="collapsed")
-                        prescricao_final = st.text_area("📝 Receituário Final:")
-
-                        if st.button("🛑 Chamar Preceptor", use_container_width=True):
-                            st.session_state.osce_finished = True
-                            with st.spinner("Corrigindo conduta..."):
-                                try:
-                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
-                                    st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
-                                except Exception as e: st.error(str(e))
-                        
-                        entrada_final = texto_medico
-                        if audio_medico:
-                            with st.spinner("Transcrevendo..."):
-                                try: entrada_final = client_ia.audio.transcriptions.create(file=("audio.wav", audio_medico.getvalue()), model="whisper-large-v3").text
-                                except Exception as e: st.error(f"Erro no áudio: {e}")
-                        
-                        if entrada_final:
-                            st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
-                            with st.spinner("Paciente respondendo..."):
-                                try:
-                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
-                                    st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
-                                except Exception as e: st.error(f"Erro IA: {e}")
-                                st.rerun()
-
-                    if getattr(st.session_state, 'osce_finished', False):
-                        st.divider(); st.markdown("### 📋 Avaliação"); st.info(st.session_state.osce_eval)
+        a1, a2 = st.tabs(["OSCE", "Simulados Salvos"])
+        with a1:
+            cli = get_ia_client()
+            if cli:
+                d = st.text_input("Doença (Ex: Infarto)")
+                if st.button("Iniciar"): st.session_state.oh = []; st.session_state.oa = True; st.session_state.op = f"Paciente OSCE. Fale sintomas. Se pedir exame [{','.join(BANCO_IMAGENS_OSCE.keys())}], use [EXAME: nome]. Doença: {d}."; st.rerun()
+                if st.session_state.get("oa"):
+                    for m in st.session_state.oh: 
+                        with st.chat_message(m["role"]): 
+                            if m["role"]=="assistant": renderizar_mensagem_osce(m["content"])
+                            else: st.write(m["content"])
+                    if i := st.chat_input("Fale..."):
+                        st.session_state.oh.append({"role":"user","content":i})
+                        try:
+                            r = chamar_ia(cli, modelo=MODELO_TEXTO, messages=[{"role":"system","content":st.session_state.op}]+st.session_state.oh, max_tokens=1000)
+                            st.session_state.oh.append({"role":"assistant","content":r.choices[0].message.content})
+                        except Exception as e: st.error(str(e))
+                        st.rerun()
+        with a2:
+            if dcache["simulados"]: st.dataframe(pd.DataFrame(dcache["simulados"])[['data_realizacao','instituicao','minha_nota']], hide_index=True)
 
     elif menu == "📁 Materiais e Simulados":
-        st.header("Gerenciador de PDFs")
-        arq = st.file_uploader("Upload PDF de Estudo", type=['pdf'])
-        if arq and st.button("Salvar na Nuvem", use_container_width=True):
-            caminho = os.path.join("materiais_estudo", arq.name)
-            with open(caminho, "wb") as f: f.write(arq.getbuffer())
-            db_add("materiais", "materiais", {"usuario_id": u_id, "titulo": arq.name, "path": caminho, "data_upload": str(hoje)})
-            st.toast("Salvo com sucesso!", icon="📄")
-            
-        if dados_materiais: 
-            st.write("---")
-            st.subheader("Meus Arquivos")
-            st.dataframe(pd.DataFrame(dados_materiais)[['data_upload','titulo']], hide_index=True, use_container_width=True)
-            mat_del = st.selectbox("Apagar Material:", [m['titulo'] for m in dados_materiais])
-            if st.button("🗑️ Excluir Material"):
-                for m in dados_materiais:
-                    if m['titulo'] == mat_del:
-                        db_delete("materiais", "materiais", m['id'])
-                        if os.path.exists(m.get('path', '')): os.remove(m['path'])
-                        st.toast("Material apagado!"); time.sleep(0.5); st.rerun()
+        arq = st.file_uploader("Upload PDF", type=['pdf'])
+        if arq and st.button("Salvar"):
+            p = os.path.join("materiais_estudo", arq.name); open(p,"wb").write(arq.getbuffer())
+            db_add("materiais", "materiais", {"usuario_id":u_id, "titulo":arq.name, "path":p, "data_upload":str(hoje)}); st.rerun()
+        if dcache["materiais"]: st.dataframe(pd.DataFrame(dcache["materiais"])[['data_upload','titulo']], hide_index=True, use_container_width=True)
 
     elif menu == "📍 GPS da Aprovação":
-        st.header("GPS da Aprovação")
-        alvo = st.selectbox("🎯 Especialidade Foco?", ["Medicina Intensiva", "Clínica Médica", "Anestesiologia", "Cardiologia"])
-        if dados_simulados:
-            notas = [float(s.get('minha_nota', 0)) for s in dados_simulados]
-            st.metric("Sua Média Global nos Simulados", f"{sum(notas)/len(notas):.1f}%")
-        else:
-            st.info("Registre notas na aba de Simulados para o cálculo de aprovação.")
+        ns = [float(s.get('minha_nota',0)) for s in dcache["simulados"]]
+        st.metric("Média Geral Simulados", f"{sum(ns)/len(ns):.1f}%" if ns else "0%")
 
     elif menu == "⏱️ Modo Foco":
-        st.header("Concentração Pomodoro")
-        sessoes_hoje = [s for s in dados_focus if parse_data(s.get('data_sessao')) == hoje]
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Ciclos Hoje", len(sessoes_hoje)); c2.metric("Minutos Focados", sum(safe_int(s.get('minutos_foco')) for s in sessoes_hoje)); c3.metric("Questões no Foco", sum(safe_int(s.get('questoes_feitas')) for s in sessoes_hoje))
-        st.divider()
-        tf = st.selectbox("Duração do Foco (Minutos)", [25, 30, 45, 50, 60, 90], index=3)
-        if 'foco_iniciado' not in st.session_state: st.session_state.foco_iniciado = False
-        
-        if not st.session_state.foco_iniciado:
-            if st.button("🚀 Ativar Módulo de Isolamento", use_container_width=True):
-                st.session_state.foco_iniciado, st.session_state.foco_min, st.session_state.foco_fim = True, tf, get_agora() + timedelta(minutes=tf); st.rerun()
+        st.header("Pomodoro")
+        if 'fc_i' not in st.session_state: st.session_state.fc_i = False
+        if not st.session_state.fc_i:
+            if st.button("Iniciar 25 min", use_container_width=True): st.session_state.fc_i, st.session_state.fc_f = True, get_agora()+timedelta(minutes=25); st.rerun()
         else:
-            t_seg = int((st.session_state.foco_fim - get_agora()).total_seconds())
-            if t_seg > 0:
-                components.html(f"""<div style="text-align:center;"><h1 id="tmr" style="font-size:80px;color:#4f46e5;">--:--</h1></div><script>var d={t_seg}*1000,el=document.getElementById("tmr");function upd(){{if(d<=0){{el.innerHTML="00:00";return;}}var m=Math.floor(d/60000),s=Math.floor((d%60000)/1000);el.innerHTML=(m<10?"0"+m:m)+":"+(s<10?"0"+s:s);d-=1000;}}upd();setInterval(upd,1000);</script>""", height=120)
-                if st.button("❌ Cancelar"): st.session_state.foco_iniciado = False; st.rerun()
+            ts = int((st.session_state.fc_f - get_agora()).total_seconds())
+            if ts>0: components.html(f"<h1 style='text-align:center;color:#4f46e5;'>Foco Ativo: {ts//60}:{ts%60:02d}</h1>", height=100)
             else:
-                st.success("✅ Concluído!")
-                if st.button("Gravar Sessão"): 
-                    db_add("focus_sessoes", "focus", {"usuario_id": u_id, "data_sessao": str(hoje), "minutos_foco": st.session_state.foco_min, "questoes_feitas": 0})
-                    st.session_state.foco_iniciado = False; st.rerun()
+                st.success("Fim!"); 
+                if st.button("Gravar"): db_add("focus_sessoes", "focus", {"usuario_id":u_id, "data_sessao":str(hoje), "minutos_foco":25}); st.session_state.fc_i=False; st.rerun()
+            if st.button("Cancelar"): st.session_state.fc_i=False; st.rerun()
 
     elif menu == "⚙️ Configurações":
-        st.header("Controle de Perfil")
-        uf = st.file_uploader("Foto de Perfil", type=['jpg', 'png'])
-        if uf and st.button("Confirmar Foto", use_container_width=True):
-            b64_img = base64.b64encode(uf.read()).decode("utf-8")
-            db.collection("usuarios").document(u_id).update({"foto_perfil_b64": b64_img})
-            st.session_state.user_settings["foto_perfil_b64"] = b64_img
-            st.rerun()
+        st.header("Perfil")
+        uf = st.file_uploader("Foto", type=['jpg','png'])
+        if uf and st.button("Salvar"): db.collection("usuarios").document(u_id).update({"foto_perfil_b64": base64.b64encode(uf.read()).decode("utf-8")}); st.rerun()
+        with st.form("t_f"):
+            mo = st.radio("Tema", ["Escuro", "Claro"], index=0 if us.get("tema_modo")=="Escuro" else 1)
+            if st.form_submit_button("Aplicar"): db.collection("usuarios").document(u_id).update({"tema_modo": mo}); st.session_state.user_settings["tema_modo"]=mo; st.rerun()
 
-        with st.form("tema_form"):
-            mo = st.radio("Cores do Sistema", ["Escuro", "Claro"], index=0 if user_settings.get("tema_modo") == "Escuro" else 1)
-            if st.form_submit_button("Aplicar Estilo Global", use_container_width=True):
-                db.collection("usuarios").document(u_id).update({"tema_modo": mo})
-                st.session_state.user_settings["tema_modo"] = mo
-                st.rerun()
+    elif menu == "📱 Instalar App":
+        st.header("Transforme o sistema em um Aplicativo Nativo")
+        col1, col2 = st.columns(2)
+        with col1: 
+            with st.container(border=True): st.subheader("🤖 Android"); st.markdown("1. Toque nos **3 pontinhos**.\n2. **Adicionar à tela inicial**.")
+        with col2: 
+            with st.container(border=True): st.subheader("🍎 iPhone"); st.markdown("1. Botão **Compartilhar**.\n2. **Adicionar à Tela de Início**.")
 
     elif is_super_admin(st.session_state.user_nome) and menu == "👑 Admin":
-        st.header("Painel de Administração Global (Firebase)")
-        try:
-            usuarios_todos = db.collection("usuarios").get()
-            st.write(f"**Contas Ativas:** {len(usuarios_todos)}")
-            df_u = pd.DataFrame([{"ID Nuvem": u.id, "Nome": u.to_dict().get('nome')} for u in usuarios_todos])
-            st.dataframe(df_u, use_container_width=True, hide_index=True)
-            
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                edit_u = st.selectbox("Alterar Nome:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
-                nn = st.text_input("Novo Nome")
-                if st.button("✏️ Mudar Nome", use_container_width=True): db.collection("usuarios").document(edit_u.split(" | ")[0]).update({"nome": nn}); invalidar_cache(); st.rerun()
-            with c2:
-                res_u = st.selectbox("Reset de Senha:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
-                ns = st.text_input("Nova Senha")
-                if st.button("🔄 Forçar Nova Senha", use_container_width=True): db.collection("usuarios").document(res_u.split(" | ")[0]).update({"senha": hash_senha(ns)}); invalidar_cache(); st.rerun()
-            with c3:
-                del_u = st.selectbox("Banir:", [f"{u.id} | {u.to_dict().get('nome')}" for u in usuarios_todos])
-                if st.button("🚫 Apagar Conta", use_container_width=True):
-                    uid = del_u.split(" | ")[0]
-                    if uid != u_id:
-                        for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit"]:
-                            for doc in db.collection(col).where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection(col).document(doc.id).delete()
-                        db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
-                    else: st.warning("Você não pode banir a si mesmo.")
-            
-            st.divider()
-            st.subheader("📦 Exportação de Backup em Nuvem")
-            if st.button("Baixar Dados (JSON)"):
-                with st.spinner("Coletando tudo..."):
-                    backup_data = {colecao: {d.id: d.to_dict() for d in db.collection(colecao).get()} for colecao in ["usuarios", "aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit"]}
-                    st.download_button(label="📥 Baixar snapshot_nuvem.json", data=json.dumps(backup_data, default=str, indent=4), file_name="snapshot_nuvem.json", mime="application/json")
-        except Exception as e:
-            st.error(f"Erro Admin: {e}")
+        st.dataframe(pd.DataFrame([{"ID":u.id, "Nome":u.to_dict().get('nome')} for u in db.collection("usuarios").get()]), hide_index=True, use_container_width=True)
