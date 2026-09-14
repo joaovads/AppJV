@@ -914,6 +914,20 @@ SUB_CG = ["Geral", "Cirurgia do Trauma", "Cirurgia Vascular", "Cirurgia Plástic
 INSTITUICOES = ["USP-SP", "SUS-SP", "UNICAMP", "UNIFESP", "SCMSP", "IAMSPE", "UFRJ", "Hospital Albert Einstein", "Sírio-Libanês", "Outra"]
 MESES_PT = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
 CORES_AREAS = {"Clínica Médica": "#3b82f6", "Pediatria": "#ec4899", "Ginecologia e Obstetrícia": "#a855f7", "Medicina Preventiva": "#22c55e", "Cirurgia Geral": "#ef4444", "Geral": "#64748b"}
+
+# Paleta EXCLUSIVA para percentual de acerto. Não reutilizar CORES_AREAS aqui.
+def cor_percentual_acerto(valor):
+    try:
+        pct = float(str(valor).replace("%", "").replace(",", "."))
+    except Exception:
+        return "#94a3b8"
+    if pct > 80:
+        return "#22c55e"   # verde = excelente
+    if pct >= 70:
+        return "#eab308"   # amarelo = bom
+    if pct >= 60:
+        return "#3b82f6"   # azul = atenção
+    return "#ef4444"       # vermelho = baixo
 PRIORIDADES = {1: "💎 Azul", 2: "🟩 Verde", 3: "🟨 Amarelo", 4: "🟥 Vermelho", 5: "🟪 Roxo"}
 
 BANCO_IMAGENS_OSCE = {
@@ -1556,10 +1570,7 @@ else:
                     # A COR DA BARRA IDENTIFICA A MATÉRIA. A COR DO % IDENTIFICA O DESEMPENHO.
                     # Assim as duas informações permanecem independentes e não se misturam.
                     def cor_taxa(v):
-                        if v < 60: return "#ef4444"
-                        if v < 70: return "#3b82f6"
-                        if v <= 80: return "#eab308"
-                        return "#22c55e"
+                        return cor_percentual_acerto(v)
 
                     cores_materias = [CORES_AREAS.get(str(area), "#64748b") for area in df_g['area']]
                     fig_bar1 = go.Figure(go.Bar(
@@ -1970,7 +1981,8 @@ else:
                     try:
                         num = float(str(val).replace('%', ''))
                         if num > 80: return 'color: #22c55e !important; font-weight: bold !important;'
-                        elif num >= 60: return 'color: #eab308 !important; font-weight: bold !important;'
+                        elif num >= 70: return 'color: #eab308 !important; font-weight: bold !important;'
+                        elif num >= 60: return 'color: #3b82f6 !important; font-weight: bold !important;'
                         else: return 'color: #ef4444 !important; font-weight: bold !important;'
                     except: return ''
 
@@ -3431,9 +3443,7 @@ else:
                     if tot > 0:
                         pct = ac / tot
                         pct_str = f"{pct*100:.0f}%"
-                        if pct >= 0.8: cor_pct = "#22c55e"
-                        elif pct >= 0.6: cor_pct = "#eab308"
-                        else: cor_pct = "#ef4444"
+                        cor_pct = cor_percentual_acerto(pct * 100)
 
                 with st.container(border=True):
                     c1_card, c2_card = st.columns([0.8, 0.2])
