@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.2", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 2.5", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -77,7 +77,7 @@ def ativar_pwa():
             const manifest = {
                 "name": "Residência PRO",
                 "short_name": "Residência",
-                "theme_color": "#2563eb",
+                "theme_color": "#247c75",
                 "background_color": "#0e1117",
                 "display": "standalone",
                 "orientation": "portrait",
@@ -247,6 +247,134 @@ def aplicar_ui_premium(modo):
     [data-testid="stSidebar"] hr {{ margin:9px 8px !important; border-color:{border2} !important; }}
     [data-testid="stSidebar"] .stButton > button {{ min-height:34px !important; font-size:.78rem !important; padding:0 9px !important; }}
     .profile-img {{ width:62px !important; height:62px !important; border-radius:8px !important; border:1px solid {border} !important; box-shadow:none !important; }}
+
+    /* ===== MODO CLARO — CONTROLO EXPLÍCITO DOS COMPONENTES NATIVOS ===== */
+    [data-testid="stTextInput"] input,
+    [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input,
+    [data-testid="stTimeInput"] input,
+    [data-testid="stTextArea"] textarea {{
+        background-color:{input_bg} !important;
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+        caret-color:{accent} !important;
+        opacity:1 !important;
+    }}
+    [data-testid="stTextInput"] [data-baseweb="input"],
+    [data-testid="stNumberInput"] [data-baseweb="input"],
+    [data-testid="stDateInput"] [data-baseweb="input"],
+    [data-testid="stTimeInput"] [data-baseweb="input"],
+    [data-testid="stTextArea"] [data-baseweb="textarea"] {{
+        background-color:{input_bg} !important;
+        color:{text} !important;
+    }}
+    [data-testid="stTextInput"] [data-baseweb="input"] > div,
+    [data-testid="stNumberInput"] [data-baseweb="input"] > div,
+    [data-testid="stDateInput"] [data-baseweb="input"] > div,
+    [data-testid="stTimeInput"] [data-baseweb="input"] > div,
+    [data-testid="stTextArea"] [data-baseweb="textarea"] > div {{
+        background-color:{input_bg} !important;
+    }}
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] > div {{
+        background-color:{input_bg} !important;
+        color:{text} !important;
+    }}
+    [data-testid="stSelectbox"] [data-baseweb="select"] span,
+    [data-testid="stMultiSelect"] [data-baseweb="select"] span,
+    [data-testid="stSelectSlider"] [data-baseweb="select"] span {{
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+    }}
+    [data-baseweb="popover"],
+    [data-baseweb="popover"] > div,
+    [role="listbox"],
+    [role="listbox"] > div {{
+        background-color:{surface} !important;
+        color:{text} !important;
+    }}
+    [role="option"], [role="option"] * {{
+        background-color:transparent !important;
+        color:{text} !important;
+        -webkit-text-fill-color:{text} !important;
+    }}
+    [role="option"]:hover, [role="option"][aria-selected="true"] {{
+        background-color:{hover} !important;
+    }}
+    [data-testid="stNumberInput"] button {{
+        background-color:{surface2} !important;
+        color:{text} !important;
+        border-color:{border} !important;
+    }}
+    [data-testid="stNumberInput"] button svg {{
+        fill:{text} !important;
+    }}
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploadDropzone"] {{
+        background-color:{surface} !important;
+        color:{text} !important;
+        border-color:{border} !important;
+    }}
+    [data-testid="stFileUploader"] section *,
+    [data-testid="stFileUploadDropzone"] * {{
+        color:{text} !important;
+    }}
+    [data-testid="stRadio"] label,
+    [data-testid="stCheckbox"] label,
+    [data-testid="stToggle"] label {{
+        color:{text} !important;
+    }}
+    [data-testid="stRadio"] label p,
+    [data-testid="stCheckbox"] label p,
+    [data-testid="stToggle"] label p {{
+        color:{text} !important;
+    }}
+    /* Remove qualquer fundo escuro residual em wrappers de formulário */
+    [data-testid="stForm"],
+    [data-testid="stForm"] > div,
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        color:{text} !important;
+    }}
+
+    /* ===== DASHBOARD 2.5 ===== */
+    .rp-dash-hero {{
+        display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+        padding:4px 0 18px; margin-bottom:18px; border-bottom:1px solid {border};
+    }}
+    .rp-dash-eyebrow {{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .rp-dash-title {{ color:{text}; font-size:1.8rem; line-height:1.1; font-weight:760; letter-spacing:-.035em; margin-top:4px; }}
+    .rp-dash-sub {{ color:{muted}; font-size:.82rem; margin-top:6px; }}
+    .rp-dash-date {{ color:{muted}; font-size:.75rem; white-space:nowrap; padding-bottom:3px; }}
+    .rp-dash-alert {{
+        border:1px solid {border}; border-left:3px solid {accent}; background:{surface};
+        padding:12px 14px; border-radius:7px; margin-bottom:16px;
+    }}
+    .rp-dash-alert-title {{ color:{text}; font-weight:700; font-size:.82rem; }}
+    .rp-dash-alert-sub {{ color:{muted}; font-size:.74rem; margin-top:3px; }}
+    .rp-dash-section {{
+        display:flex; align-items:center; gap:9px; margin:18px 0 9px;
+        color:{text}; font-size:.92rem; font-weight:720;
+    }}
+    .rp-dash-section::before {{ content:""; width:3px; height:16px; background:{accent}; border-radius:2px; }}
+    .rp-chart-title {{ color:{text}; font-size:.82rem; font-weight:700; margin:3px 0 8px; }}
+
+    /* ===== CRONOGRAMA 2.5 ===== */
+    .rp-crono-hero {{
+        padding:2px 0 16px; border-bottom:1px solid {border}; margin-bottom:16px;
+    }}
+    .rp-crono-kicker {{ color:{accent}; font-size:.65rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .rp-crono-title {{ color:{text}; font-size:1.62rem; font-weight:750; letter-spacing:-.03em; margin-top:3px; }}
+    .rp-crono-sub {{ color:{muted}; font-size:.79rem; margin-top:4px; max-width:760px; }}
+    .rp-crono-stat {{
+        background:{surface}; border:1px solid {border}; border-radius:7px; padding:11px 13px;
+        min-height:68px;
+    }}
+    .rp-crono-stat-label {{ color:{muted}; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; font-weight:700; }}
+    .rp-crono-stat-value {{ color:{text}; font-size:1.25rem; font-weight:760; margin-top:3px; }}
+    .rp-crono-stat-accent {{ color:{accent}; }}
+    .rp-crono-tabs [data-baseweb="tab-list"] {{ gap:3px !important; border-bottom:1px solid {border} !important; }}
+    .rp-crono-tabs [data-baseweb="tab"] {{ padding:8px 12px !important; }}
 
     /* ===== TOPO DE MÓDULO ===== */
     .rp-topbar {{ display:flex; align-items:center; justify-content:space-between; gap:20px; padding:2px 0 13px; margin:0 0 18px; border-bottom:1px solid {border}; }}
@@ -700,6 +828,32 @@ def limpar_texto(texto):
     if not texto: return "Sem título"
     return re.sub(r'^[A-Za-z0-9_-]{10,40}\s*\|\s*', '', str(texto)).strip()
 
+def resolver_area_grafico(valor, mapa_aulas=None):
+    """Converte valores antigos/IDs armazenados no Firestore para o nome legível da área."""
+    mapa_aulas = mapa_aulas or {}
+    if valor is None:
+        return "Geral"
+    raw = str(valor).strip()
+    if not raw:
+        return "Geral"
+    # Caso seja o ID de uma aula, recupera a área real da aula.
+    if raw in mapa_aulas:
+        aula = mapa_aulas.get(raw, {})
+        area_aula = aula.get("area") or aula.get("especialidade") or aula.get("materia")
+        if area_aula:
+            return str(area_aula).strip()
+    # Alguns registros antigos podem trazer um prefixo técnico antes do nome.
+    limpo = limpar_texto(raw)
+    for area in AREAS_MED:
+        if limpo.casefold() == area.casefold():
+            return area
+        if area.casefold() in limpo.casefold():
+            return area
+    # Nunca exibe um ID técnico como nome de matéria.
+    if re.fullmatch(r"[A-Za-z0-9_-]{10,64}", limpo):
+        return "Geral"
+    return limpo or "Geral"
+
 def get_user_docs(collection_name, user_id):
     try:
         todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
@@ -1107,75 +1261,122 @@ else:
     # TELAS
     # ==========================================
     if menu == "🏠 Dashboard":
-        st.markdown(f"""<div class=\"dash-head\"><div><div class=\"dash-eyebrow\">CENTRO DE COMANDO</div><div class=\"dash-title\">Seu desempenho</div><div class=\"dash-sub\">Tudo o que importa para decidir o que estudar agora.</div></div><div class=\"dash-date\">{hoje.strftime('%d/%m/%Y')}</div></div>""", unsafe_allow_html=True)
-                
-        # --- ALERTA NÍTIDO DE REVISÕES NO DASHBOARD ---
+        st.markdown(f"""
+        <div class="rp-dash-hero">
+            <div>
+                <div class="rp-dash-eyebrow">CENTRO DE COMANDO</div>
+                <div class="rp-dash-title">Seu desempenho</div>
+                <div class="rp-dash-sub">Uma visão objetiva do seu estudo para decidir o próximo passo.</div>
+            </div>
+            <div class="rp-dash-date">{hoje.strftime('%A, %d/%m/%Y').capitalize()}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         revs_pendentes_dash = [r for r in dados_revisoes + dados_revisoes_hiit if str(r.get('status', '')).lower() in ['pendente', 'pendentes']]
         revs_hoje_lista = [r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) <= hoje]
         prox_revs_lista = sorted([r for r in revs_pendentes_dash if parse_data(r.get('data_agendada')) > hoje], key=lambda x: parse_data(x.get('data_agendada')))
         data_prox_dash = formatar_data_br(prox_revs_lista[0].get('data_agendada')) if prox_revs_lista else "Nenhuma agendada"
-        
-        st.info(f"📅 **Sua Próxima Revisão Futura será em:** {data_prox_dash}")
+
         if revs_hoje_lista:
-            st.warning(f"🚨 **Atenção:** Você tem **{len(revs_hoje_lista)}** revisões para fazer HOJE. Vá na aba de Revisões.")
+            st.markdown(f"""<div class="rp-dash-alert"><div class="rp-dash-alert-title">Atenção: {len(revs_hoje_lista)} revisão(ões) pendente(s) hoje</div><div class="rp-dash-alert-sub">Priorize a agenda de revisões antes de iniciar um novo bloco.</div></div>""", unsafe_allow_html=True)
         else:
-            st.success("✅ Você não tem revisões para fazer hoje. Tudo em dia!")
-        st.markdown('<div class="dash-section-title">Indicadores principais</div>', unsafe_allow_html=True)
-        # --------------------------------------------------------
-        
+            st.markdown(f"""<div class="rp-dash-alert"><div class="rp-dash-alert-title">Tudo em dia</div><div class="rp-dash-alert-sub">Próxima revisão futura: {data_prox_dash}.</div></div>""", unsafe_allow_html=True)
+
         qs_sess_all = [dict(q) for q in dados_questoes]
         qs_revs_all = [dict(r) for r in dados_revisoes if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
         qs_hiit_all = [dict(q) for q in dados_questoes_hiit]
         revs_hiit_all = [dict(r) for r in dados_revisoes_hiit if str(r.get('status', '')).lower() in ["concluída", "concluida"]]
-        
-        aba_geral, aba_detalhada = st.tabs(["Visão geral", "Por matéria"])
+
+        t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
+        t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
+        t_questoes_g = t_acertos_g + t_erros_g
+        taxa_geral = (t_acertos_g / t_questoes_g * 100) if t_questoes_g else 0
+
+        st.markdown('<div class="rp-dash-section">Visão geral</div>', unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Questões", t_questoes_g)
+        c2.metric("🟢 Acertos", t_acertos_g)
+        c3.metric("🔴 Erros", t_erros_g)
+        c4.metric("Aproveitamento", f"{taxa_geral:.1f}%")
+
+        aba_geral, aba_detalhada = st.tabs(["Desempenho geral", "Por matéria"])
         with aba_geral:
-            t_acertos_g = sum(safe_int(q.get('acertos')) for q in qs_sess_all) + sum(safe_int(r.get('acertos')) for r in qs_revs_all) + sum(safe_int(q.get('acertos')) for q in qs_hiit_all) + sum(safe_int(r.get('acertos')) for r in revs_hiit_all)
-            t_erros_g = sum(safe_int(q.get('erros')) for q in qs_sess_all) + sum(safe_int(r.get('erros')) for r in qs_revs_all) + sum(safe_int(q.get('erros')) for q in qs_hiit_all) + sum(safe_int(r.get('erros')) for r in revs_hiit_all)
-            t_questoes_g = t_acertos_g + t_erros_g
-            
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Questões Totais", t_questoes_g)
-            c2.metric("🟢 Acertos", t_acertos_g)
-            c3.metric("🔴 Erros", t_erros_g)
-            c4.metric("🎯 Taxa de Acerto", f"{(t_acertos_g / t_questoes_g * 100) if t_questoes_g > 0 else 0:.1f}%")
-            
-            st.divider()
-            col_g1, col_g2 = st.columns([1, 1.5])
-            
-            modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
-            
+            col_g1, col_g2 = st.columns([0.9, 1.5])
+            modo_grafico_font = "#f2f4f5" if modo_atual == "Escuro" else "#17201d"
             with col_g1:
-                if t_questoes_g > 0: 
-                    fig_pie1 = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.6, color_discrete_sequence=["#22c55e", '#ef4444'])
-                    fig_pie1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
+                st.markdown('<div class="rp-chart-title">Acertos x erros</div>', unsafe_allow_html=True)
+                if t_questoes_g > 0:
+                    fig_pie1 = px.pie(
+                        names=['Acertos', 'Erros'], values=[t_acertos_g, t_erros_g], hole=0.68,
+                        color_discrete_sequence=["#22c55e", "#ef4444"]
+                    )
+                    fig_pie1.update_traces(textinfo="percent", textposition="inside", hovertemplate="%{label}: %{value}<extra></extra>")
+                    fig_pie1.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color=modo_grafico_font, showlegend=True,
+                        legend=dict(orientation="h", y=-0.05), margin=dict(t=10,b=10,l=5,r=5)
+                    )
                     st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                else:
+                    st.info("Registre questões para visualizar seu desempenho.")
             with col_g2:
-                todas_questoes_grafico = [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_sess_all] + [{"area": r.get('area_aula', r.get('area')), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in qs_revs_all] + [{"area": q.get('area'), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": r.get('area'), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
-                df_r = pd.DataFrame(todas_questoes_grafico).dropna(subset=['area'])
+                st.markdown('<div class="rp-chart-title">Aproveitamento por matéria</div>', unsafe_allow_html=True)
+                todas_questoes_grafico = []
+                for q in qs_sess_all:
+                    todas_questoes_grafico.append({"area": resolver_area_grafico(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
+                for r in qs_revs_all:
+                    todas_questoes_grafico.append({"area": resolver_area_grafico(r.get('area_aula', r.get('area')), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
+                for q in qs_hiit_all:
+                    todas_questoes_grafico.append({"area": resolver_area_grafico(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))})
+                for r in revs_hiit_all:
+                    todas_questoes_grafico.append({"area": resolver_area_grafico(r.get('area'), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))})
+                df_r = pd.DataFrame(todas_questoes_grafico)
                 if not df_r.empty:
+                    df_r = df_r[df_r["area"].notna()]
                     df_g = df_r.groupby('area')[['acertos', 'erros']].sum().reset_index()
-                    df_g['Taxa'] = (df_g['acertos'] / (df_g['acertos'] + df_g['erros'])) * 100
-                    fig_bar1 = px.bar(df_g.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    df_g['Taxa'] = np.where((df_g['acertos'] + df_g['erros']) > 0, df_g['acertos'] / (df_g['acertos'] + df_g['erros']) * 100, 0)
+                    df_g = df_g.sort_values('Taxa')
+                    # As cores abaixo são deliberadamente as cores de desempenho solicitadas.
+                    def cor_taxa(v):
+                        if v < 60: return "#ef4444"
+                        if v < 70: return "#3b82f6"
+                        if v <= 80: return "#eab308"
+                        return "#22c55e"
+                    fig_bar1 = go.Figure(go.Bar(
+                        x=df_g['Taxa'], y=df_g['area'], orientation='h',
+                        marker_color=[cor_taxa(v) for v in df_g['Taxa']],
+                        text=[f"{v:.1f}%" for v in df_g['Taxa']], textposition='outside',
+                        hovertemplate="%{y}: %{x:.1f}%<extra></extra>"
+                    ))
+                    fig_bar1.update_xaxes(range=[0, 100], ticksuffix="%", gridcolor="rgba(128,128,128,.12)")
+                    fig_bar1.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color=modo_grafico_font, showlegend=False,
+                        margin=dict(t=8,b=8,l=8,r=45), height=max(300, 42 * len(df_g))
+                    )
                     st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.caption("🔴 <60%  ·  🔵 60–69%  ·  🟡 70–80%  ·  🟢 >80%")
+                else:
+                    st.info("Ainda não há dados suficientes por matéria.")
 
         with aba_detalhada:
-            filtro_dash = st.selectbox("Selecione a Especialidade para analisar:", AREAS_MED)
-            qs_sess_f = [q for q in qs_sess_all if q.get('area') == filtro_dash]
-            qs_revs_f = [r for r in qs_revs_all if r.get('area_aula', r.get('area')) == filtro_dash]
-            qs_hiit_f = [q for q in qs_hiit_all if q.get('area') == filtro_dash]
-            revs_hiit_f = [r for r in revs_hiit_all if r.get('area') == filtro_dash]
-            
+            filtro_dash = st.selectbox("Selecione a matéria", AREAS_MED, key="dash_area_filtro")
+            qs_sess_f = [q for q in qs_sess_all if resolver_area_grafico(q.get('area'), mapa_aulas) == filtro_dash]
+            qs_revs_f = [r for r in qs_revs_all if resolver_area_grafico(r.get('area_aula', r.get('area')), mapa_aulas) == filtro_dash]
+            qs_hiit_f = [q for q in qs_hiit_all if resolver_area_grafico(q.get('area'), mapa_aulas) == filtro_dash]
+            revs_hiit_f = [r for r in revs_hiit_all if resolver_area_grafico(r.get('area'), mapa_aulas) == filtro_dash]
             t_acertos_f = sum(safe_int(q.get('acertos')) for q in qs_sess_f) + sum(safe_int(r.get('acertos')) for r in qs_revs_f) + sum(safe_int(q.get('acertos')) for q in qs_hiit_f) + sum(safe_int(r.get('acertos')) for r in revs_hiit_f)
             t_erros_f = sum(safe_int(q.get('erros')) for q in qs_sess_f) + sum(safe_int(r.get('erros')) for r in qs_revs_f) + sum(safe_int(q.get('erros')) for q in qs_hiit_f) + sum(safe_int(r.get('erros')) for r in revs_hiit_f)
             t_questoes_f = t_acertos_f + t_erros_f
-            
+            taxa_f = (t_acertos_f / t_questoes_f * 100) if t_questoes_f else 0
             c1_f, c2_f, c3_f = st.columns(3)
-            c1_f.metric(f"Questões ({filtro_dash})", t_questoes_f)
+            c1_f.metric("Questões", t_questoes_f)
             c2_f.metric("🟢 Acertos", t_acertos_f)
-            c3_f.metric("🎯 Aproveitamento", f"{(t_acertos_f / t_questoes_f * 100) if t_questoes_f > 0 else 0:.1f}%")
+            c3_f.metric("Aproveitamento", f"{taxa_f:.1f}%")
+            if t_questoes_f:
+                st.progress(min(max(taxa_f / 100, 0), 1), text=f"{taxa_f:.1f}% de aproveitamento em {filtro_dash}")
+            else:
+                st.info("Nenhuma questão registrada para esta matéria ainda.")
 
     elif menu == "📱 Instalar App":
         st.header("Transforme o sistema em um Aplicativo Nativo")
@@ -1188,12 +1389,32 @@ else:
                 st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
 
     elif menu == "🗓️ Cronograma IA":
-        st.header("Cronograma Inteligente da Semana")
-        
+        total_crono = len(dados_cronogramas)
+        pendentes_crono = [t for t in dados_cronogramas if not bool(t.get("concluido"))]
+        concluidos_crono = [t for t in dados_cronogramas if bool(t.get("concluido"))]
+        taxa_crono = (len(concluidos_crono) / total_crono * 100) if total_crono else 0
+
+        st.markdown("""
+        <div class="rp-crono-hero">
+            <div class="rp-crono-kicker">PLANEJAMENTO DE ESTUDO</div>
+            <div class="rp-crono-title">Cronograma da semana</div>
+            <div class="rp-crono-sub">Organize suas metas, importe seu cronograma com IA ou adicione tarefas manualmente. Tudo permanece no mesmo fluxo de estudo.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        sc1, sc2, sc3 = st.columns(3)
+        with sc1:
+            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Metas cadastradas</div><div class="rp-crono-stat-value">{total_crono}</div></div>', unsafe_allow_html=True)
+        with sc2:
+            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Pendentes</div><div class="rp-crono-stat-value">{len(pendentes_crono)}</div></div>', unsafe_allow_html=True)
+        with sc3:
+            st.markdown(f'<div class="rp-crono-stat"><div class="rp-crono-stat-label">Execução</div><div class="rp-crono-stat-value rp-crono-stat-accent">{taxa_crono:.0f}%</div></div>', unsafe_allow_html=True)
+
         if 'prints_colados' not in st.session_state: st.session_state.prints_colados = []
-        
-        aba_lista, aba_importar, aba_manual = st.tabs(["✅ Minhas Metas", "📸 Extrair com IA", "➕ Adicionar Manualmente"])
-        
+
+        st.markdown('<div class="rp-crono-tabs">', unsafe_allow_html=True)
+        aba_lista, aba_importar, aba_manual = st.tabs(["Minhas Metas", "Extrair com IA", "Adicionar Manualmente"])
+        st.markdown('</div>', unsafe_allow_html=True)
+
         with aba_importar:
             nome_semana = st.text_input("Qual é o nome desta semana? (Ex: Semana 1, Reta Final)")
             col_btn, col_arq = st.columns(2)
