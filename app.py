@@ -1869,10 +1869,15 @@ else:
             t_questoes_h = t_acertos_h + t_erros_h
             
             c1_h, c2_h, c3_h, c4_h = st.columns(4)
+            taxa_hiit_geral = (t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0
             c1_h.metric("Questões HIIT", t_questoes_h)
             c2_h.metric("🟢 Acertos", t_acertos_h)
             c3_h.metric("🔴 Erros", t_erros_h)
-            c4_h.metric("🎯 Taxa HIIT", f"{(t_acertos_h / t_questoes_h * 100) if t_questoes_h > 0 else 0:.1f}%")
+            c4_h.markdown(
+                f"<div style='padding-top:6px'><div style='font-size:14px;opacity:.75'>🎯 Taxa HIIT</div>"
+                f"<div style='font-size:30px;font-weight:700;color:{cor_percentual_acerto(taxa_hiit_geral)}'>{taxa_hiit_geral:.1f}%</div></div>",
+                unsafe_allow_html=True
+            )
             
             st.divider()
             col_gh1, col_gh2 = st.columns([1, 1.5])
@@ -1890,9 +1895,35 @@ else:
                 if not df_rh.empty:
                     df_gh = df_rh.groupby('area')[['acertos', 'erros']].sum().reset_index()
                     df_gh['Taxa'] = (df_gh['acertos'] / (df_gh['acertos'] + df_gh['erros'])) * 100
-                    fig_bar_h = px.bar(df_gh.sort_values('Taxa'), x='Taxa', y='area', orientation='h', color='area', color_discrete_map=CORES_AREAS)
-                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+                    df_gh = df_gh.sort_values('Taxa')
+                    # A barra mantém a cor da MATÉRIA; o percentual usa exclusivamente a escala de DESEMPENHO.
+                    fig_bar_h = go.Figure(go.Bar(
+                        x=df_gh['Taxa'], y=df_gh['area'], orientation='h',
+                        marker_color=[CORES_AREAS.get(str(a), '#64748b') for a in df_gh['area']],
+                        marker_line_width=0,
+                        hovertemplate="<b>%{y}</b><br>Aproveitamento: %{x:.1f}%<extra></extra>",
+                        cliponaxis=False
+                    ))
+                    for _, row in df_gh.iterrows():
+                        taxa_area_h = float(row['Taxa'])
+                        fig_bar_h.add_annotation(
+                            x=min(taxa_area_h + 2.2, 108), y=row['area'],
+                            text=f"<b>{taxa_area_h:.1f}%</b>", showarrow=False,
+                            xanchor='left', yanchor='middle',
+                            font=dict(size=12, color=cor_percentual_acerto(taxa_area_h)),
+                            bgcolor='rgba(0,0,0,0)', borderwidth=0
+                        )
+                    fig_bar_h.update_xaxes(range=[0, 110], ticksuffix='%', gridcolor='rgba(128,128,128,.12)')
+                    fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=48))
                     st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.markdown(
+                        "<div style='font-size:11px;line-height:1.7'>"
+                        "<span style='color:#ef4444;font-weight:700'>● &lt;60%</span> · "
+                        "<span style='color:#3b82f6;font-weight:700'>● 60–69%</span> · "
+                        "<span style='color:#eab308;font-weight:700'>● 70–80%</span> · "
+                        "<span style='color:#22c55e;font-weight:700'>● &gt;80%</span>"
+                        "</div>", unsafe_allow_html=True
+                    )
 
         with aba_reg_hiit:
             col_a, col_sub = st.columns(2)
