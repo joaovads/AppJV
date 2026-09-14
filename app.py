@@ -2017,10 +2017,53 @@ else:
                         else: return 'color: #ef4444 !important; font-weight: bold !important;'
                     except: return ''
 
-                if hasattr(df_h.style, "map"):
-                    st.table(df_h.style.map(colorir_porcentagem_hiit, subset=['% Acertos']))
-                else:
-                    st.table(df_h.style.applymap(colorir_porcentagem_hiit, subset=['% Acertos']))
+                # Renderização HTML própria: evita que o CSS global do Streamlit
+                # sobrescreva as cores do percentual na tabela HIIT.
+                colunas_h = [c for c in df_h.columns if c != "ID"]
+                html_h = [
+                    "<div style='width:100%;overflow-x:auto;border:1px solid var(--rp-border);border-radius:12px;'>",
+                    "<table style='width:100%;border-collapse:collapse;font-size:13px;'>",
+                    "<thead><tr>"
+                ]
+                for c in colunas_h:
+                    html_h.append(
+                        f"<th style='text-align:left;padding:10px 8px;border-bottom:1px solid var(--rp-border);"
+                        f"color:var(--rp-muted);font-weight:700;white-space:nowrap;'>{html.escape(str(c))}</th>"
+                    )
+                html_h.append("</tr></thead><tbody>")
+
+                for _, row in df_h.iterrows():
+                    html_h.append("<tr style='border-bottom:1px solid var(--rp-border);'>")
+                    for c in colunas_h:
+                        valor = "" if pd.isna(row[c]) else str(row[c])
+                        if c == "% Acertos":
+                            cor_pct = cor_percentual_acerto(valor)
+                            conteudo = (
+                                f"<span style='color:{cor_pct} !important;"
+                                f"-webkit-text-fill-color:{cor_pct} !important;"
+                                f"font-weight:900 !important;'>{html.escape(valor)}</span>"
+                            )
+                        else:
+                            conteudo = html.escape(valor)
+                        html_h.append(
+                            f"<td style='padding:9px 8px;color:var(--rp-text);"
+                            f"white-space:nowrap;'>{conteudo}</td>"
+                        )
+                    html_h.append("</tr>")
+
+                html_h.append("</tbody></table></div>")
+                st.markdown("".join(html_h), unsafe_allow_html=True)
+
+                st.markdown(
+                    "<div style='font-size:11px;margin-top:8px;color:var(--rp-muted);'>"
+                    "<b>Desempenho:</b> "
+                    "<span style='color:#ef4444 !important;font-weight:800;'>● &lt;60%</span> · "
+                    "<span style='color:#3b82f6 !important;font-weight:800;'>● 60–69%</span> · "
+                    "<span style='color:#eab308 !important;font-weight:800;'>● 70–80%</span> · "
+                    "<span style='color:#22c55e !important;font-weight:800;'>● &gt;80%</span>"
+                    "</div>",
+                    unsafe_allow_html=True
+                )
                     
                 st.write("---")
                 with st.expander("✏️ Editar ou Excluir Histórico HIIT"):
