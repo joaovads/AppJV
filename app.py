@@ -485,7 +485,7 @@ def aplicar_ui_premium(modo):
     .rp-planner-title {{ color:{{text}}; font-size:1.82rem; line-height:1.08; font-weight:770; letter-spacing:-.04em; margin-top:4px; }}
     .rp-planner-sub {{ color:{{muted}}; font-size:.8rem; line-height:1.5; margin-top:6px; max-width:760px; }}
     .rp-planner-date {{ color:{{muted}}; font-size:.72rem; white-space:nowrap; padding-bottom:3px; }}
-    .rp-planner-progress {{ height:7px; background:{{surface2}}; border:1px solid {{border2}}; border-radius:999px; overflow:hidden; margin-top:11px; }}
+    .rp-planner-progress {{ height:7px; background:{surface2}; border:1px solid {border2}; border-radius:999px; overflow:hidden; margin-top:11px; }}
     .rp-planner-progress > div {{ height:100%; background:{{accent}}; border-radius:999px; }}
     .rp-planner-kpi {{
         background:{{surface}}; border:1px solid {{border}}; border-radius:9px; padding:12px 14px; min-height:78px;
@@ -508,13 +508,13 @@ def aplicar_ui_premium(modo):
         background:{{surface}}; border:1px solid {{border}}; border-radius:8px; padding:10px 11px; margin-bottom:9px;
     }}
     .rp-day-card-empty {{ opacity:.72; }}
-    .rp-day-head {{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:7px; margin-bottom:8px; border-bottom:1px solid {{border2}}; }}
+    .rp-day-head {{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:7px; margin-bottom:8px; border-bottom:1px solid {border2}; }}
     .rp-day-name {{ color:{{text}}; font-size:.75rem; font-weight:760; }}
     .rp-day-count {{ color:{{muted}}; font-size:.64rem; }}
     .rp-task {{
         display:flex; align-items:center; gap:9px; padding:8px 7px; border:1px solid transparent; border-radius:7px; margin:2px 0;
     }}
-    .rp-task:hover {{ background:{{hover}}; border-color:{{border2}}; }}
+    .rp-task:hover {{ background:{hover}; border-color:{border2}; }}
     .rp-task-dot {{ width:7px; height:7px; min-width:7px; border-radius:50%; }}
     .rp-task-body {{ min-width:0; flex:1; }}
     .rp-task-title {{ color:{{text}}; font-size:.76rem; font-weight:650; line-height:1.3; overflow-wrap:anywhere; }}
@@ -608,39 +608,53 @@ def aplicar_ui_premium(modo):
     .dash-section-title {{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}
     @media(max-width:760px) {{ .dash-head {{ align-items:flex-start; }} .dash-date {{ display:none; }} .dash-title {{ font-size:1.48rem; }} }}
 
-    /* ===== CADERNO — EDITORIAL / NATURAL ===== */
-    .notes-hero {{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:4px 0 18px; margin:0 0 18px; background:transparent; border-bottom:1px solid {border}; box-shadow:none; }}
-    .notes-hero-kicker {{ color:{muted}; font-size:.66rem; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }}
-    .notes-hero-title {{ color:{text}; font-size:1.65rem; font-weight:760; letter-spacing:-.04em; margin-top:4px; }}
-    .notes-hero-sub {{ color:{muted}; font-size:.80rem; line-height:1.55; margin-top:6px; max-width:700px; }}
-    .notes-hero-stat {{ text-align:right; min-width:90px; border-left:1px solid {border}; padding-left:20px; }}
-    .notes-hero-stat strong {{ display:block; color:{text}; font-size:1.45rem; line-height:1; font-weight:760; }}
-    .notes-hero-stat span {{ color:{muted}; font-size:.67rem; }}
-    .note-compose {{ background:{surface}; border:1px solid {border}; border-radius:10px; padding:14px; box-shadow:none; }}
-    .note-section-label {{ color:{text}; font-size:.88rem; font-weight:760; margin:18px 0 9px; letter-spacing:-.01em; }}
-    .note-section-label span {{ color:{muted}; font-variant-numeric:tabular-nums; margin-right:3px; }}
-    .note-tip {{ padding:10px 12px; background:{surface2}; border:1px solid {border}; border-radius:8px; color:{muted}; font-size:.76rem; line-height:1.5; margin-bottom:13px; }}
-    .note-card {{ background:{surface}; border:1px solid {border}; border-radius:10px; margin:9px 0; overflow:hidden; box-shadow:none; }}
-    .note-card:hover {{ border-color:{border2}; box-shadow:0 5px 18px rgba(0,0,0,.035); }}
+    /* ===== CADERNOS DE ANOTAÇÕES — PREMIUM ===== */
+    .notes-hero {{ display:flex; align-items:flex-end; justify-content:space-between; gap:18px; padding:18px 20px; margin:0 0 16px; background:linear-gradient(135deg,{surface},{surface2}); border:1px solid {border}; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.06); }}
+    .notes-hero-kicker {{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .notes-hero-title {{ color:{text}; font-size:1.55rem; font-weight:780; letter-spacing:-.035em; margin-top:3px; }}
+    .notes-hero-sub {{ color:{muted}; font-size:.78rem; line-height:1.45; margin-top:5px; max-width:680px; }}
+    .notes-hero-stat {{ text-align:right; min-width:105px; }}
+    .notes-hero-stat strong {{ display:block; color:{accent}; font-size:1.55rem; line-height:1; }}
+    .notes-hero-stat span {{ color:{muted}; font-size:.68rem; }}
+    .note-compose {{ background:{surface}; border:1px solid {border}; border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(0,0,0,.04); }}
+    .note-section-label {{ color:{text}; font-size:.84rem; font-weight:760; margin:4px 0 8px; }}
+    .note-section-label span {{ color:{accent}; }}
+    .note-tip {{ padding:10px 12px; background:{accent_soft}; border:1px solid rgba(36,124,117,.16); border-radius:8px; color:{text}; font-size:.76rem; line-height:1.45; margin-bottom:12px; }}
+    .note-card {{ background:{surface}; border:1px solid {border}; border-radius:11px; margin:9px 0; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,.035); transition:border-color .15s,box-shadow .15s,transform .15s; }}
+    .note-card:hover {{ border-color:{accent}; box-shadow:0 8px 22px rgba(0,0,0,.07); transform:translateY(-1px); }}
     .note-card-head {{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid {border2}; }}
-    .note-card-dot {{ width:7px; height:7px; border-radius:50%; flex:0 0 7px; }}
-    .note-card-title {{ color:{text}; font-size:.90rem; font-weight:740; line-height:1.35; overflow-wrap:anywhere; }}
+    .note-card-dot {{ width:9px; height:9px; border-radius:50%; flex:0 0 9px; }}
+    .note-card-title {{ color:{text}; font-size:.9rem; font-weight:740; line-height:1.3; overflow-wrap:anywhere; }}
     .note-card-meta {{ color:{muted}; font-size:.68rem; margin-top:3px; }}
-    .note-card-badge {{ margin-left:auto; color:{muted}; background:{surface2}; border:1px solid {border}; padding:3px 7px; border-radius:5px; font-size:.63rem; font-weight:700; white-space:nowrap; }}
-    .notes-result-bar {{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:7px 0 10px; color:{muted}; font-size:.70rem; }}
-    .notes-result-bar span:first-child {{ color:{text}; font-weight:700; }}
-    .notes-divider {{ height:1px; background:{border}; margin:14px 0; }}
+    .note-card-badge {{ margin-left:auto; color:{accent}; background:{accent_soft}; border:1px solid rgba(36,124,117,.15); border-radius:999px; padding:3px 7px; font-size:.62rem; font-weight:750; white-space:nowrap; }}
+    .note-content {{ padding:13px 15px 5px; color:{text}; font-size:.88rem; line-height:1.62; }}
+    .note-content ul {{ padding-left:20px; }}
+    .note-actions {{ padding:0 14px 12px; }}
+    .note-ai-box {{ margin-top:12px; padding:12px; background:{surface2}; border:1px solid {border2}; border-radius:9px; }}
+    .note-ai-title {{ color:{text}; font-size:.76rem; font-weight:760; margin-bottom:8px; }}
+    .notes-filter {{ margin-bottom:10px; }}
+    .notes-toolbar {{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; margin:8px 0 12px; background:{surface2}; border:1px solid {border}; border-radius:10px; }}
+    .notes-toolbar-title {{ color:{text}; font-size:.76rem; font-weight:760; }}
+    .notes-toolbar-sub {{ color:{muted}; font-size:.67rem; margin-top:2px; }}
+    .notes-count {{ color:{accent}; font-size:.72rem; font-weight:800; white-space:nowrap; }}
+    .note-form-head {{ padding:2px 0 9px; }}
+    .note-form-title {{ color:{text}; font-size:1rem; font-weight:780; letter-spacing:-.02em; }}
+    .note-form-sub {{ color:{muted}; font-size:.72rem; margin-top:3px; }}
+    .note-image-strip {{ padding:9px; background:{surface2}; border:1px solid {border}; border-radius:10px; margin-top:8px; }}
+    .note-library-head {{ display:flex; align-items:end; justify-content:space-between; gap:12px; margin:2px 0 8px; }}
+    .note-library-title {{ color:{text}; font-size:1rem; font-weight:780; }}
+    .note-library-sub {{ color:{muted}; font-size:.7rem; margin-top:2px; }}
+    .note-empty {{ padding:24px 16px; text-align:center; background:{surface2}; border:1px dashed {border}; border-radius:11px; color:{muted}; }}
     @media(max-width:760px) {{
-        .notes-hero {{ align-items:flex-start; flex-direction:column; gap:12px; padding-bottom:14px; }}
-        .notes-hero-title {{ font-size:1.38rem; }}
-        .notes-hero-sub {{ font-size:.78rem; max-width:none; }}
-        .notes-hero-stat {{ width:100%; text-align:left; border-left:0; border-top:1px solid {border}; padding:10px 0 0; }}
-        .notes-hero-stat strong {{ display:inline; margin-right:5px; font-size:1.2rem; }}
-        .notes-hero-stat span {{ font-size:.70rem; }}
-        .note-section-label {{ margin-top:15px; }}
-        .notes-result-bar {{ font-size:.68rem; }}
+        .notes-hero {{ align-items:flex-start; padding:14px; }}
+        .notes-hero-title {{ font-size:1.34rem; }}
+        .notes-hero-sub {{ font-size:.82rem; }}
+        .notes-hero-stat {{ display:none; }}
+        .note-compose {{ padding:11px; }}
         .note-card-head {{ padding:11px 12px; }}
-        .note-card-title {{ font-size:.88rem; }}
+        .note-card-title {{ font-size:.9rem; }}
+        .note-content {{ padding:12px; font-size:.91rem; line-height:1.68; }}
+        .note-card-badge {{ display:none; }}
     }}
 
     /* ===== CHAT / IA ===== */
@@ -2413,16 +2427,16 @@ else:
             hm1.metric("⚡ Resumos HIIT", total_h_notas)
             hm2.metric("🗂️ Áreas", h_areas)
             hm3.metric("🖼️ Com imagens", h_com_imagem)
-            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "Biblioteca"])
+            aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
             with aba_hn1:
-                st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">REVISÃO HIIT</div><div class="notes-hero-title">Caderno de revisão HIIT</div><div class="notes-hero-sub">Registre erros, pontos frágeis e conceitos que precisam voltar para a sua revisão.</div></div><div class="notes-hero-stat"><strong>{total_h_notas}</strong><span>resumos HIIT</span></div></div>""", unsafe_allow_html=True)
-                st.markdown("### Registro de revisão")
-                st.info("Use este espaço para registrar o que você precisa lembrar na próxima revisão.")
+                st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">HIIT · REVISÃO ATIVA</div><div class="notes-hero-title">📓 Caderno HIIT</div><div class="notes-hero-sub">Registre erros e conceitos de alta prioridade e mantenha o conteúdo pronto para revisão.</div></div><div class="notes-hero-stat"><strong>{total_h_notas}</strong><span>resumos HIIT</span></div></div>""", unsafe_allow_html=True)
+                st.markdown("### ⚡ Laboratório de Resumos HIIT")
+                st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
                 
                 with st.container(border=True):
                     col_b, col_i = st.columns([1, 2])
                     with col_b:
-                        st.markdown("#### Anexos visuais")
+                        st.markdown("#### 📸 1. Anexos Visuais")
                         st.caption("Tabelas, fluxogramas ou o print do seu erro.")
                         if paste_image_button is not None:
                             res_paste_hiit = paste_image_button(
@@ -2482,7 +2496,7 @@ else:
                 else:
                     hf1, hf2 = st.columns([2.2, 1])
                     with hf1:
-                        pesq_h = st.text_input("Buscar no HIIT", key="pesq_hiit", placeholder="Tema, erro, conceito ou palavra-chave...")
+                        pesq_h = st.text_input("🔎 Buscar no HIIT", key="pesq_hiit", placeholder="Tema, erro, conceito ou palavra-chave...")
                     with hf2:
                         filtro_area_h = st.selectbox("Área", ["Todas"] + sorted(list(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in dados_anotacoes_hiit))), key="filtro_area_hiit_premium")
                     notas_h_exibir = list(dados_anotacoes_hiit)
@@ -2491,7 +2505,7 @@ else:
                         notas_h_exibir = [n for n in notas_h_exibir if t_low in str(n.get('subtema','')).casefold() or t_low in str(n.get('pontos_chave','')).casefold()]
                     if filtro_area_h != "Todas":
                         notas_h_exibir = [n for n in notas_h_exibir if normalizar_area(n.get('area', 'Geral'), mapa_aulas) == filtro_area_h]
-                    st.markdown(f"<div class='notes-result-bar'><span>{len(notas_h_exibir)} resumo(s) encontrado(s)</span><span>•</span><span>Ordenados do mais recente para o mais antigo</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='notes-toolbar'><div><div class='notes-toolbar-title'>Biblioteca HIIT</div><div class='notes-toolbar-sub'>Resumos recentes, organizados por área.</div></div><div class='notes-count'>{len(notas_h_exibir)} encontrados</div></div>", unsafe_allow_html=True)
                     notas_h_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                     
                     blocos_presentes = sorted(list(set([n.get('area', 'Clínica Médica') for n in notas_h_exibir])))
@@ -2503,7 +2517,7 @@ else:
                             with abas_b[i]:
                                 for nh in [x for x in notas_h_exibir if x.get('area') == bl]:
                                     id_nh = str(nh.get('id', '00'))
-                                    with st.expander(f"{limpar_texto(nh.get('subtema'))} · {formatar_data_br(nh.get('data_criacao'))}"):
+                                    with st.expander(f"📝 {limpar_texto(nh.get('subtema'))} - {formatar_data_br(nh.get('data_criacao'))}"):
                                         c_d1, c_d2 = st.columns([0.85, 0.15])
                                         with c_d2:
                                             if st.button("🗑️ Excluir", key=f"del_h_{id_nh}", use_container_width=True):
@@ -2527,10 +2541,10 @@ else:
                                         st.divider()
                                         
                                         with st.container(border=True):
-                                            st.markdown("#### Ferramentas de revisão")
+                                            st.markdown("#### 🧠 Gerar Revisão Ativa (IA)")
                                             col_ia1, col_ia2 = st.columns(2)
                                             with col_ia1:
-                                                if st.button("Gerar flashcards", key=f"fc_ia_{id_nh}", use_container_width=True):
+                                                if st.button("🪄 Extrair Flashcards Atômicos", key=f"fc_ia_{id_nh}", use_container_width=True):
                                                     client_ia = get_ia_client()
                                                     if client_ia:
                                                         with st.spinner("Gerando flashcards atômicos..."):
@@ -2559,7 +2573,7 @@ else:
                                                                     st.warning("IA não conseguiu extrair cartões válidos.")
                                                             except Exception as e: st.error(f"Erro IA: {e}")
                                             with col_ia2:
-                                                if st.button("Gerar questões", key=f"q_ia_{id_nh}", use_container_width=True):
+                                                if st.button("🔥 Criar Bateria de Questões", key=f"q_ia_{id_nh}", use_container_width=True):
                                                     client_ia = get_ia_client()
                                                     if client_ia:
                                                         with st.spinner("Construindo caso clínico estilo banca..."):
@@ -2575,11 +2589,11 @@ else:
                                         
                                         # --- BOTÃO DE EDITAR INDIVIDUAL (HIIT) ---
                                         if st.session_state.get('nota_hiit_em_edicao') != id_nh:
-                                            if st.button("Editar anotação", key=f"btn_abrir_edit_h_{id_nh}"):
+                                            if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_h_{id_nh}"):
                                                 st.session_state.nota_hiit_em_edicao = id_nh
                                                 st.rerun()
                                         else:
-                                            if st.button("Cancelar edição", key=f"btn_cancel_edit_h_{id_nh}"):
+                                            if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_h_{id_nh}"):
                                                 st.session_state.nota_hiit_em_edicao = None
                                                 st.rerun()
                                                 
@@ -3389,7 +3403,7 @@ else:
 
     elif menu == "📝 Anotações Rápidas":
         total_notas = len(dados_anotacoes)
-        st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">CADERNO DE ESTUDOS</div><div class="notes-hero-title">Anotações e resumos</div><div class="notes-hero-sub">Um espaço para registrar, organizar e revisar seus próprios apontamentos.</div></div><div class="notes-hero-stat"><strong>{total_notas}</strong><span>anotações salvas</span></div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">CADERNO DE ALTO RENDIMENTO</div><div class="notes-hero-title">📝 Anotações & Resumos</div><div class="notes-hero-sub">Organize seus apontamentos por área e mantenha um caderno de revisão rápido para consultar quando precisar.</div></div><div class="notes-hero-stat"><strong>{total_notas}</strong><span>anotações salvas</span></div></div>""", unsafe_allow_html=True)
         
         # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
@@ -3407,7 +3421,7 @@ else:
         m1.metric("📝 Resumos", total_notas)
         m2.metric("🗂️ Áreas", areas_notas)
         m3.metric("🖼️ Com imagens", notas_com_imagem)
-        aba_nova, aba_lista = st.tabs(["Nova anotação", "Biblioteca"])
+        aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
             st.markdown("<div class='note-section-label'><span>01</span> · Criar novo resumo</div>", unsafe_allow_html=True)
@@ -3416,7 +3430,7 @@ else:
             with st.container(border=True):
                 col_btn, col_img = st.columns([1, 2])
                 with col_btn:
-                    st.markdown("#### Anexos visuais")
+                    st.markdown("#### 📸 1. Anexos Visuais")
                     st.caption("Tabelas, fluxogramas ou o print do seu erro.")
                     if paste_image_button is not None:
                         res_paste_nota = paste_image_button(
@@ -3435,7 +3449,7 @@ else:
                         
                 with col_img:
                     if st.session_state.nota_imgs_temp:
-                        st.write(f"**{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s):**")
+                        st.markdown(f"<div class='note-image-strip'><strong>{len(st.session_state.nota_imgs_temp)} imagem(ns) anexada(s)</strong></div>", unsafe_allow_html=True)
                         cols = st.columns(3)
                         for idx, img_b64 in enumerate(st.session_state.nota_imgs_temp):
                             with cols[idx % 3]:
@@ -3447,7 +3461,7 @@ else:
                                     st.session_state.nota_imgs_temp.pop(idx)
                                     st.rerun()
 
-            st.markdown("#### Estruturar o resumo")
+            st.markdown("<div class='note-form-head'><div class='note-form-title'>✍️ Estruturar o resumo</div><div class='note-form-sub'>Identifique o tema e registre somente o que vale a pena revisar depois.</div></div>", unsafe_allow_html=True)
             
             col_a, col_s = st.columns(2)
             a = col_a.selectbox("Grande Área", AREAS_MED, key="n_area_nova")
@@ -3486,14 +3500,16 @@ else:
                         st.error("Preencha o subtema e a anotação para salvar.")
 
         with aba_lista:
-            st.markdown("<div class='note-section-label'><span>02</span> · Biblioteca de resumos</div>", unsafe_allow_html=True)
+            st.markdown("<div class='note-section-label'><span>03</span> · Biblioteca de resumos</div>", unsafe_allow_html=True)
             minhas_anotacoes = dados_anotacoes
+            if minhas_anotacoes:
+                st.markdown(f"<div class='notes-toolbar'><div><div class='notes-toolbar-title'>Seu caderno</div><div class='notes-toolbar-sub'>Pesquise e filtre para encontrar um resumo rapidamente.</div></div><div class='notes-count'>{len(minhas_anotacoes)} registros</div></div>", unsafe_allow_html=True)
             if not minhas_anotacoes:
                 st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
             else:
                 fcol1, fcol2 = st.columns([2.2, 1])
                 with fcol1:
-                    pesquisa_nota = st.text_input("Buscar no caderno", "", placeholder="Subtema, palavra-chave ou conteúdo...", key="pesquisa_nota_premium")
+                    pesquisa_nota = st.text_input("🔎 Buscar no caderno", "", placeholder="Subtema, palavra-chave ou conteúdo...", key="pesquisa_nota_premium")
                 with fcol2:
                     filtro_area_nota = st.selectbox("Área", ["Todas"] + sorted(list(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in minhas_anotacoes))), key="filtro_area_nota_premium")
                 
@@ -3524,7 +3540,7 @@ else:
                                 data_str = formatar_data_br(nota.get('data_criacao'))
                                 
                                 # --- NOTA COMPACTA (EXPANDER) ---
-                                with st.expander(f"{subtema_str} · {data_str}"):
+                                with st.expander(f"📝 {subtema_str} - {data_str}"):
                                     c_del1, c_del2 = st.columns([0.85, 0.15])
                                     with c_del2:
                                         if st.button("🗑️ Excluir", key=f"del_nota_{nota_id}", use_container_width=True):
@@ -3554,11 +3570,11 @@ else:
                                     
                                     # --- BOTÃO DE EDITAR INDIVIDUAL E SEGURO ---
                                     if st.session_state.get('nota_em_edicao') != nota_id:
-                                        if st.button("Editar anotação", key=f"btn_abrir_edit_{nota_id}"):
+                                        if st.button("✏️ Editar esta Anotação", key=f"btn_abrir_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = nota_id
                                             st.rerun()
                                     else:
-                                        if st.button("Cancelar edição", key=f"btn_cancel_edit_{nota_id}"):
+                                        if st.button("❌ Cancelar Edição", key=f"btn_cancel_edit_{nota_id}"):
                                             st.session_state.nota_em_edicao = None
                                             st.rerun()
                                             
