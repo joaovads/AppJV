@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 2.9", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 3.0", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -763,6 +763,127 @@ def aplicar_ui_premium(modo):
     }}
 
     @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ transition:none !important; animation:none !important; }} }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def aplicar_ui_v3(modo):
+    """Residência PRO 3.0 — sistema visual redesenhado como produto de software.
+    Camada visual global; não altera regras de negócio, banco ou integrações.
+    """
+    dark = modo == "Escuro"
+    if dark:
+        bg = "#0b1117"; surface = "#111923"; surface2 = "#16212c"; border = "#263442"
+        text = "#eef4f7"; muted = "#8fa1ae"; accent = "#2aa79b"; accent2 = "#55c7bc"
+        input_bg = "#0e171f"; hover = "#182530"; sidebar = "#0d151d"
+    else:
+        bg = "#f4f7f6"; surface = "#ffffff"; surface2 = "#f7faf9"; border = "#dbe4e1"
+        text = "#17211f"; muted = "#687773"; accent = "#176f68"; accent2 = "#23978d"
+        input_bg = "#ffffff"; hover = "#eef5f3"; sidebar = "#fbfcfc"
+    css=f"""
+    <style>
+    :root {{
+      --v3-bg:{bg}; --v3-surface:{surface}; --v3-surface2:{surface2}; --v3-border:{border};
+      --v3-text:{text}; --v3-muted:{muted}; --v3-accent:{accent}; --v3-accent2:{accent2};
+      --v3-input:{input_bg}; --v3-hover:{hover}; --v3-sidebar:{sidebar};
+    }}
+    html,body {{ background:{bg} !important; color:{text} !important; }}
+    [data-testid="stAppViewContainer"], .stApp, .main {{ background:{bg} !important; color:{text} !important; }}
+    [data-testid="stHeader"] {{ background:transparent !important; }}
+    .main .block-container {{ max-width:1380px !important; padding:1.35rem 2.35rem 4rem !important; }}
+    *,*::before,*::after {{ box-sizing:border-box; }}
+    h1,h2,h3,h4,h5,h6 {{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; }}
+    h1 {{ font-size:1.82rem !important; font-weight:760 !important; letter-spacing:-.035em !important; }}
+    h2 {{ font-size:1.32rem !important; font-weight:720 !important; letter-spacing:-.025em !important; }}
+    h3 {{ font-size:1.04rem !important; font-weight:700 !important; }}
+    p,li,label,[data-testid="stMarkdownContainer"] {{ color:{text}; }}
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
+
+    /* Barra superior do produto */
+    .rp-topbar {{
+      display:flex !important; align-items:center !important; justify-content:space-between !important;
+      gap:24px !important; padding:0 0 18px !important; margin:0 0 22px !important;
+      border-bottom:1px solid {border} !important;
+    }}
+    .rp-topbar-title {{ font-size:1.55rem !important; font-weight:760 !important; letter-spacing:-.035em !important; color:{text} !important; }}
+    .rp-topbar-sub {{ font-size:.78rem !important; color:{muted} !important; margin-top:5px !important; }}
+    .rp-kicker {{ font-size:.64rem !important; letter-spacing:.14em !important; font-weight:800 !important; color:{accent} !important; margin-bottom:4px !important; }}
+    .rp-status {{ font-size:.72rem !important; color:{muted} !important; padding:7px 10px; border:1px solid {border}; border-radius:999px; background:{surface}; }}
+    .rp-dot {{ width:7px !important; height:7px !important; background:{accent} !important; display:inline-block; border-radius:50%; margin-right:7px; }}
+
+    /* Sidebar: aparência de software, não de template */
+    [data-testid="stSidebar"] {{ background:{sidebar} !important; border-right:1px solid {border} !important; }}
+    [data-testid="stSidebar"] > div:first-child {{ padding-top:1rem !important; }}
+    [data-testid="stSidebar"] .block-container {{ padding:1rem .9rem !important; }}
+    .rp-brand {{ padding:8px 10px 16px !important; border-bottom:1px solid {border} !important; margin-bottom:14px !important; }}
+    .rp-brand-title {{ color:{text} !important; font-size:1rem !important; font-weight:820 !important; letter-spacing:-.02em !important; }}
+    .rp-brand-sub {{ color:{muted} !important; font-size:.61rem !important; letter-spacing:.11em !important; margin-top:5px !important; }}
+    .profile-img {{ width:52px !important; height:52px !important; border:2px solid {accent} !important; margin:0 0 8px 10px !important; box-shadow:none !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:2px !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{
+      padding:9px 11px !important; margin:0 0 2px !important; border-radius:7px !important;
+      border:1px solid transparent !important; background:transparent !important; transition:all .14s ease !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{hover} !important; border-color:{border} !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
+      background:{accent} !important; border-color:{accent} !important; box-shadow:none !important;
+    }}
+    [data-testid="stSidebar"] [role="radiogroup"] label p {{ color:{muted} !important; font-size:.82rem !important; font-weight:650 !important; margin:0 !important; }}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:#fff !important; font-weight:720 !important; }}
+    [data-testid="stSidebar"] hr {{ border-color:{border} !important; margin:13px 0 !important; }}
+
+    /* Controles */
+    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div,
+    [data-testid="stFileUploadDropzone"] {{ background:{input_bg} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
+    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within, [data-baseweb="select"] > div:focus-within {{ border-color:{accent} !important; box-shadow:0 0 0 2px rgba(42,167,155,.10) !important; }}
+    input,textarea,[data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
+    input::placeholder,textarea::placeholder {{ color:{muted} !important; -webkit-text-fill-color:{muted} !important; opacity:1 !important; }}
+    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
+      border-radius:7px !important; min-height:40px !important; border:1px solid {border} !important;
+      background:{surface} !important; color:{text} !important; box-shadow:none !important; font-weight:680 !important;
+      transition:background .14s,border-color .14s,transform .08s !important;
+    }}
+    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{ background:{hover} !important; border-color:{accent} !important; transform:translateY(-1px); }}
+    button[kind="primary"], button[data-testid="baseButton-primary"] {{ background:{accent} !important; border-color:{accent} !important; color:#fff !important; }}
+    button[kind="primary"] p,button[kind="primary"] span,button[data-testid="baseButton-primary"] p,button[data-testid="baseButton-primary"] span {{ color:#fff !important; }}
+
+    /* Abas: linha editorial compacta */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap:2px !important; border-bottom:1px solid {border} !important; }}
+    [data-testid="stTabs"] [data-baseweb="tab"] {{ padding:9px 14px !important; background:transparent !important; border-radius:6px 6px 0 0 !important; }}
+    [data-testid="stTabs"] [data-baseweb="tab"] p, [data-testid="stTabs"] [data-baseweb="tab"] span {{ color:{muted} !important; font-size:.79rem !important; font-weight:680 !important; }}
+    [data-testid="stTabs"] [aria-selected="true"] {{ border-bottom:2px solid {accent} !important; }}
+    [data-testid="stTabs"] [aria-selected="true"] p, [data-testid="stTabs"] [aria-selected="true"] span {{ color:{text} !important; }}
+
+    /* Cards, métricas e expanders */
+    [data-testid="metric-container"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:9px !important; padding:15px 16px !important; box-shadow:none !important; }}
+    [data-testid="metric-container"] label {{ color:{muted} !important; font-size:.68rem !important; text-transform:uppercase; letter-spacing:.07em; font-weight:760 !important; }}
+    [data-testid="metric-container"] [data-testid="stMetricValue"] {{ color:{text} !important; font-size:1.35rem !important; font-weight:780 !important; }}
+    [data-testid="stExpander"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:8px !important; box-shadow:none !important; }}
+    [data-testid="stExpander"] summary p {{ font-weight:700 !important; font-size:.84rem !important; }}
+    [data-testid="stDataFrame"], [data-testid="stTable"] {{ border:1px solid {border} !important; border-radius:8px !important; overflow:hidden !important; }}
+    [data-testid="stAlert"] {{ border-radius:7px !important; }}
+    hr {{ border-color:{border} !important; }}
+
+    /* Imagens e conteúdo multimídia */
+    [data-testid="stImage"] img {{ border-radius:8px !important; border:1px solid {border} !important; }}
+    iframe {{ border-radius:8px !important; }}
+
+    /* Mobile */
+    @media(max-width:760px) {{
+      .main .block-container {{ padding:.85rem .72rem 3rem !important; }}
+      h1 {{ font-size:1.48rem !important; }} h2 {{ font-size:1.2rem !important; }}
+      .rp-topbar {{ align-items:flex-start !important; padding-bottom:14px !important; margin-bottom:16px !important; }}
+      .rp-topbar-title {{ font-size:1.28rem !important; }} .rp-topbar-sub {{ font-size:.72rem !important; }}
+      .rp-status {{ display:none !important; }}
+      [data-testid="stTabs"] [data-baseweb="tab-list"] {{ overflow-x:auto !important; scrollbar-width:none !important; }}
+      [data-testid="stTabs"] [data-baseweb="tab"] {{ flex:0 0 auto !important; padding:9px 11px !important; }}
+      [data-testid="stTabs"] [data-baseweb="tab"] p {{ font-size:.75rem !important; }}
+      [data-testid="metric-container"] {{ padding:12px !important; }}
+      [data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-size:1.16rem !important; }}
+      .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:44px !important; }}
+      .rp-brand {{ padding-bottom:12px !important; }}
+    }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -1574,7 +1695,7 @@ else:
     # APLICA O TEMA DO USUARIO LOGADO
     modo_atual = user_settings.get("tema_modo", "Escuro")
     aplicar_css_tema(modo_atual)
-    aplicar_ui_premium(modo_atual)
+    aplicar_ui_v3(modo_atual)
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
@@ -1593,40 +1714,50 @@ else:
         st.markdown("---")
 
     # ==========================================
-    # MENU REORGANIZADO
+    # NAVEGAÇÃO 3.0 — módulos organizados por fluxo de estudo
     # ==========================================
-    opcoes_menu = [
-        "🏠 Dashboard",
-        "🗓️ Cronograma IA",
-        "⚡ Revisão HIIT",
-        "🎯 Questões",
-        "📚 Registro de Aulas",
-        "📝 Anotações Rápidas",
-        "📅 Agenda de Revisões",
-        "✨ AI Tutor & Flashcards",
-        "📁 Materiais e Simulados",
-        "🏥 Simulados & OSCE",
-        "📍 GPS da Aprovação",
-        "⏱️ Modo Foco",
-        "⚙️ Configurações",
-        "📱 Instalar App"
+    opcoes_internas = [
+        "🏠 Dashboard", "🗓️ Cronograma IA", "⚡ Revisão HIIT", "🎯 Questões",
+        "📚 Registro de Aulas", "📝 Anotações Rápidas", "📅 Agenda de Revisões",
+        "✨ AI Tutor & Flashcards", "📁 Materiais e Simulados", "🏥 Simulados & OSCE",
+        "📍 GPS da Aprovação", "⏱️ Modo Foco", "⚙️ Configurações", "📱 Instalar App"
     ]
-    
-    if is_super_admin(st.session_state.user_nome): 
-        opcoes_menu.append("👑 Admin")
-        
-    st.sidebar.markdown("<div style='font-size:.72rem;font-weight:850;letter-spacing:.08em;color:var(--rp-muted);margin:4px 12px 7px'>ACESSO RÁPIDO</div>", unsafe_allow_html=True)
+    rotulos_menu = {
+        "🏠 Dashboard":"Visão geral", "🗓️ Cronograma IA":"Plano de estudo",
+        "⚡ Revisão HIIT":"Revisão HIIT", "🎯 Questões":"Banco de questões",
+        "📚 Registro de Aulas":"Aulas estudadas", "📝 Anotações Rápidas":"Caderno de notas",
+        "📅 Agenda de Revisões":"Agenda de revisões", "✨ AI Tutor & Flashcards":"Tutor e cartões",
+        "📁 Materiais e Simulados":"Biblioteca", "🏥 Simulados & OSCE":"Simulados e OSCE",
+        "📍 GPS da Aprovação":"Mapa de desempenho", "⏱️ Modo Foco":"Sessão de foco",
+        "⚙️ Configurações":"Configurações", "📱 Instalar App":"Instalar aplicativo"
+    }
+    mapa_exibicao = {k:v for k,v in rotulos_menu.items()}
+    mapa_interno = {v:k for k,v in mapa_exibicao.items()}
+    if is_super_admin(st.session_state.user_nome):
+        mapa_exibicao["👑 Admin"] = "Administração"
+        mapa_interno["Administração"] = "👑 Admin"
+        opcoes_internas.append("👑 Admin")
+    opcoes_visuais = [mapa_exibicao[x] for x in opcoes_internas]
+    estado_antigo = st.session_state.get("menu_navegacao", opcoes_internas[0])
+    destino_pendente = st.session_state.pop("menu_destino_v3", None)
+    if destino_pendente in opcoes_internas:
+        estado_antigo = destino_pendente
+    estado_visual = mapa_exibicao.get(estado_antigo, estado_antigo if estado_antigo in opcoes_visuais else opcoes_visuais[0])
+
+    st.sidebar.markdown("<div class='rp-nav-caption'>ESTUDO</div>", unsafe_allow_html=True)
+    menu_visual = st.sidebar.radio("Navegação", opcoes_visuais, index=opcoes_visuais.index(estado_visual), key="menu_navegacao_v3", label_visibility="collapsed")
+    menu = mapa_interno.get(menu_visual, "🏠 Dashboard")
+    st.session_state["menu_navegacao"] = menu
+    st.sidebar.markdown("<div class='rp-nav-caption'>ATALHOS</div>", unsafe_allow_html=True)
     q1, q2 = st.sidebar.columns(2)
     with q1:
-        if st.button("🏠 Início", use_container_width=True, key="quick_home"):
-            st.session_state["menu_navegacao"] = "🏠 Dashboard"
+        if st.button("Início", use_container_width=True, key="quick_home_v3"):
+            st.session_state["menu_destino_v3"] = "🏠 Dashboard"
             st.rerun()
     with q2:
-        if st.button("🎯 Questões", use_container_width=True, key="quick_q"):
-            st.session_state["menu_navegacao"] = "🎯 Questões"
+        if st.button("Questões", use_container_width=True, key="quick_q_v3"):
+            st.session_state["menu_destino_v3"] = "🎯 Questões"
             st.rerun()
-    st.sidebar.markdown("<div style='font-size:.72rem;font-weight:850;letter-spacing:.08em;color:var(--rp-muted);margin:12px 12px 7px'>NAVEGAÇÃO</div>", unsafe_allow_html=True)
-    menu = st.sidebar.radio("Navegação Principal", opcoes_menu, key="menu_navegacao", label_visibility="collapsed")
     render_shell(menu, st.session_state.user_nome, modo_atual)
 
     # ==========================================
