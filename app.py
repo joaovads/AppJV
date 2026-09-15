@@ -51,7 +51,7 @@ except ImportError:
 # ==========================================
 # CONFIGURAÇÃO GERAL DA PÁGINA E MODELOS
 # ==========================================
-st.set_page_config(page_title="Residência PRO 3.0", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Residência PRO 4.0", page_icon="🏥", layout="wide", initial_sidebar_state="expanded")
 
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
@@ -769,152 +769,155 @@ def aplicar_ui_premium(modo):
 
 
 def aplicar_ui_v3(modo):
-    """Residência PRO 3.0 — sistema visual redesenhado como produto de software.
-    Camada visual global; não altera regras de negócio, banco ou integrações.
-    """
+    """Residência PRO 4.0 — linguagem visual editorial/clinical workspace."""
     dark = modo == "Escuro"
     if dark:
-        bg = "#0b1117"; surface = "#111923"; surface2 = "#16212c"; border = "#263442"
-        text = "#eef4f7"; muted = "#8fa1ae"; accent = "#2aa79b"; accent2 = "#55c7bc"
-        input_bg = "#0e171f"; hover = "#182530"; sidebar = "#0d151d"
+        bg="#0f1215"; surface="#171b20"; surface2="#1d2329"; border="#303840"
+        text="#f3f0e9"; muted="#9aa3aa"; accent="#e56b4f"; accent2="#f08a70"
+        input_bg="#12161a"; hover="#222930"; sidebar="#111418"
     else:
-        bg = "#f4f7f6"; surface = "#ffffff"; surface2 = "#f7faf9"; border = "#dbe4e1"
-        text = "#17211f"; muted = "#687773"; accent = "#176f68"; accent2 = "#23978d"
-        input_bg = "#ffffff"; hover = "#eef5f3"; sidebar = "#fbfcfc"
+        bg="#f3f1ec"; surface="#fffdf8"; surface2="#f7f4ee"; border="#ddd8cf"
+        text="#202428"; muted="#737a7f"; accent="#c94f36"; accent2="#e56b4f"
+        input_bg="#fffdf9"; hover="#eeeae2"; sidebar="#e8e4dc"
     css=f"""
     <style>
     :root {{
-      --v3-bg:{bg}; --v3-surface:{surface}; --v3-surface2:{surface2}; --v3-border:{border};
-      --v3-text:{text}; --v3-muted:{muted}; --v3-accent:{accent}; --v3-accent2:{accent2};
-      --v3-input:{input_bg}; --v3-hover:{hover}; --v3-sidebar:{sidebar};
+      --v4-bg:{bg}; --v4-surface:{surface}; --v4-surface2:{surface2}; --v4-border:{border};
+      --v4-text:{text}; --v4-muted:{muted}; --v4-accent:{accent}; --v4-accent2:{accent2};
+      --v4-input:{input_bg}; --v4-hover:{hover}; --v4-sidebar:{sidebar};
     }}
-    html,body {{ background:{bg} !important; color:{text} !important; }}
-    [data-testid="stAppViewContainer"], .stApp, .main {{ background:{bg} !important; color:{text} !important; }}
-    [data-testid="stHeader"] {{ background:transparent !important; }}
-    .main .block-container {{ max-width:1380px !important; padding:1.35rem 2.35rem 4rem !important; }}
-    *,*::before,*::after {{ box-sizing:border-box; }}
-    h1,h2,h3,h4,h5,h6 {{ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; color:{text} !important; }}
-    h1 {{ font-size:1.82rem !important; font-weight:760 !important; letter-spacing:-.035em !important; }}
-    h2 {{ font-size:1.32rem !important; font-weight:720 !important; letter-spacing:-.025em !important; }}
-    h3 {{ font-size:1.04rem !important; font-weight:700 !important; }}
-    p,li,label,[data-testid="stMarkdownContainer"] {{ color:{text}; }}
-    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color:{muted} !important; }}
+    html,body,[data-testid="stAppViewContainer"],.stApp,.main {{background:{bg} !important;color:{text} !important;}}
+    [data-testid="stHeader"] {{background:transparent !important; height:0 !important;}}
+    .main .block-container {{max-width:1500px !important;padding:2.1rem 3.2rem 5rem !important;}}
+    *,*::before,*::after {{box-sizing:border-box;}}
+    body,button,input,textarea,select {{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;}}
+    h1,h2,h3,h4,h5,h6 {{color:{text} !important;letter-spacing:-.045em !important;}}
+    h1 {{font-size:2.45rem !important;font-weight:820 !important;line-height:1.05 !important;}}
+    h2 {{font-size:1.55rem !important;font-weight:790 !important;}}
+    h3 {{font-size:1.12rem !important;font-weight:760 !important;}}
+    p,li,label,[data-testid="stMarkdownContainer"] {{color:{text};}}
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{color:{muted} !important;}}
 
-    /* Barra superior do produto */
-    .rp-topbar {{
-      display:flex !important; align-items:center !important; justify-content:space-between !important;
-      gap:24px !important; padding:0 0 18px !important; margin:0 0 22px !important;
-      border-bottom:1px solid {border} !important;
-    }}
-    .rp-topbar-title {{ font-size:1.55rem !important; font-weight:760 !important; letter-spacing:-.035em !important; color:{text} !important; }}
-    .rp-topbar-sub {{ font-size:.78rem !important; color:{muted} !important; margin-top:5px !important; }}
-    .rp-kicker {{ font-size:.64rem !important; letter-spacing:.14em !important; font-weight:800 !important; color:{accent} !important; margin-bottom:4px !important; }}
-    .rp-status {{ font-size:.72rem !important; color:{muted} !important; padding:7px 10px; border:1px solid {border}; border-radius:999px; background:{surface}; }}
-    .rp-dot {{ width:7px !important; height:7px !important; background:{accent} !important; display:inline-block; border-radius:50%; margin-right:7px; }}
+    /* ===== SIDEBAR / NAVEGACAO ===== */
+    [data-testid="stSidebar"] {{background:{sidebar} !important;border-right:1px solid {border} !important;}}
+    [data-testid="stSidebar"] > div:first-child {{padding-top:0 !important;}}
+    [data-testid="stSidebar"] .block-container {{padding:1.35rem .85rem 1rem !important;}}
+    .rp-brand {{padding:8px 13px 22px !important;margin-bottom:18px !important;border-bottom:1px solid {border} !important;}}
+    .rp-brand-title {{font-size:1.15rem !important;font-weight:900 !important;letter-spacing:-.035em !important;color:{text} !important;}}
+    .rp-brand-title::first-letter {{color:{accent} !important;}}
+    .rp-brand-sub {{font-size:.57rem !important;letter-spacing:.18em !important;font-weight:800 !important;color:{muted} !important;margin-top:7px !important;}}
+    .profile-img {{width:44px !important;height:44px !important;border:1px solid {border} !important;margin:0 0 8px 12px !important;box-shadow:none !important;}}
+    .rp-nav-caption {{font-size:.58rem !important;letter-spacing:.17em !important;font-weight:850 !important;color:{muted} !important;padding:12px 12px 7px !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] {{gap:3px !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] > label {{padding:10px 12px !important;margin:0 !important;border:1px solid transparent !important;border-radius:5px !important;background:transparent !important;transition:.12s ease !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{background:{hover} !important;border-color:{border} !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{background:{text} !important;border-color:{text} !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] label p {{color:{muted} !important;font-size:.79rem !important;font-weight:680 !important;margin:0 !important;}}
+    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{color:{bg} !important;font-weight:800 !important;}}
+    [data-testid="stSidebar"] hr {{border-color:{border} !important;margin:15px 0 !important;}}
 
-    /* Sidebar: aparência de software, não de template */
-    [data-testid="stSidebar"] {{ background:{sidebar} !important; border-right:1px solid {border} !important; }}
-    [data-testid="stSidebar"] > div:first-child {{ padding-top:1rem !important; }}
-    [data-testid="stSidebar"] .block-container {{ padding:1rem .9rem !important; }}
-    .rp-brand {{ padding:8px 10px 16px !important; border-bottom:1px solid {border} !important; margin-bottom:14px !important; }}
-    .rp-brand-title {{ color:{text} !important; font-size:1rem !important; font-weight:820 !important; letter-spacing:-.02em !important; }}
-    .rp-brand-sub {{ color:{muted} !important; font-size:.61rem !important; letter-spacing:.11em !important; margin-top:5px !important; }}
-    .profile-img {{ width:52px !important; height:52px !important; border:2px solid {accent} !important; margin:0 0 8px 10px !important; box-shadow:none !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] {{ gap:2px !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label {{
-      padding:9px 11px !important; margin:0 0 2px !important; border-radius:7px !important;
-      border:1px solid transparent !important; background:transparent !important; transition:all .14s ease !important;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] > label:hover {{ background:{hover} !important; border-color:{border} !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{
-      background:{accent} !important; border-color:{accent} !important; box-shadow:none !important;
-    }}
-    [data-testid="stSidebar"] [role="radiogroup"] label p {{ color:{muted} !important; font-size:.82rem !important; font-weight:650 !important; margin:0 !important; }}
-    [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{ color:#fff !important; font-weight:720 !important; }}
-    [data-testid="stSidebar"] hr {{ border-color:{border} !important; margin:13px 0 !important; }}
+    /* ===== CABECALHO DE PAGINA ===== */
+    .rp-topbar {{display:flex !important;align-items:flex-end !important;justify-content:space-between !important;gap:24px !important;padding:0 0 24px !important;margin:0 0 30px !important;border-bottom:1px solid {border} !important;}}
+    .rp-kicker {{font-size:.59rem !important;letter-spacing:.2em !important;font-weight:900 !important;color:{accent} !important;margin-bottom:8px !important;}}
+    .rp-topbar-title {{font-size:2.15rem !important;line-height:1 !important;font-weight:850 !important;letter-spacing:-.055em !important;color:{text} !important;}}
+    .rp-topbar-sub {{font-size:.78rem !important;color:{muted} !important;margin-top:9px !important;max-width:680px !important;}}
+    .rp-status {{font-size:.68rem !important;font-weight:750 !important;color:{muted} !important;border-left:2px solid {accent} !important;padding:4px 0 4px 12px !important;white-space:nowrap !important;}}
+    .rp-dot {{width:7px !important;height:7px !important;background:{accent} !important;display:inline-block !important;border-radius:50% !important;margin-right:7px !important;}}
 
-    /* Controles */
-    [data-baseweb="input"] > div, [data-baseweb="textarea"] > div, [data-baseweb="select"] > div,
-    [data-testid="stFileUploadDropzone"] {{ background:{input_bg} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
-    [data-baseweb="input"] > div:focus-within, [data-baseweb="textarea"] > div:focus-within, [data-baseweb="select"] > div:focus-within {{ border-color:{accent} !important; box-shadow:0 0 0 2px rgba(42,167,155,.10) !important; }}
-    input,textarea,[data-baseweb="select"] span {{ color:{text} !important; -webkit-text-fill-color:{text} !important; }}
-    input::placeholder,textarea::placeholder {{ color:{muted} !important; -webkit-text-fill-color:{muted} !important; opacity:1 !important; }}
-    .stButton > button, div[data-testid="stFormSubmitButton"] > button {{
-      border-radius:7px !important; min-height:40px !important; border:1px solid {border} !important;
-      background:{surface} !important; color:{text} !important; box-shadow:none !important; font-weight:680 !important;
-      transition:background .14s,border-color .14s,transform .08s !important;
-    }}
-    .stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{ background:{hover} !important; border-color:{accent} !important; transform:translateY(-1px); }}
-    button[kind="primary"], button[data-testid="baseButton-primary"] {{ background:{accent} !important; border-color:{accent} !important; color:#fff !important; }}
-    button[kind="primary"] p,button[kind="primary"] span,button[data-testid="baseButton-primary"] p,button[data-testid="baseButton-primary"] span {{ color:#fff !important; }}
+    /* ===== SUPERFICIES ===== */
+    [data-testid="stVerticalBlockBorderWrapper"] {{background:{surface} !important;border-color:{border} !important;border-radius:4px !important;box-shadow:none !important;}}
+    [data-testid="metric-container"] {{background:{surface} !important;border:1px solid {border} !important;border-radius:4px !important;padding:18px 19px !important;box-shadow:none !important;}}
+    [data-testid="metric-container"] label {{color:{muted} !important;font-size:.61rem !important;text-transform:uppercase !important;letter-spacing:.13em !important;font-weight:850 !important;}}
+    [data-testid="metric-container"] [data-testid="stMetricValue"] {{color:{text} !important;font-size:1.65rem !important;font-weight:850 !important;letter-spacing:-.045em !important;}}
+    [data-testid="stExpander"] {{background:{surface} !important;border:1px solid {border} !important;border-radius:4px !important;box-shadow:none !important;}}
+    [data-testid="stExpander"] summary {{padding:13px 15px !important;}}
+    [data-testid="stExpander"] summary p {{font-weight:760 !important;font-size:.82rem !important;}}
+    [data-testid="stDataFrame"],[data-testid="stTable"] {{border:1px solid {border} !important;border-radius:4px !important;overflow:hidden !important;}}
+    [data-testid="stAlert"] {{border-radius:4px !important;}}
+    hr {{border-color:{border} !important;margin:1.7rem 0 !important;}}
 
-    /* Abas: linha editorial compacta */
-    [data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap:2px !important; border-bottom:1px solid {border} !important; }}
-    [data-testid="stTabs"] [data-baseweb="tab"] {{ padding:9px 14px !important; background:transparent !important; border-radius:6px 6px 0 0 !important; }}
-    [data-testid="stTabs"] [data-baseweb="tab"] p, [data-testid="stTabs"] [data-baseweb="tab"] span {{ color:{muted} !important; font-size:.79rem !important; font-weight:680 !important; }}
-    [data-testid="stTabs"] [aria-selected="true"] {{ border-bottom:2px solid {accent} !important; }}
-    [data-testid="stTabs"] [aria-selected="true"] p, [data-testid="stTabs"] [aria-selected="true"] span {{ color:{text} !important; }}
+    /* ===== FORMULARIOS ===== */
+    [data-baseweb="input"] > div,[data-baseweb="textarea"] > div,[data-baseweb="select"] > div,[data-testid="stFileUploadDropzone"] {{background:{input_bg} !important;border:1px solid {border} !important;border-radius:4px !important;box-shadow:none !important;}}
+    [data-baseweb="input"] > div:focus-within,[data-baseweb="textarea"] > div:focus-within,[data-baseweb="select"] > div:focus-within {{border-color:{accent} !important;box-shadow:0 0 0 1px {accent} !important;}}
+    input,textarea,[data-baseweb="select"] span {{color:{text} !important;-webkit-text-fill-color:{text} !important;}}
+    input::placeholder,textarea::placeholder {{color:{muted} !important;-webkit-text-fill-color:{muted} !important;}}
+    .stButton > button,div[data-testid="stFormSubmitButton"] > button {{min-height:40px !important;border:1px solid {border} !important;border-radius:4px !important;background:{surface} !important;color:{text} !important;box-shadow:none !important;font-weight:750 !important;transition:.12s ease !important;}}
+    .stButton > button:hover,div[data-testid="stFormSubmitButton"] > button:hover {{background:{hover} !important;border-color:{accent} !important;transform:none !important;}}
+    button[kind="primary"],button[data-testid="baseButton-primary"] {{background:{accent} !important;border-color:{accent} !important;color:#fff !important;}}
+    button[kind="primary"] p,button[kind="primary"] span,button[data-testid="baseButton-primary"] p,button[data-testid="baseButton-primary"] span {{color:#fff !important;}}
 
-    /* Cards, métricas e expanders */
-    [data-testid="metric-container"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:9px !important; padding:15px 16px !important; box-shadow:none !important; }}
-    [data-testid="metric-container"] label {{ color:{muted} !important; font-size:.68rem !important; text-transform:uppercase; letter-spacing:.07em; font-weight:760 !important; }}
-    [data-testid="metric-container"] [data-testid="stMetricValue"] {{ color:{text} !important; font-size:1.35rem !important; font-weight:780 !important; }}
-    [data-testid="stExpander"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:8px !important; box-shadow:none !important; }}
-    [data-testid="stExpander"] summary p {{ font-weight:700 !important; font-size:.84rem !important; }}
-    [data-testid="stDataFrame"], [data-testid="stTable"] {{ border:1px solid {border} !important; border-radius:8px !important; overflow:hidden !important; }}
-    [data-testid="stAlert"] {{ border-radius:7px !important; }}
-    hr {{ border-color:{border} !important; }}
+    /* ===== ABAS / TABELAS ===== */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{gap:0 !important;border-bottom:1px solid {border} !important;}}
+    [data-testid="stTabs"] [data-baseweb="tab"] {{padding:11px 17px !important;background:transparent !important;border-radius:0 !important;border-bottom:2px solid transparent !important;}}
+    [data-testid="stTabs"] [data-baseweb="tab"] p,[data-testid="stTabs"] [data-baseweb="tab"] span {{color:{muted} !important;font-size:.74rem !important;font-weight:780 !important;}}
+    [data-testid="stTabs"] [aria-selected="true"] {{border-bottom-color:{accent} !important;}}
+    [data-testid="stTabs"] [aria-selected="true"] p,[data-testid="stTabs"] [aria-selected="true"] span {{color:{text} !important;}}
+    [data-testid="stMarkdownContainer"] table {{border-collapse:collapse !important;width:100% !important;background:{surface} !important;}}
+    [data-testid="stMarkdownContainer"] th {{font-size:.62rem !important;text-transform:uppercase !important;letter-spacing:.11em !important;color:{muted} !important;background:{surface2} !important;border-bottom:1px solid {border} !important;padding:10px 12px !important;}}
+    [data-testid="stMarkdownContainer"] td {{border-bottom:1px solid {border} !important;padding:10px 12px !important;}}
 
-    /* Imagens e conteúdo multimídia */
-    [data-testid="stImage"] img {{ border-radius:8px !important; border:1px solid {border} !important; }}
-    iframe {{ border-radius:8px !important; }}
+    /* ===== CARTOES E BLOCOS VISUAIS EXISTENTES ===== */
+    .rp-dash-hero {{background:{surface} !important;border:1px solid {border} !important;border-radius:4px !important;padding:28px 30px !important;margin-bottom:18px !important;}}
+    .rp-dash-eyebrow {{font-size:.58rem !important;letter-spacing:.18em !important;font-weight:900 !important;color:{accent} !important;}}
+    .rp-dash-title {{font-size:2.05rem !important;font-weight:850 !important;letter-spacing:-.055em !important;color:{text} !important;margin-top:7px !important;}}
+    .rp-dash-sub {{font-size:.78rem !important;color:{muted} !important;margin-top:8px !important;}}
+    .rp-dash-date {{font-size:.66rem !important;color:{muted} !important;font-weight:800 !important;letter-spacing:.08em !important;}}
+    .rp-dash-alert {{background:{surface2} !important;border-left:3px solid {accent} !important;border-top:1px solid {border} !important;border-right:1px solid {border} !important;border-bottom:1px solid {border} !important;border-radius:3px !important;padding:13px 15px !important;margin:0 0 18px !important;}}
+    .rp-dash-alert-title {{font-weight:820 !important;color:{text} !important;font-size:.82rem !important;}}
+    .rp-dash-alert-sub {{font-size:.71rem !important;color:{muted} !important;margin-top:3px !important;}}
 
-    /* Mobile */
+    /* ===== MOBILE ===== */
     @media(max-width:760px) {{
-      .main .block-container {{ padding:.85rem .72rem 3rem !important; }}
-      h1 {{ font-size:1.48rem !important; }} h2 {{ font-size:1.2rem !important; }}
-      .rp-topbar {{ align-items:flex-start !important; padding-bottom:14px !important; margin-bottom:16px !important; }}
-      .rp-topbar-title {{ font-size:1.28rem !important; }} .rp-topbar-sub {{ font-size:.72rem !important; }}
-      .rp-status {{ display:none !important; }}
-      [data-testid="stTabs"] [data-baseweb="tab-list"] {{ overflow-x:auto !important; scrollbar-width:none !important; }}
-      [data-testid="stTabs"] [data-baseweb="tab"] {{ flex:0 0 auto !important; padding:9px 11px !important; }}
-      [data-testid="stTabs"] [data-baseweb="tab"] p {{ font-size:.75rem !important; }}
-      [data-testid="metric-container"] {{ padding:12px !important; }}
-      [data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-size:1.16rem !important; }}
-      .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:44px !important; }}
-      .rp-brand {{ padding-bottom:12px !important; }}
+      .main .block-container {{padding:1rem .78rem 3rem !important;}}
+      h1 {{font-size:1.65rem !important;}} h2 {{font-size:1.28rem !important;}}
+      .rp-topbar {{align-items:flex-start !important;flex-direction:column !important;gap:8px !important;padding-bottom:17px !important;margin-bottom:20px !important;}}
+      .rp-topbar-title {{font-size:1.62rem !important;}}
+      .rp-topbar-sub {{font-size:.72rem !important;line-height:1.45 !important;}}
+      .rp-status {{display:none !important;}}
+      .rp-dash-hero {{padding:21px 18px !important;}}
+      .rp-dash-title {{font-size:1.7rem !important;}}
+      [data-testid="stTabs"] [data-baseweb="tab-list"] {{overflow-x:auto !important;scrollbar-width:none !important;}}
+      [data-testid="stTabs"] [data-baseweb="tab"] {{flex:0 0 auto !important;padding:10px 12px !important;}}
+      [data-testid="metric-container"] {{padding:13px !important;}}
+      [data-testid="metric-container"] [data-testid="stMetricValue"] {{font-size:1.25rem !important;}}
+      .stButton > button,div[data-testid="stFormSubmitButton"] > button {{min-height:44px !important;}}
     }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
 
 def render_shell(menu, nome, modo):
-    """Cabeçalho discreto por módulo; mantém a navegação e as funções intactas."""
+    """Cabeçalho 4.0: workspace editorial, sem aparência de template."""
     nomes = {
-        "🏠 Dashboard": ("Dashboard", "Visão geral do seu desempenho e da rotina de estudos."),
-        "🗓️ Cronograma IA": ("Cronograma", "Planejamento e distribuição do estudo."),
-        "⚡ Revisão HIIT": ("Revisão HIIT", "Revisões rápidas baseadas no que precisa de atenção."),
-        "🎯 Questões": ("Questões", "Registro, desempenho e revisão dos erros."),
-        "📚 Registro de Aulas": ("Aulas", "Acompanhe o conteúdo estudado e transforme aulas em progresso."),
-        "📝 Anotações Rápidas": ("Anotações", "Seu espaço para registrar e organizar pontos importantes."),
-        "📅 Agenda de Revisões": ("Revisões", "Veja o que está previsto e o que precisa ser retomado."),
-        "✨ AI Tutor & Flashcards": ("Tutor & Flashcards", "Estudo ativo com tutor, cartões e técnica Feynman."),
-        "📁 Materiais e Simulados": ("Materiais", "Organize materiais e simulados em um só lugar."),
-        "🏥 Simulados & OSCE": ("Simulados & OSCE", "Treino direcionado para prova e estações práticas."),
-        "📍 GPS da Aprovação": ("GPS da Aprovação", "Acompanhe seu caminho e os indicadores de desempenho."),
-        "⏱️ Modo Foco": ("Modo Foco", "Sessões de estudo concentradas e sem distrações."),
-        "⚙️ Configurações": ("Configurações", "Preferências e controle do seu perfil."),
-        "📱 Instalar App": ("Residência PRO", "Acesso rápido ao seu ambiente de estudos."),
-        "👑 Admin": ("Administração", "Gerenciamento global do sistema."),
+        "🏠 Dashboard": ("Visão geral", "O que importa agora: ritmo, desempenho e próximas ações."),
+        "🗓️ Cronograma IA": ("Plano de estudo", "Organize a semana e avance aula por aula."),
+        "⚡ Revisão HIIT": ("Revisão HIIT", "Recupere rapidamente os conteúdos que exigem reforço."),
+        "🎯 Questões": ("Banco de questões", "Registre sessões, acompanhe acertos e encontre seus pontos fracos."),
+        "📚 Registro de Aulas": ("Aulas estudadas", "Histórico do conteúdo visto e do progresso por área."),
+        "📝 Anotações Rápidas": ("Caderno", "Notas de estudo organizadas para consulta rápida."),
+        "📅 Agenda de Revisões": ("Agenda", "Revisões previstas, atrasos e histórico."),
+        "✨ AI Tutor & Flashcards": ("Tutor e cartões", "Estudo ativo, perguntas e revisão de cartões."),
+        "📁 Materiais e Simulados": ("Biblioteca", "Materiais, documentos e simulados em um único espaço."),
+        "🏥 Simulados & OSCE": ("Simulados e OSCE", "Treino de prova objetiva e estações práticas."),
+        "📍 GPS da Aprovação": ("Mapa de desempenho", "Indicadores para acompanhar sua preparação."),
+        "⏱️ Modo Foco": ("Foco", "Blocos de estudo concentrado e histórico de sessões."),
+        "⚙️ Configurações": ("Configurações", "Preferências, conta e comportamento do ambiente."),
+        "📱 Instalar App": ("Aplicativo", "Instale o Residência PRO para acesso rápido."),
+        "👑 Admin": ("Administração", "Gestão do ambiente e usuários."),
     }
-    titulo, subtitulo = nomes.get(menu, ("Residência PRO", "Ambiente de preparação para residência."))
+    titulo, subtitulo = nomes.get(menu, ("Residência PRO", "Ambiente de preparação para residência médica."))
     st.markdown(
-        f'<div class="rp-topbar"><div><div class="rp-kicker">RESIDÊNCIA PRO · MÓDULO</div>'
-        f'<div class="rp-topbar-title">{titulo}</div>'
-        f'<div class="rp-topbar-sub">{subtitulo}</div></div>'
-        f'<div class="rp-status"><span class="rp-dot"></span>{nome}</div></div>',
+        f"""<div class='rp-topbar'>
+            <div>
+                <div class='rp-kicker'>RESIDÊNCIA PRO / {titulo.upper()}</div>
+                <div class='rp-topbar-title'>{titulo}</div>
+                <div class='rp-topbar-sub'>{subtitulo}</div>
+            </div>
+            <div class='rp-status'><span class='rp-dot'></span>{html.escape(str(nome))}</div>
+        </div>""",
         unsafe_allow_html=True,
     )
+
 
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
@@ -1699,7 +1702,7 @@ else:
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
-        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 2.8</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='rp-brand'><div class='rp-brand-title'>🏥 RESIDÊNCIA PRO</div><div class='rp-brand-sub'>AMBIENTE DE ESTUDO · 4.0</div></div>", unsafe_allow_html=True)
         if user_settings.get('foto_perfil_b64'):
             st.markdown(f'<img src="data:image/jpeg;base64,{user_settings["foto_perfil_b64"]}" class="profile-img">', unsafe_allow_html=True)
         st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
@@ -1714,7 +1717,7 @@ else:
         st.markdown("---")
 
     # ==========================================
-    # NAVEGAÇÃO 3.0 — módulos organizados por fluxo de estudo
+    # NAVEGAÇÃO 4.0 — workspace de estudo
     # ==========================================
     opcoes_internas = [
         "🏠 Dashboard", "🗓️ Cronograma IA", "⚡ Revisão HIIT", "🎯 Questões",
