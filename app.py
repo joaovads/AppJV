@@ -569,7 +569,9 @@ def aplicar_ui_premium(modo):
     /* ===== CONTAINERS / CARDS ===== */
     div[data-testid="stVerticalBlockBorderWrapper"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
     div[data-testid="stExpander"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:6px !important; box-shadow:none !important; }}
-    div[data-testid="stExpander"] summary {{ font-weight:650 !important; }}
+    div[data-testid="stExpander"] summary {{ font-weight:680 !important; min-height:48px !important; }}
+    div[data-testid="stExpander"] summary p {{ font-size:.88rem !important; line-height:1.35 !important; }}
+    div[data-testid="stExpander"] [data-testid="stMarkdownContainer"] {{ line-height:1.55 !important; }}
     [data-testid="stAlert"] {{ border-radius:6px !important; box-shadow:none !important; }}
 
     /* Métricas com leitura de dashboard, não cartão de marketing */
@@ -606,6 +608,43 @@ def aplicar_ui_premium(modo):
     .dash-section-title {{ color:{text}; font-size:.78rem; font-weight:750; margin:14px 0 9px; }}
     @media(max-width:760px) {{ .dash-head {{ align-items:flex-start; }} .dash-date {{ display:none; }} .dash-title {{ font-size:1.48rem; }} }}
 
+    /* ===== CADERNOS DE ANOTAÇÕES — PREMIUM ===== */
+    .notes-hero {{ display:flex; align-items:flex-end; justify-content:space-between; gap:18px; padding:18px 20px; margin:0 0 16px; background:linear-gradient(135deg,{surface},{surface2}); border:1px solid {border}; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.06); }}
+    .notes-hero-kicker {{ color:{accent}; font-size:.66rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
+    .notes-hero-title {{ color:{text}; font-size:1.55rem; font-weight:780; letter-spacing:-.035em; margin-top:3px; }}
+    .notes-hero-sub {{ color:{muted}; font-size:.78rem; line-height:1.45; margin-top:5px; max-width:680px; }}
+    .notes-hero-stat {{ text-align:right; min-width:105px; }}
+    .notes-hero-stat strong {{ display:block; color:{accent}; font-size:1.55rem; line-height:1; }}
+    .notes-hero-stat span {{ color:{muted}; font-size:.68rem; }}
+    .note-compose {{ background:{surface}; border:1px solid {border}; border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(0,0,0,.04); }}
+    .note-section-label {{ color:{text}; font-size:.84rem; font-weight:760; margin:4px 0 8px; }}
+    .note-section-label span {{ color:{accent}; }}
+    .note-tip {{ padding:10px 12px; background:{accent_soft}; border:1px solid rgba(36,124,117,.16); border-radius:8px; color:{text}; font-size:.76rem; line-height:1.45; margin-bottom:12px; }}
+    .note-card {{ background:{surface}; border:1px solid {border}; border-radius:11px; margin:9px 0; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,.035); transition:border-color .15s,box-shadow .15s,transform .15s; }}
+    .note-card:hover {{ border-color:{accent}; box-shadow:0 8px 22px rgba(0,0,0,.07); transform:translateY(-1px); }}
+    .note-card-head {{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid {{border2}}; }}
+    .note-card-dot {{ width:9px; height:9px; border-radius:50%; flex:0 0 9px; }}
+    .note-card-title {{ color:{text}; font-size:.9rem; font-weight:740; line-height:1.3; overflow-wrap:anywhere; }}
+    .note-card-meta {{ color:{muted}; font-size:.68rem; margin-top:3px; }}
+    .note-card-badge {{ margin-left:auto; color:{accent}; background:{accent_soft}; border:1px solid rgba(36,124,117,.15); border-radius:999px; padding:3px 7px; font-size:.62rem; font-weight:750; white-space:nowrap; }}
+    .note-content {{ padding:13px 15px 5px; color:{text}; font-size:.88rem; line-height:1.62; }}
+    .note-content ul {{ padding-left:20px; }}
+    .note-actions {{ padding:0 14px 12px; }}
+    .note-ai-box {{ margin-top:12px; padding:12px; background:{surface2}; border:1px solid {{border2}}; border-radius:9px; }}
+    .note-ai-title {{ color:{text}; font-size:.76rem; font-weight:760; margin-bottom:8px; }}
+    .notes-filter {{ margin-bottom:10px; }}
+    @media(max-width:760px) {{
+        .notes-hero {{ align-items:flex-start; padding:14px; }}
+        .notes-hero-title {{ font-size:1.34rem; }}
+        .notes-hero-sub {{ font-size:.82rem; }}
+        .notes-hero-stat {{ display:none; }}
+        .note-compose {{ padding:11px; }}
+        .note-card-head {{ padding:11px 12px; }}
+        .note-card-title {{ font-size:.9rem; }}
+        .note-content {{ padding:12px; font-size:.91rem; line-height:1.68; }}
+        .note-card-badge {{ display:none; }}
+    }}
+
     /* ===== CHAT / IA ===== */
     [data-testid="stChatMessage"] {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; margin-bottom:7px !important; }}
     [data-testid="stChatInput"] > div {{ background:{surface} !important; border:1px solid {border} !important; border-radius:7px !important; box-shadow:none !important; }}
@@ -621,6 +660,96 @@ def aplicar_ui_premium(modo):
         [data-testid="stTabs"] button[role="tab"] {{ padding:9px 10px 8px !important; font-size:.75rem !important; }}
         .stButton > button {{ min-height:43px !important; }}
     }}
+    /* ===== RESPONSIVIDADE 2.9.13 — CELULAR / TABLET ===== */
+    /* Objetivo: no mobile, priorizar leitura e toque sem alterar regras de negócio. */
+    @media (max-width: 900px) {{
+        .main .block-container {{ max-width:100% !important; padding:.9rem .9rem 3rem !important; }}
+        .main .block-container > div {{ gap:.7rem !important; }}
+        h1 {{ font-size:1.65rem !important; line-height:1.18 !important; }}
+        h2 {{ font-size:1.35rem !important; line-height:1.2 !important; }}
+        h3 {{ font-size:1.12rem !important; line-height:1.25 !important; }}
+        p, li, label, .stMarkdown {{ font-size:.92rem !important; line-height:1.48 !important; }}
+        [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ font-size:.78rem !important; line-height:1.4 !important; }}
+
+        /* Áreas horizontais passam a ocupar a largura disponível. */
+        [data-testid="stHorizontalBlock"] {{ gap:.65rem !important; }}
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {{ min-width:0 !important; }}
+
+        /* Controles maiores para toque. */
+        .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ min-height:46px !important; font-size:.9rem !important; padding:.45rem .75rem !important; }}
+        input, textarea, [data-baseweb="select"] {{ font-size:16px !important; }}
+        [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input, [data-testid="stDateInput"] input, [data-testid="stTimeInput"] input, [data-testid="stTextArea"] textarea {{ min-height:44px !important; font-size:16px !important; }}
+        [data-testid="stSelectbox"] [data-baseweb="select"], [data-testid="stMultiSelect"] [data-baseweb="select"] {{ min-height:44px !important; }}
+        [data-testid="stFileUploadDropzone"] {{ min-height:88px !important; }}
+
+        /* Abas: rolagem horizontal em vez de comprimir os nomes. */
+        [data-testid="stTabs"] [role="tablist"] {{ overflow-x:auto !important; overflow-y:hidden !important; scrollbar-width:none !important; white-space:nowrap !important; }}
+        [data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar {{ display:none !important; }}
+        [data-testid="stTabs"] button[role="tab"] {{ flex:0 0 auto !important; padding:11px 14px 9px !important; min-height:42px !important; font-size:.84rem !important; }}
+
+        /* Tabelas: nunca esmagar o conteúdo; permitir rolagem lateral. */
+        [data-testid="stDataFrame"], [data-testid="stTable"] {{ width:100% !important; overflow-x:auto !important; -webkit-overflow-scrolling:touch !important; }}
+        [data-testid="stDataFrame"] > div, [data-testid="stTable"] > div {{ max-width:100% !important; overflow-x:auto !important; }}
+        [data-testid="stDataFrame"] th, [data-testid="stTable"] th {{ font-size:.75rem !important; padding:10px !important; white-space:nowrap !important; }}
+        [data-testid="stDataFrame"] td, [data-testid="stTable"] td {{ font-size:.84rem !important; padding:10px !important; white-space:nowrap !important; }}
+
+        /* Gráficos ocupam a largura e ganham altura suficiente para leitura. */
+        .js-plotly-plot, .stPlotlyChart {{ width:100% !important; max-width:100% !important; }}
+        .js-plotly-plot .plot-container, .js-plotly-plot .svg-container {{ max-width:100% !important; }}
+
+        /* Cards e métricas mais legíveis. */
+        div[data-testid="metric-container"] {{ padding:12px !important; min-height:78px !important; }}
+        div[data-testid="metric-container"] label {{ font-size:.74rem !important; }}
+        div[data-testid="metric-container"] [data-testid="stMetricValue"] {{ font-size:1.3rem !important; }}
+        div[data-testid="stVerticalBlockBorderWrapper"] {{ padding:.1rem !important; }}
+
+        /* Cronograma: títulos e tarefas não podem ficar microscópicos. */
+        .rp-simple-crono-title, .rp-planner-title {{ font-size:1.5rem !important; }}
+        .rp-simple-crono-sub, .rp-planner-sub {{ font-size:.86rem !important; line-height:1.45 !important; }}
+        .rp-task {{ padding:10px 7px !important; gap:9px !important; }}
+        .rp-task-title {{ font-size:.9rem !important; line-height:1.4 !important; }}
+        .rp-task-meta {{ font-size:.74rem !important; line-height:1.35 !important; }}
+        .rp-day-name, .rp-week-name {{ font-size:.9rem !important; }}
+        .rp-day-count, .rp-week-meta {{ font-size:.72rem !important; }}
+
+        /* Cabeçalhos internos deixam de disputar espaço com datas/status. */
+        .rp-dash-hero, .rp-topbar, .rp-simple-crono-head, .rp-planner-hero {{ gap:10px !important; }}
+        .rp-dash-date, .rp-status, .rp-planner-date {{ display:none !important; }}
+    }}
+
+    @media (max-width: 600px) {{
+        .main .block-container {{ padding:.7rem .55rem 2.5rem !important; }}
+        h1 {{ font-size:1.48rem !important; }}
+        h2 {{ font-size:1.25rem !important; }}
+        h3 {{ font-size:1.05rem !important; }}
+        p, li, label, .stMarkdown {{ font-size:.9rem !important; }}
+
+        /* No celular, colunas de formulário/cartões empilham; isso evita conteúdo fora da tela. */
+        [data-testid="stHorizontalBlock"] {{ flex-wrap:wrap !important; align-items:stretch !important; }}
+        [data-testid="stHorizontalBlock"] > [data-testid="column"] {{ flex:1 1 100% !important; width:100% !important; max-width:100% !important; }}
+
+        /* Exceção visual: pequenos grupos de métricas continuam lado a lado quando houver espaço. */
+        .rp-dash-hero, .rp-planner-hero {{ display:block !important; }}
+        .rp-dash-title {{ font-size:1.48rem !important; }}
+        .rp-dash-sub {{ font-size:.82rem !important; }}
+
+        /* Botões com texto inteiro e sem corte. */
+        .stButton > button, div[data-testid="stFormSubmitButton"] > button {{ width:100% !important; white-space:normal !important; min-height:46px !important; line-height:1.25 !important; }}
+
+        /* Selects/tabs nunca ficam estreitos demais. */
+        [data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-testid="stTextInput"], [data-testid="stNumberInput"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stTextArea"] {{ width:100% !important; }}
+        [data-testid="stTabs"] button[role="tab"] {{ padding-left:12px !important; padding-right:12px !important; font-size:.82rem !important; }}
+
+        /* Tabelas e editores continuam completos: deslize horizontalmente quando necessário. */
+        [data-testid="stDataFrame"] {{ font-size:.84rem !important; }}
+        .rp-week-head {{ padding:10px !important; }}
+        .rp-day-card {{ padding:10px !important; }}
+        .rp-task-priority {{ display:none !important; }}
+
+        /* Reduz excesso de margens verticais sem reduzir a legibilidade. */
+        hr {{ margin:.65rem 0 !important; }}
+    }}
+
     @media(prefers-reduced-motion:reduce) {{ *,*::before,*::after {{ transition:none !important; animation:none !important; }} }}
     </style>
     """
@@ -2279,8 +2408,16 @@ else:
                 components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
                 st.toast("✅ Anotação salva no Caderno HIIT!", icon="📝")
                 
+            total_h_notas = len(dados_anotacoes_hiit)
+            h_com_imagem = sum(1 for n in dados_anotacoes_hiit if n.get('imagens_b64') or n.get('imagem_b64'))
+            h_areas = len(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in dados_anotacoes_hiit)) if dados_anotacoes_hiit else 0
+            hm1, hm2, hm3 = st.columns(3)
+            hm1.metric("⚡ Resumos HIIT", total_h_notas)
+            hm2.metric("🗂️ Áreas", h_areas)
+            hm3.metric("🖼️ Com imagens", h_com_imagem)
             aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
             with aba_hn1:
+                st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">HIIT · REVISÃO ATIVA</div><div class="notes-hero-title">📓 Caderno HIIT</div><div class="notes-hero-sub">Registre erros e conceitos de alta prioridade e transforme cada resumo em flashcards ou baterias de questões.</div></div><div class="notes-hero-stat"><strong>{total_h_notas}</strong><span>resumos HIIT</span></div></div>""", unsafe_allow_html=True)
                 st.markdown("### ⚡ Laboratório de Resumos HIIT")
                 st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
                 
@@ -2312,7 +2449,7 @@ else:
                                         st.session_state.hiit_nota_imgs_temp.pop(idx)
                                         st.rerun()
                 
-                st.markdown("#### ✍️ 2. Estruturar o Resumo")
+                st.markdown("<div class='note-section-label'><span>02</span> · Estruturar o resumo</div>", unsafe_allow_html=True)
                 col_ah, col_sh = st.columns(2)
                 area_h = col_ah.selectbox("Grande Área", AREAS_MED, key="sel_bloco_hiit")
                 sub_ah = ""
@@ -2341,14 +2478,22 @@ else:
                         st.error("Preencha o tema e a anotação.")
                             
             with aba_hn2:
+                st.markdown("<div class='note-section-label'><span>02</span> · Biblioteca HIIT</div>", unsafe_allow_html=True)
                 if not dados_anotacoes_hiit:
                     st.info("Nenhum resumo HIIT cadastrado.")
                 else:
-                    pesq_h = st.text_input("🔍 Pesquisar...", key="pesq_hiit")
+                    hf1, hf2 = st.columns([2.2, 1])
+                    with hf1:
+                        pesq_h = st.text_input("🔎 Buscar no HIIT", key="pesq_hiit", placeholder="Tema, erro, conceito ou palavra-chave...")
+                    with hf2:
+                        filtro_area_h = st.selectbox("Área", ["Todas"] + sorted(list(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in dados_anotacoes_hiit))), key="filtro_area_hiit_premium")
                     notas_h_exibir = list(dados_anotacoes_hiit)
                     if pesq_h:
-                        t_low = pesq_h.lower()
-                        notas_h_exibir = [n for n in notas_h_exibir if t_low in str(n.get('subtema','')).lower() or t_low in str(n.get('pontos_chave','')).lower()]
+                        t_low = pesq_h.casefold().strip()
+                        notas_h_exibir = [n for n in notas_h_exibir if t_low in str(n.get('subtema','')).casefold() or t_low in str(n.get('pontos_chave','')).casefold()]
+                    if filtro_area_h != "Todas":
+                        notas_h_exibir = [n for n in notas_h_exibir if normalizar_area(n.get('area', 'Geral'), mapa_aulas) == filtro_area_h]
+                    st.markdown(f"<div class='notes-result-bar'><span>⚡ {len(notas_h_exibir)} resumo(s) HIIT encontrado(s)</span><span>•</span><span>Priorize erros e conceitos de maior impacto</span></div>", unsafe_allow_html=True)
                     notas_h_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                     
                     blocos_presentes = sorted(list(set([n.get('area', 'Clínica Médica') for n in notas_h_exibir])))
@@ -3245,7 +3390,8 @@ else:
                         st.divider(); st.markdown("### 📋 Avaliação"); st.info(st.session_state.osce_eval)
 
     elif menu == "📝 Anotações Rápidas":
-        st.header("Caderno de Resumos e Anotações")
+        total_notas = len(dados_anotacoes)
+        st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">CADERNO DE ALTO RENDIMENTO</div><div class="notes-hero-title">📝 Anotações & Resumos</div><div class="notes-hero-sub">Transforme seus apontamentos em material de revisão. Organize por área, pesquise rapidamente e use a IA para converter seus resumos em flashcards e questões.</div></div><div class="notes-hero-stat"><strong>{total_notas}</strong><span>anotações salvas</span></div></div>""", unsafe_allow_html=True)
         
         # INICIALIZAÇÃO DE ESTADOS
         if 'nota_imgs_temp' not in st.session_state: st.session_state.nota_imgs_temp = []
@@ -3257,11 +3403,17 @@ else:
             components.html("<script>Object.keys(window.parent.localStorage).forEach(k => { if(k.startsWith('autosave_nota_')) window.parent.localStorage.removeItem(k); });</script>", height=0)
             st.toast("✅ Anotação salva com sucesso!", icon="📝")
             
+        notas_com_imagem = sum(1 for n in dados_anotacoes if n.get('imagens_b64') or n.get('imagem_b64'))
+        areas_notas = len(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in dados_anotacoes)) if dados_anotacoes else 0
+        m1, m2, m3 = st.columns(3)
+        m1.metric("📝 Resumos", total_notas)
+        m2.metric("🗂️ Áreas", areas_notas)
+        m3.metric("🖼️ Com imagens", notas_com_imagem)
         aba_nova, aba_lista = st.tabs(["➕ Nova Anotação", "📖 Meus Resumos"])
         
         with aba_nova:
-            st.markdown("### ⚡ Laboratório de Resumos")
-            st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
+            st.markdown("<div class='note-section-label'><span>01</span> · Criar novo resumo</div>", unsafe_allow_html=True)
+            st.markdown("<div class='note-tip'>💡 <strong>Fluxo rápido:</strong> cole uma imagem, escolha a área, escreva os pontos essenciais e salve. Depois, use a IA para transformar o conteúdo em revisão ativa.</div>", unsafe_allow_html=True)
             
             with st.container(border=True):
                 col_btn, col_img = st.columns([1, 2])
@@ -3336,16 +3488,24 @@ else:
                         st.error("Preencha o subtema e a anotação para salvar.")
 
         with aba_lista:
+            st.markdown("<div class='note-section-label'><span>03</span> · Biblioteca de resumos</div>", unsafe_allow_html=True)
             minhas_anotacoes = dados_anotacoes
             if not minhas_anotacoes:
                 st.info("Você ainda não tem anotações. Vá na aba 'Nova Anotação' para começar!")
             else:
-                pesquisa_nota = st.text_input("🔍 Pesquisar por subtema, área ou palavra-chave...", "")
+                fcol1, fcol2 = st.columns([2.2, 1])
+                with fcol1:
+                    pesquisa_nota = st.text_input("🔎 Buscar no caderno", "", placeholder="Subtema, palavra-chave ou conteúdo...", key="pesquisa_nota_premium")
+                with fcol2:
+                    filtro_area_nota = st.selectbox("Área", ["Todas"] + sorted(list(set(normalizar_area(n.get('area', 'Geral'), mapa_aulas) for n in minhas_anotacoes))), key="filtro_area_nota_premium")
                 
                 notas_exibir = list(minhas_anotacoes)
                 if pesquisa_nota:
-                    termo = pesquisa_nota.lower()
-                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).lower() or termo in str(n.get('area', '')).lower() or termo in str(n.get('pontos_chave', '')).lower()]
+                    termo = pesquisa_nota.casefold().strip()
+                    notas_exibir = [n for n in notas_exibir if termo in str(n.get('subtema', '')).casefold() or termo in str(n.get('area', '')).casefold() or termo in str(n.get('pontos_chave', '')).casefold()]
+                if filtro_area_nota != "Todas":
+                    notas_exibir = [n for n in notas_exibir if normalizar_area(n.get('area', 'Geral'), mapa_aulas) == filtro_area_nota]
+                st.markdown(f"<div class='notes-result-bar'><span>📚 {len(notas_exibir)} resumo(s) encontrado(s)</span><span>•</span><span>Ordenados do mais recente para o mais antigo</span></div>", unsafe_allow_html=True)
                 
                 notas_exibir.sort(key=lambda x: parse_data(x.get('data_criacao')), reverse=True)
                 
