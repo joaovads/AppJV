@@ -922,60 +922,104 @@ def render_shell(menu, nome, modo):
 
 
 def preservar_posicao_caderno(chave="rp_caderno_scroll"):
-    """Mantém a posição de rolagem do caderno após colar/remover uma imagem.
-    O componente de colagem provoca rerun do Streamlit; o navegador normalmente
-    volta ao topo. Este pequeno guardião salva/restaura a posição apenas nesta tela.
+    """Preserva a posição real do scroll do Streamlit após eventos de componentes.
+
+    O Streamlit não usa necessariamente window.scrollY: em várias versões o scroll
+    fica em um container interno. Por isso salvamos/restauramos todos os candidatos
+    que realmente possuem overflow vertical. Isso evita o salto para o topo quando
+    o componente de colagem dispara um rerun.
     """
     js = f"""
     <script>
     (() => {{
-        try {{
-            const parent = window.parent;
-            const key = {json.dumps(chave)};
-            const readY = () => {{
-                const y = Number(parent.scrollY || parent.document.documentElement.scrollTop || 0);
-                if (Number.isFinite(y)) parent.localStorage.setItem(key, String(Math.max(0, y)));
-            }};
-            if (!parent.__rpNoteScrollKeeper) {{
-                parent.__rpNoteScrollKeeper = true;
-                parent.addEventListener('scroll', readY, {{passive:true}});
-                parent.addEventListener('beforeunload', readY);
-            }}
-            const saved = Number(parent.localStorage.getItem(key) || 0);
-            if (saved > 0) {{
-                const restore = () => parent.scrollTo(0, saved);
-                setTimeout(restore, 20);
-                setTimeout(restore, 120);
-                setTimeout(restore, 300);
-                setTimeout(restore, 600);
-            }}
-        }} catch (e) {{}}
+      try {{
+        const p = window.parent;
+        const key = {json.dumps(chave)};
+        const candidates = () => Array.from(p.document.querySelectorAll('*')).filter(el => {{
+          try {{
+            const st = p.getComputedStyle(el);
+            return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 20;
+          }} catch (_) {{ return false; }}
+        }});
+        const read = () => {{
+          const vals = {{window: Number(p.scrollY || 0)}};
+          candidates().forEach((el, i) => vals['c'+i] = Number(el.scrollTop || 0));
+          p.sessionStorage.setItem(key, JSON.stringify(vals));
+        }};
+        if (!p.__rpNoteScrollKeeperV2) {{
+          p.__rpNoteScrollKeeperV2 = true;
+          p.addEventListener('scroll', read, {{passive:true}});
+          p.addEventListener('beforeunload', read);
+          p.document.addEventListener('scroll', read, {{passive:true, capture:true}});
+        }}
+        const restore = () => {{
+          let saved = null;
+          try {{ saved = JSON.parse(p.sessionStorage.getItem(key) || 'null'); }} catch (_) {{}}
+          if (!saved) return;
+          if (Number.isFinite(saved.window)) p.scrollTo(0, saved.window);
+          candidates().forEach((el, i) => {{
+            const v = saved['c'+i];
+            if (Number.isFinite(v)) el.scrollTop = v;
+          }});
+        }};
+        restore();
+        [30,100,250,500,900,1400].forEach(ms => p.setTimeout(restore, ms));
+      }} catch (_) {{}}
     }})();
     </script>
     """
     components.html(js, height=0)
 
 
-def remover_imagem_firestore(colecao, state_key, doc_id, imagens, indice):
-    """Remove uma imagem de forma determinística, inclusive registros antigos.
-    Não depende do Sentinel DELETE_FIELD para a imagem legada; grava explicitamente
-    a lista restante e zera o campo antigo.
+def remover_imagem_firestore(colecao, state_key, doc_id, imagens, indice=None, imagem_alvo=None):
+    """Remove uma imagem usando o estado atual do Firestore, não uma lista antiga.
+
+    A imagem é identificada pelo conteúdo (quando disponível), e não somente pelo
+    índice visual. Isso evita que uma imagem antiga/legada volte a aparecer depois
+    do rerun. O campo legado imagem_b64 também é normalizado.
     """
     try:
-        restantes = list(imagens or [])
-        if indice < 0 or indice >= len(restantes):
+        ref = db.collection(colecao).document(str(doc_id))
+        snap = ref.get()
+        if not snap.exists:
             return False
-        restantes.pop(indice)
-        db.collection(colecao).document(str(doc_id)).update({
-            "imagens_b64": restantes,
-            "imagem_b64": None,
-        })
-        if state_key in st.session_state.get("dados", {}):
-            for item in st.session_state.dados[state_key]:
-                if str(item.get("id")) == str(doc_id):
-                    item["imagens_b64"] = restantes
-                    item["imagem_b64"] = None
-                    break
+        doc = snap.to_dict() or {}
+
+        lista = doc.get("imagens_b64") or []
+        if not isinstance(lista, list):
+            lista = [lista]
+        lista = [x for x in lista if isinstance(x, str) and x]
+        legado = doc.get("imagem_b64")
+        imagens_atuais = list(lista)
+        if isinstance(legado, str) and legado and legado not in imagens_atuais:
+            imagens_atuais.insert(0, legado)
+
+        if not imagens_atuais:
+            return False
+
+        alvo = imagem_alvo
+        if alvo is None and indice is not None and 0 <= indice < len(imagens_atuais):
+            alvo = imagens_atuais[indice]
+        if not isinstance(alvo, str) or not alvo:
+            return False
+
+        # Remove exatamente uma ocorrência da imagem clicada.
+        restantes = list(imagens_atuais)
+        try:
+            restantes.remove(alvo)
+        except ValueError:
+            return False
+
+        # Salva a estrutura nova de forma explícita e elimina o campo legado.
+        ref.set({"imagens_b64": restantes, "imagem_b64": None}, merge=True)
+
+        # Atualiza imediatamente a memória local.
+        dados = st.session_state.get("dados", {})
+        for item in dados.get(state_key, []):
+            if str(item.get("id")) == str(doc_id):
+                item["imagens_b64"] = restantes
+                item["imagem_b64"] = None
+                break
         return True
     except Exception as exc:
         st.error(f"Não foi possível remover a imagem: {exc}")
@@ -2795,7 +2839,8 @@ else:
                             ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
                             if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
                                 st.session_state.hiit_nota_imgs_temp.append(ib64)
-                                st.rerun()
+                                # O próprio componente de colagem já provoca o rerun.
+                                # Não forçar um segundo rerun: ele era a causa principal do salto da tela.
                     else:
                         st.warning("Biblioteca de colar imagem não detectada.")
                 with info_col:
@@ -2964,7 +3009,7 @@ else:
                                                         if img_eb64 and img_eb64 not in imgs_exibir:
                                                             imgs_exibir.append(img_eb64)
                                                             db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
-                                                            st.rerun()
+                                                            # O componente já dispara o rerun; não forçar outro.
                                             with col_eimg:
                                                 if imgs_exibir:
                                                     cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
@@ -2974,7 +3019,7 @@ else:
                                                                 try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                                 except: pass
                                                             if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}", use_container_width=True):
-                                                                if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e):
+                                                                if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e, img_b64_e):
                                                                     st.toast("Imagem removida da anotação.", icon="🗑️")
                                                                     st.rerun()
 
@@ -3795,7 +3840,7 @@ else:
                             img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
                             if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                                 st.session_state.nota_imgs_temp.append(img_b64)
-                                st.rerun()
+                                # Não chamar st.rerun(): o evento do componente já recarrega a página.
                     else:
                         st.warning("Biblioteca de colar imagem não detectada.")
                         
@@ -3947,7 +3992,7 @@ else:
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        st.rerun()
+                                                        # O componente já dispara o rerun; não forçar outro.
                                         with col_eimg:
                                             if imgs_exibir:
                                                 cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
@@ -3957,7 +4002,7 @@ else:
                                                             try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                             except: pass
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}", use_container_width=True):
-                                                            if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e):
+                                                            if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e, img_b64_e):
                                                                 st.toast("Imagem removida da anotação.", icon="🗑️")
                                                                 st.rerun()
 
