@@ -919,6 +919,78 @@ def render_shell(menu, nome, modo):
     )
 
 
+
+
+def preservar_posicao_caderno(chave="rp_caderno_scroll"):
+    """Mantém a posição de rolagem do caderno após colar/remover uma imagem.
+    O componente de colagem provoca rerun do Streamlit; o navegador normalmente
+    volta ao topo. Este pequeno guardião salva/restaura a posição apenas nesta tela.
+    """
+    js = f"""
+    <script>
+    (() => {{
+        try {{
+            const parent = window.parent;
+            const key = {json.dumps(chave)};
+            const readY = () => {{
+                const y = Number(parent.scrollY || parent.document.documentElement.scrollTop || 0);
+                if (Number.isFinite(y)) parent.localStorage.setItem(key, String(Math.max(0, y)));
+            }};
+            if (!parent.__rpNoteScrollKeeper) {{
+                parent.__rpNoteScrollKeeper = true;
+                parent.addEventListener('scroll', readY, {{passive:true}});
+                parent.addEventListener('beforeunload', readY);
+            }}
+            const saved = Number(parent.localStorage.getItem(key) || 0);
+            if (saved > 0) {{
+                const restore = () => parent.scrollTo(0, saved);
+                setTimeout(restore, 20);
+                setTimeout(restore, 120);
+                setTimeout(restore, 300);
+                setTimeout(restore, 600);
+            }}
+        }} catch (e) {{}}
+    }})();
+    </script>
+    """
+    components.html(js, height=0)
+
+
+def remover_imagem_firestore(colecao, state_key, doc_id, imagens, indice):
+    """Remove uma imagem de forma determinística, inclusive registros antigos.
+    Não depende do Sentinel DELETE_FIELD para a imagem legada; grava explicitamente
+    a lista restante e zera o campo antigo.
+    """
+    try:
+        restantes = list(imagens or [])
+        if indice < 0 or indice >= len(restantes):
+            return False
+        restantes.pop(indice)
+        db.collection(colecao).document(str(doc_id)).update({
+            "imagens_b64": restantes,
+            "imagem_b64": None,
+        })
+        if state_key in st.session_state.get("dados", {}):
+            for item in st.session_state.dados[state_key]:
+                if str(item.get("id")) == str(doc_id):
+                    item["imagens_b64"] = restantes
+                    item["imagem_b64"] = None
+                    break
+        return True
+    except Exception as exc:
+        st.error(f"Não foi possível remover a imagem: {exc}")
+        return False
+
+
+def remover_imagem_temp(lista_key, indice):
+    """Remove uma imagem temporária pelo índice e força uma nova renderização."""
+    imagens = list(st.session_state.get(lista_key, []))
+    if 0 <= indice < len(imagens):
+        imagens.pop(indice)
+        st.session_state[lista_key] = imagens
+        return True
+    return False
+
 # ==========================================
 # CHAVES DE ACESSO E CONEXÃO FIREBASE
 # ==========================================
@@ -2622,6 +2694,7 @@ else:
                                 st.rerun()
 
         with aba_notas_hiit:
+            preservar_posicao_caderno("rp_caderno_scroll_hiit")
             if 'hiit_nota_imgs_temp' not in st.session_state: st.session_state.hiit_nota_imgs_temp = []
             
             # GATILHO PARA LIMPAR O CACHE DO NAVEGADOR
@@ -2741,8 +2814,9 @@ else:
                                 except Exception:
                                     pass
                             if st.button("Remover imagem", key=f"rm_hiit_img_{idx}", use_container_width=True):
-                                st.session_state.hiit_nota_imgs_temp.pop(idx)
-                                st.rerun()
+                                if remover_imagem_temp("hiit_nota_imgs_temp", idx):
+                                    st.toast("Imagem removida.", icon="🗑️")
+                                    st.rerun()
 
                 st.markdown("<div class='hiit-editor-canvas'><div class='hiit-editor-canvas-label'><strong>Conteúdo da anotação</strong><span>Use os controles abaixo para formatar</span></div></div>", unsafe_allow_html=True)
                 render_hiit_note_format_toolbar()
@@ -2899,10 +2973,10 @@ else:
                                                             if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                                 try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                                 except: pass
-                                                            if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}"):
-                                                                imgs_exibir.pop(idx_e)
-                                                                db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
-                                                                st.rerun()
+                                                            if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}", use_container_width=True):
+                                                                if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e):
+                                                                    st.toast("Imagem removida da anotação.", icon="🗑️")
+                                                                    st.rerun()
 
                                             st.markdown("#### ✍️ Editar Texto")
                                             
@@ -3679,6 +3753,7 @@ else:
                         st.divider(); st.markdown("### 📋 Avaliação"); st.info(st.session_state.osce_eval)
 
     elif menu == "📝 Anotações Rápidas":
+        preservar_posicao_caderno("rp_caderno_scroll_normal")
         total_notas = len(dados_anotacoes)
         st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">CADERNO DE ALTO RENDIMENTO</div><div class="notes-hero-title">📝 Anotações & Resumos</div><div class="notes-hero-sub">Organize seus apontamentos por área e mantenha um caderno de revisão rápido para consultar quando precisar.</div></div><div class="notes-hero-stat"><strong>{total_notas}</strong><span>anotações salvas</span></div></div>""", unsafe_allow_html=True)
         
@@ -3734,9 +3809,10 @@ else:
                                     try:
                                         st.image(base64.b64decode(img_b64), use_container_width=True)
                                     except: pass
-                                if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}"):
-                                    st.session_state.nota_imgs_temp.pop(idx)
-                                    st.rerun()
+                                if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}", use_container_width=True):
+                                    if remover_imagem_temp("nota_imgs_temp", idx):
+                                        st.toast("Imagem removida.", icon="🗑️")
+                                        st.rerun()
 
             st.markdown("<div class='note-form-head'><div class='note-form-title'>✍️ Estruturar o resumo</div><div class='note-form-sub'>Identifique o tema e registre somente o que vale a pena revisar depois.</div></div>", unsafe_allow_html=True)
             
@@ -3880,10 +3956,10 @@ else:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                             try: st.image(base64.b64decode(img_b64_e), use_container_width=True)
                                                             except: pass
-                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}"):
-                                                            imgs_exibir.pop(idx_e)
-                                                            db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                            st.rerun()
+                                                        if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}", use_container_width=True):
+                                                            if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e):
+                                                                st.toast("Imagem removida da anotação.", icon="🗑️")
+                                                                st.rerun()
 
                                         st.markdown("#### ✍️ Editar Texto")
                                         
