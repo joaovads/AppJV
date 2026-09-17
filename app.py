@@ -1425,6 +1425,83 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
     html_code += "</table></div>"
     return html_code
 
+def render_hiit_note_format_toolbar():
+    """Barra de edição exclusiva do Caderno HIIT. Não altera o editor das outras telas."""
+    toolbar_html = """
+    <div class="hiit-note-toolbar">
+        <div class="hiit-note-toolbar-title">EDITOR</div>
+        <button class="hiit-fmt" data-t1="**" data-t2="**" title="Negrito"><b>B</b></button>
+        <button class="hiit-fmt" data-t1="<u>" data-t2="</u>" title="Sublinhado"><u>U</u></button>
+        <button class="hiit-fmt hiit-fmt-wide" data-t1="<mark>" data-t2="</mark>" title="Destacar">🖍️ Destacar</button>
+        <button class="hiit-fmt hiit-fmt-wide" data-t1="\\n- " data-t2="" title="Criar tópico">• Tópico</button>
+        <span class="hiit-note-toolbar-hint">Selecione um trecho para formatar</span>
+    </div>
+    <script>
+    (() => {
+      const doc = window.parent.document;
+      function getEditor() {
+        const areas = doc.querySelectorAll('textarea');
+        for (const ta of areas) {
+          const label = ta.getAttribute('aria-label') || '';
+          if (label === 'Anotação / Tópicos Chaves') return ta;
+        }
+        return null;
+      }
+      function applyFormat(start, end) {
+        const ta = getEditor();
+        if (!ta) return;
+        const a = ta.selectionStart || 0;
+        const b = ta.selectionEnd || 0;
+        const value = ta.value || '';
+        const selected = value.slice(a, b);
+        const next = value.slice(0, a) + start + selected + end + value.slice(b);
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+        setter.call(ta, next);
+        ta.dispatchEvent(new Event('input', {bubbles:true}));
+        ta.focus();
+        ta.setSelectionRange(a + start.length, a + start.length + selected.length);
+      }
+      document.querySelectorAll('.hiit-fmt').forEach(btn => {
+        const action = (ev) => {
+          ev.preventDefault();
+          applyFormat(btn.dataset.t1 || '', btn.dataset.t2 || '');
+        };
+        btn.addEventListener('mousedown', action);
+        btn.addEventListener('touchstart', action, {passive:false});
+      });
+    })();
+    </script>
+    """
+    components.html(f"""
+    <style>
+      .hiit-note-toolbar {{
+        display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+        width:100%; padding:9px 10px; box-sizing:border-box;
+        background:#151b24; border:1px solid #303a49; border-radius:11px;
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }}
+      .hiit-note-toolbar-title {{
+        color:#8f9aaa; font-size:10px; font-weight:800; letter-spacing:.13em;
+        margin:0 4px 0 2px;
+      }}
+      .hiit-fmt {{
+        appearance:none; border:1px solid #394456; background:#202936; color:#f4f7fb;
+        min-width:34px; height:32px; padding:0 10px; border-radius:7px; cursor:pointer;
+        font-size:12px; font-weight:750; line-height:32px; text-align:center;
+      }}
+      .hiit-fmt:hover {{ background:#293545; border-color:#526176; }}
+      .hiit-fmt:active {{ transform:translateY(1px); }}
+      .hiit-fmt-wide {{ min-width:auto; }}
+      .hiit-note-toolbar-hint {{ margin-left:auto; color:#6f7c8c; font-size:10px; white-space:nowrap; }}
+      @media(max-width:700px) {{
+        .hiit-note-toolbar-hint {{ display:none; }}
+        .hiit-note-toolbar {{ gap:5px; padding:8px; }}
+        .hiit-fmt {{ height:34px; min-width:36px; }}
+      }}
+    </style>
+    {toolbar_html}
+    """, height=60)
+
 def render_toolbar():
     """
     Motor definitivo de formatação à prova de mobile e iPad.
@@ -2563,39 +2640,65 @@ else:
             hm3.metric("🖼️ Com imagens", h_com_imagem)
             aba_hn1, aba_hn2 = st.tabs(["➕ Novo Resumo HIIT", "📖 Cadernos HIIT"])
             with aba_hn1:
-                st.markdown(f"""<div class="notes-hero"><div><div class="notes-hero-kicker">HIIT · REVISÃO ATIVA</div><div class="notes-hero-title">📓 Caderno HIIT</div><div class="notes-hero-sub">Registre erros e conceitos de alta prioridade e mantenha o conteúdo pronto para revisão.</div></div><div class="notes-hero-stat"><strong>{total_h_notas}</strong><span>resumos HIIT</span></div></div>""", unsafe_allow_html=True)
-                st.markdown("### ⚡ Laboratório de Resumos HIIT")
-                st.info("💡 **Dica de Ouro:** Suas anotações aqui viram Flashcards Atômicos e Simulados com 1 clique. Seja direto e foque no alto rendimento!")
-                
-                with st.container(border=True):
-                    col_b, col_i = st.columns([1, 2])
-                    with col_b:
-                        st.markdown("#### 📸 1. Anexos Visuais")
-                        st.caption("Tabelas, fluxogramas ou o print do seu erro.")
-                        if paste_image_button is not None:
-                            res_paste_hiit = paste_image_button(
-                                label="Colar Imagem (Ctrl+V)",
-                                background_color="#2563eb", hover_background_color="#1d4ed8",
-                                key="paste_hiit_nota"
-                            )
-                            if res_paste_hiit.image_data is not None:
-                                ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
-                                if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
-                                    st.session_state.hiit_nota_imgs_temp.append(ib64)
-                                    st.rerun()
-                    with col_i:
-                        if st.session_state.hiit_nota_imgs_temp:
-                            cols = st.columns(3)
-                            for idx, img_b64 in enumerate(st.session_state.hiit_nota_imgs_temp):
-                                with cols[idx % 3]:
-                                    if isinstance(img_b64, str) and len(img_b64)>50:
-                                        try: st.image(base64.b64decode(img_b64), use_container_width=True)
-                                        except: pass
-                                    if st.button("🗑️ Remover", key=f"rm_hiit_img_{idx}"):
-                                        st.session_state.hiit_nota_imgs_temp.pop(idx)
-                                        st.rerun()
-                
-                st.markdown("<div class='note-section-label'><span>02</span> · Estruturar o resumo</div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <style>
+                  .hiit-editor-page {{
+                    border:1px solid #303844; border-radius:16px; padding:20px;
+                    background:linear-gradient(180deg,#11161d 0%,#0d1218 100%);
+                    margin-top:8px;
+                  }}
+                  .hiit-editor-head {{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }}
+                  .hiit-editor-kicker {{ color:#8491a1; font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; margin-bottom:5px; }}
+                  .hiit-editor-title {{ color:#f4f7fb; font-size:1.18rem; font-weight:780; letter-spacing:-.025em; }}
+                  .hiit-editor-sub {{ color:#7f8b99; font-size:.75rem; line-height:1.45; margin-top:4px; max-width:620px; }}
+                  .hiit-editor-count {{ min-width:86px; text-align:right; color:#9ba6b4; font-size:.68rem; }}
+                  .hiit-editor-count strong {{ display:block; color:#f4f7fb; font-size:1.15rem; line-height:1.1; }}
+                  .hiit-editor-meta {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 14px; }}
+                  .hiit-editor-field {{ padding:11px 12px; border:1px solid #303844; border-radius:10px; background:#151b23; }}
+                  .hiit-editor-field-label {{ color:#7f8b99; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }}
+                  .hiit-editor-field-value {{ color:#edf2f7; font-size:.83rem; font-weight:680; }}
+                  .hiit-editor-image-head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 8px; }}
+                  .hiit-editor-image-title {{ color:#dbe3eb; font-size:.78rem; font-weight:760; }}
+                  .hiit-editor-image-help {{ color:#6f7c8c; font-size:.67rem; }}
+                  .hiit-editor-canvas {{ margin-top:10px; padding:12px; border:1px solid #303844; border-radius:12px; background:#10161e; }}
+                  .hiit-editor-canvas-label {{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }}
+                  .hiit-editor-canvas-label strong {{ color:#eef3f8; font-size:.78rem; }}
+                  .hiit-editor-canvas-label span {{ color:#697686; font-size:.65rem; }}
+                  textarea[aria-label="Anotação / Tópicos Chaves"] {{
+                    min-height:330px !important; height:330px !important;
+                    padding:17px 18px !important; border-radius:10px !important;
+                    border:1px solid #364152 !important; background:#0c1117 !important;
+                    color:#edf2f7 !important; -webkit-text-fill-color:#edf2f7 !important;
+                    font-size:15px !important; line-height:1.72 !important;
+                    font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important;
+                    box-shadow:inset 0 1px 0 rgba(255,255,255,.025) !important;
+                    resize:vertical !important;
+                  }}
+                  textarea[aria-label="Anotação / Tópicos Chaves"]:focus {{
+                    border-color:#64748b !important; box-shadow:0 0 0 2px rgba(100,116,139,.13) !important;
+                  }}
+                  textarea[aria-label="Anotação / Tópicos Chaves"]::placeholder {{ color:#566273 !important; -webkit-text-fill-color:#566273 !important; }}
+                  @media(max-width:700px) {{
+                    .hiit-editor-page {{ padding:14px; border-radius:13px; }}
+                    .hiit-editor-head {{ margin-bottom:13px; }}
+                    .hiit-editor-title {{ font-size:1.05rem; }}
+                    .hiit-editor-meta {{ grid-template-columns:1fr; gap:8px; }}
+                    .hiit-editor-count {{ display:none; }}
+                    textarea[aria-label="Anotação / Tópicos Chaves"] {{ min-height:300px !important; height:300px !important; font-size:15px !important; }}
+                  }}
+                </style>
+                <div class="hiit-editor-page">
+                  <div class="hiit-editor-head">
+                    <div>
+                      <div class="hiit-editor-kicker">Caderno HIIT · novo registro</div>
+                      <div class="hiit-editor-title">Escreva o que precisa ser lembrado</div>
+                      <div class="hiit-editor-sub">Monte uma nota objetiva. Você pode anexar um print, tabela ou fluxograma diretamente ao lado do editor.</div>
+                    </div>
+                    <div class="hiit-editor-count"><strong>{total_h_notas}</strong>resumos salvos</div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+
                 col_ah, col_sh = st.columns(2)
                 area_h = col_ah.selectbox("Grande Área", AREAS_MED, key="sel_bloco_hiit")
                 sub_ah = ""
@@ -2604,13 +2707,53 @@ else:
                 elif area_h == "Cirurgia Geral":
                     sub_ah = col_sh.selectbox("Subespecialidade", SUB_CG, key="hiit_sub_cg_nota")
 
-                sub_h = st.text_input("Tema / Assunto", key="hiit_input_tema")
-                
-                with st.container(border=True):
-                    render_toolbar()
-                    txt_h = st.text_area("Anotação / Tópicos Chaves", height=200, key="draft_hiit_txt_key")
+                sub_h = st.text_input("Tema / Assunto", key="hiit_input_tema", placeholder="Ex.: Insuficiência cardíaca — tratamento")
 
-                if st.button("💾 Salvar Resumo HIIT", use_container_width=True, type="primary"):
+                st.markdown("<div class='hiit-editor-image-head'><div class='hiit-editor-image-title'>Anexo visual</div><div class='hiit-editor-image-help'>Prints, tabelas, fluxogramas ou questões</div></div>", unsafe_allow_html=True)
+                paste_col, info_col = st.columns([1, 3])
+                with paste_col:
+                    if paste_image_button is not None:
+                        res_paste_hiit = paste_image_button(
+                            label="📎 Colar imagem (Ctrl+V)",
+                            background_color="#334155", hover_background_color="#475569",
+                            key="paste_hiit_nota"
+                        )
+                        if res_paste_hiit.image_data is not None:
+                            ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
+                            if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
+                                st.session_state.hiit_nota_imgs_temp.append(ib64)
+                                st.rerun()
+                    else:
+                        st.warning("Biblioteca de colar imagem não detectada.")
+                with info_col:
+                    if st.session_state.hiit_nota_imgs_temp:
+                        st.markdown(f"<div class='hiit-editor-image-help' style='padding:9px 0'>✓ {len(st.session_state.hiit_nota_imgs_temp)} imagem(ns) anexada(s). Você pode removê-las abaixo.</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div class='hiit-editor-image-help' style='padding:9px 0'>O botão fica aqui, junto do editor — não é preciso voltar ao topo da página.</div>", unsafe_allow_html=True)
+
+                if st.session_state.hiit_nota_imgs_temp:
+                    cols = st.columns(min(3, len(st.session_state.hiit_nota_imgs_temp)))
+                    for idx, img_b64 in enumerate(st.session_state.hiit_nota_imgs_temp):
+                        with cols[idx % len(cols)]:
+                            if isinstance(img_b64, str) and len(img_b64) > 50:
+                                try:
+                                    st.image(base64.b64decode(img_b64), use_container_width=True)
+                                except Exception:
+                                    pass
+                            if st.button("Remover imagem", key=f"rm_hiit_img_{idx}", use_container_width=True):
+                                st.session_state.hiit_nota_imgs_temp.pop(idx)
+                                st.rerun()
+
+                st.markdown("<div class='hiit-editor-canvas'><div class='hiit-editor-canvas-label'><strong>Conteúdo da anotação</strong><span>Use os controles abaixo para formatar</span></div></div>", unsafe_allow_html=True)
+                render_hiit_note_format_toolbar()
+                txt_h = st.text_area(
+                    "Anotação / Tópicos Chaves", height=330, key="draft_hiit_txt_key",
+                    label_visibility="collapsed",
+                    placeholder="Comece pela informação principal…\n\n• Diagnóstico / definição\n• Conduta mais importante\n• Pegadinha de prova\n• O que você errou ou precisa revisar"
+                )
+
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+                if st.button("Salvar resumo HIIT", use_container_width=True, type="primary", key="save_hiit_note_v4"):
                     if sub_h and txt_h:
                         s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
                         db_add("anotacoes_hiit", "anotacoes_hiit", {
@@ -2622,7 +2765,7 @@ else:
                         st.rerun()
                     else:
                         st.error("Preencha o tema e a anotação.")
-                            
+
             with aba_hn2:
                 st.markdown("<div class='note-section-label'><span>02</span> · Biblioteca HIIT</div>", unsafe_allow_html=True)
                 if not dados_anotacoes_hiit:
