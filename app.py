@@ -922,12 +922,11 @@ def render_shell(menu, nome, modo):
 
 
 def preservar_posicao_caderno(chave="rp_caderno_scroll"):
-    """Preserva a posição real do scroll do Streamlit após eventos de componentes.
+    """Mantém o ponto exato do Caderno durante reruns causados por colar/remover imagens.
 
-    O Streamlit não usa necessariamente window.scrollY: em várias versões o scroll
-    fica em um container interno. Por isso salvamos/restauramos todos os candidatos
-    que realmente possuem overflow vertical. Isso evita o salto para o topo quando
-    o componente de colagem dispara um rerun.
+    Além do scroll global, guarda a posição do marcador do editor. Assim, quando o
+    Streamlit reconstrói a página, o marcador volta para a mesma posição da tela,
+    mesmo que a altura do conteúdo tenha mudado por causa de uma nova imagem.
     """
     js = f"""
     <script>
@@ -935,35 +934,64 @@ def preservar_posicao_caderno(chave="rp_caderno_scroll"):
       try {{
         const p = window.parent;
         const key = {json.dumps(chave)};
-        const candidates = () => Array.from(p.document.querySelectorAll('*')).filter(el => {{
+        const anchorSelector = '[data-rp-scroll-anchor="' + key + '"]';
+
+        const getScrollable = () => Array.from(p.document.querySelectorAll('*')).filter(el => {{
           try {{
             const st = p.getComputedStyle(el);
             return (st.overflowY === 'auto' || st.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 20;
           }} catch (_) {{ return false; }}
         }});
-        const read = () => {{
-          const vals = {{window: Number(p.scrollY || 0)}};
-          candidates().forEach((el, i) => vals['c'+i] = Number(el.scrollTop || 0));
-          p.sessionStorage.setItem(key, JSON.stringify(vals));
+
+        const capture = () => {{
+          const anchor = p.document.querySelector(anchorSelector);
+          const payload = {{
+            windowY: Number(p.scrollY || 0),
+            anchorTop: anchor ? Number(anchor.getBoundingClientRect().top) : null,
+            containers: []
+          }};
+          getScrollable().forEach((el, i) => {{
+            payload.containers.push({{i:i, top:Number(el.scrollTop || 0)}});
+          }});
+          try {{ p.sessionStorage.setItem(key, JSON.stringify(payload)); }} catch (_) {{}}
         }};
-        if (!p.__rpNoteScrollKeeperV2) {{
-          p.__rpNoteScrollKeeperV2 = true;
-          p.addEventListener('scroll', read, {{passive:true}});
-          p.addEventListener('beforeunload', read);
-          p.document.addEventListener('scroll', read, {{passive:true, capture:true}});
+
+        if (!p.__rpNoteScrollKeeperV4) {{
+          p.__rpNoteScrollKeeperV4 = true;
+          p.addEventListener('scroll', capture, {{passive:true}});
+          p.document.addEventListener('scroll', capture, {{passive:true, capture:true}});
+          p.addEventListener('beforeunload', capture);
+          p.document.addEventListener('mousedown', capture, {{passive:true, capture:true}});
+          p.document.addEventListener('touchstart', capture, {{passive:true, capture:true}});
+          p.document.addEventListener('focusin', (ev) => {{
+            const el = ev.target;
+            if (el && (el.tagName === 'IFRAME' || el.closest?.('iframe'))) capture();
+          }}, true);
         }}
+
         const restore = () => {{
           let saved = null;
           try {{ saved = JSON.parse(p.sessionStorage.getItem(key) || 'null'); }} catch (_) {{}}
           if (!saved) return;
-          if (Number.isFinite(saved.window)) p.scrollTo(0, saved.window);
-          candidates().forEach((el, i) => {{
-            const v = saved['c'+i];
-            if (Number.isFinite(v)) el.scrollTop = v;
+
+          const anchor = p.document.querySelector(anchorSelector);
+          if (anchor && Number.isFinite(saved.anchorTop)) {{
+            const nowTop = Number(anchor.getBoundingClientRect().top);
+            const delta = nowTop - Number(saved.anchorTop);
+            if (Math.abs(delta) > 1) p.scrollBy(0, delta);
+          }} else if (Number.isFinite(saved.windowY)) {{
+            p.scrollTo(0, Number(saved.windowY));
+          }}
+
+          const containers = getScrollable();
+          (saved.containers || []).forEach((item, i) => {{
+            const el = containers[i];
+            if (el && Number.isFinite(item.top)) el.scrollTop = item.top;
           }});
         }};
-        restore();
-        [30,100,250,500,900,1400].forEach(ms => p.setTimeout(restore, ms));
+
+        // Restaura depois que os elementos e as imagens terminarem de ocupar espaço.
+        [0, 25, 80, 160, 300, 600, 1000, 1600].forEach(ms => p.setTimeout(restore, ms));
       }} catch (_) {{}}
     }})();
     </script>
@@ -971,12 +999,18 @@ def preservar_posicao_caderno(chave="rp_caderno_scroll"):
     components.html(js, height=0)
 
 
-def remover_imagem_firestore(colecao, state_key, doc_id, imagens, indice=None, imagem_alvo=None):
-    """Remove uma imagem usando o estado atual do Firestore, não uma lista antiga.
+def marcador_scroll_caderno(chave):
+    """Ponto estável usado pelo restaurador de scroll do editor."""
+    safe = html.escape(str(chave), quote=True)
+    st.markdown(f"<div data-rp-scroll-anchor=\"{safe}\" style=\"height:1px;width:1px;margin:0;padding:0;opacity:0;pointer-events:none;\"></div>", unsafe_allow_html=True)
 
-    A imagem é identificada pelo conteúdo (quando disponível), e não somente pelo
-    índice visual. Isso evita que uma imagem antiga/legada volte a aparecer depois
-    do rerun. O campo legado imagem_b64 também é normalizado.
+
+def remover_imagem_firestore(colecao, state_key, doc_id, imagens=None, indice=None, imagem_alvo=None):
+    """Exclusão idempotente de imagem diretamente no documento atual do Firestore.
+
+    Nunca confia na lista renderizada antes do clique. Lê novamente o documento,
+    normaliza os formatos antigo/novo e remove exatamente a ocorrência solicitada.
+    O campo legado também é apagado de verdade.
     """
     try:
         ref = db.collection(colecao).document(str(doc_id))
@@ -985,40 +1019,44 @@ def remover_imagem_firestore(colecao, state_key, doc_id, imagens, indice=None, i
             return False
         doc = snap.to_dict() or {}
 
-        lista = doc.get("imagens_b64") or []
-        if not isinstance(lista, list):
-            lista = [lista]
-        lista = [x for x in lista if isinstance(x, str) and x]
+        atual = doc.get("imagens_b64")
+        if not isinstance(atual, list):
+            atual = [atual] if isinstance(atual, str) and atual else []
+        atual = [x for x in atual if isinstance(x, str) and x]
+
         legado = doc.get("imagem_b64")
-        imagens_atuais = list(lista)
-        if isinstance(legado, str) and legado and legado not in imagens_atuais:
-            imagens_atuais.insert(0, legado)
+        if isinstance(legado, str) and legado:
+            # Campo legado representa uma imagem adicional apenas quando não está
+            # na lista moderna.
+            if legado not in atual:
+                atual.insert(0, legado)
 
-        if not imagens_atuais:
+        alvo = imagem_alvo if isinstance(imagem_alvo, str) and imagem_alvo else None
+        if alvo is None and indice is not None and 0 <= int(indice) < len(atual):
+            alvo = atual[int(indice)]
+        if not alvo or not atual:
             return False
 
-        alvo = imagem_alvo
-        if alvo is None and indice is not None and 0 <= indice < len(imagens_atuais):
-            alvo = imagens_atuais[indice]
-        if not isinstance(alvo, str) or not alvo:
-            return False
-
-        # Remove exatamente uma ocorrência da imagem clicada.
-        restantes = list(imagens_atuais)
+        # Remove uma única ocorrência. Duplicatas restantes continuam sendo
+        # imagens válidas e podem ser removidas individualmente.
         try:
-            restantes.remove(alvo)
+            pos = atual.index(alvo)
         except ValueError:
             return False
+        restantes = atual[:pos] + atual[pos+1:]
 
-        # Salva a estrutura nova de forma explícita e elimina o campo legado.
-        ref.set({"imagens_b64": restantes, "imagem_b64": None}, merge=True)
+        # update + DELETE_FIELD é importante: set(..., None) deixava o legado
+        # persistido e ele podia reaparecer após uma nova leitura.
+        ref.update({
+            "imagens_b64": restantes,
+            "imagem_b64": firestore.DELETE_FIELD,
+        })
 
-        # Atualiza imediatamente a memória local.
         dados = st.session_state.get("dados", {})
         for item in dados.get(state_key, []):
             if str(item.get("id")) == str(doc_id):
-                item["imagens_b64"] = restantes
-                item["imagem_b64"] = None
+                item["imagens_b64"] = list(restantes)
+                item.pop("imagem_b64", None)
                 break
         return True
     except Exception as exc:
@@ -1157,6 +1195,67 @@ def otimizar_imagem_para_api(img_data, max_size=500):
                 return base64.b64encode(img_data.read()).decode('utf-8')
         except: pass
         return ""
+
+def armazenar_imagem_nota_alta_qualidade(img_data):
+    """Conserva resolução e qualidade para imagens de Anotações.
+
+    Não usa o compressor da IA (1024 px/JPEG 65), que é inadequado para prints
+    médicos com texto pequeno. Prioriza o arquivo original; para objetos PIL,
+    grava PNG sem perdas. Se o PNG ficar grande demais para o limite de um campo
+    Firestore, usa JPEG 95 sem reduzir a resolução.
+    """
+    try:
+        if Image is None:
+            if isinstance(img_data, bytes):
+                return base64.b64encode(img_data).decode('utf-8')
+            if hasattr(img_data, 'getvalue'):
+                return base64.b64encode(img_data.getvalue()).decode('utf-8')
+            return ""
+
+        # O componente de colagem entrega PIL.Image.Image. Para bytes/stream,
+        # preservamos o arquivo original quando possível.
+        if isinstance(img_data, bytes):
+            raw = img_data
+            try:
+                Image.open(io.BytesIO(raw)).verify()
+                return base64.b64encode(raw).decode('utf-8')
+            except Exception:
+                pass
+        if hasattr(img_data, 'getvalue'):
+            raw = img_data.getvalue()
+            try:
+                Image.open(io.BytesIO(raw)).verify()
+                return base64.b64encode(raw).decode('utf-8')
+            except Exception:
+                pass
+
+        if isinstance(img_data, Image.Image):
+            img = img_data.copy()
+        elif hasattr(img_data, 'read'):
+            img_data.seek(0)
+            img = Image.open(io.BytesIO(img_data.read()))
+        else:
+            img = Image.open(img_data)
+
+        # PNG sem perdas é preferível para screenshots, tabelas e texto médico.
+        png = io.BytesIO()
+        if img.mode not in ('RGB', 'RGBA', 'L'):
+            img = img.convert('RGBA' if 'A' in img.getbands() else 'RGB')
+        img.save(png, format='PNG', optimize=True, compress_level=9)
+        raw_png = png.getvalue()
+
+        # Um documento Firestore tem limite de ~1 MiB. Se necessário, mantém a
+        # resolução original e cai para JPEG 95; nunca reduz a dimensão.
+        if len(raw_png) <= 700_000:
+            return base64.b64encode(raw_png).decode('utf-8')
+
+        rgb = img.convert('RGB')
+        jpg = io.BytesIO()
+        rgb.save(jpg, format='JPEG', quality=95, subsampling=0, optimize=True)
+        return base64.b64encode(jpg.getvalue()).decode('utf-8')
+    except Exception:
+        return otimizar_imagem_para_api(img_data, max_size=4096)
+
 
 def get_ia_client():
     if "model_ia" not in st.session_state:
@@ -2829,6 +2928,7 @@ else:
                 st.markdown("<div class='hiit-editor-image-head'><div class='hiit-editor-image-title'>Anexo visual</div><div class='hiit-editor-image-help'>Prints, tabelas, fluxogramas ou questões</div></div>", unsafe_allow_html=True)
                 paste_col, info_col = st.columns([1, 3])
                 with paste_col:
+                    marcador_scroll_caderno("rp_caderno_scroll_hiit")
                     if paste_image_button is not None:
                         res_paste_hiit = paste_image_button(
                             label="📎 Colar imagem (Ctrl+V)",
@@ -2836,7 +2936,7 @@ else:
                             key="paste_hiit_nota"
                         )
                         if res_paste_hiit.image_data is not None:
-                            ib64 = otimizar_imagem_para_api(res_paste_hiit.image_data, max_size=1024)
+                            ib64 = armazenar_imagem_nota_alta_qualidade(res_paste_hiit.image_data)
                             if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
                                 st.session_state.hiit_nota_imgs_temp.append(ib64)
                                 # O próprio componente de colagem já provoca o rerun.
@@ -2997,6 +3097,7 @@ else:
                                             col_ebtn, col_eimg = st.columns([1, 2])
                                             with col_ebtn:
                                                 st.markdown("➕ **Adicionar Mais Imagens:**")
+                                                marcador_scroll_caderno("rp_caderno_scroll_hiit")
                                                 if paste_image_button is not None:
                                                     res_paste_edit = paste_image_button(
                                                         label="Colar Imagem (Ctrl+V)",
@@ -3005,7 +3106,7 @@ else:
                                                         key=f"paste_edit_h_{id_nh}" 
                                                     )
                                                     if res_paste_edit.image_data is not None:
-                                                        img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                        img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
                                                         if img_eb64 and img_eb64 not in imgs_exibir:
                                                             imgs_exibir.append(img_eb64)
                                                             db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
@@ -3021,7 +3122,6 @@ else:
                                                             if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}", use_container_width=True):
                                                                 if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e, img_b64_e):
                                                                     st.toast("Imagem removida da anotação.", icon="🗑️")
-                                                                    st.rerun()
 
                                             st.markdown("#### ✍️ Editar Texto")
                                             
@@ -3829,6 +3929,7 @@ else:
                 with col_btn:
                     st.markdown("#### 📸 1. Anexos Visuais")
                     st.caption("Tabelas, fluxogramas ou o print do seu erro.")
+                    marcador_scroll_caderno("rp_caderno_scroll_normal")
                     if paste_image_button is not None:
                         res_paste_nota = paste_image_button(
                             label="CLIQUE AQUI E APERTE Ctrl+V",
@@ -3837,7 +3938,7 @@ else:
                             key="paste_nota_nova"
                         )
                         if res_paste_nota.image_data is not None:
-                            img_b64 = otimizar_imagem_para_api(res_paste_nota.image_data, max_size=1024)
+                            img_b64 = armazenar_imagem_nota_alta_qualidade(res_paste_nota.image_data)
                             if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
                                 st.session_state.nota_imgs_temp.append(img_b64)
                                 # Não chamar st.rerun(): o evento do componente já recarrega a página.
@@ -3857,7 +3958,6 @@ else:
                                 if st.button("🗑️ Remover", key=f"rmv_img_nota_{idx}", use_container_width=True):
                                     if remover_imagem_temp("nota_imgs_temp", idx):
                                         st.toast("Imagem removida.", icon="🗑️")
-                                        st.rerun()
 
             st.markdown("<div class='note-form-head'><div class='note-form-title'>✍️ Estruturar o resumo</div><div class='note-form-sub'>Identifique o tema e registre somente o que vale a pena revisar depois.</div></div>", unsafe_allow_html=True)
             
@@ -3980,6 +4080,7 @@ else:
                                         col_ebtn, col_eimg = st.columns([1, 2])
                                         with col_ebtn:
                                             st.markdown("➕ **Adicionar Mais Imagens:**")
+                                            marcador_scroll_caderno("rp_caderno_scroll_normal")
                                             if paste_image_button is not None:
                                                 res_paste_edit = paste_image_button(
                                                     label="Colar Imagem (Ctrl+V)",
@@ -3988,7 +4089,7 @@ else:
                                                     key=f"paste_edit_{nota_id}" 
                                                 )
                                                 if res_paste_edit.image_data is not None:
-                                                    img_eb64 = otimizar_imagem_para_api(res_paste_edit.image_data, max_size=1024)
+                                                    img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
                                                         imgs_exibir.append(img_eb64)
                                                         db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
@@ -4004,7 +4105,6 @@ else:
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}", use_container_width=True):
                                                             if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e, img_b64_e):
                                                                 st.toast("Imagem removida da anotação.", icon="🗑️")
-                                                                st.rerun()
 
                                         st.markdown("#### ✍️ Editar Texto")
                                         
