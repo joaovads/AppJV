@@ -1006,56 +1006,62 @@ def marcador_scroll_caderno(chave):
 
 
 def remover_imagem_firestore(colecao, state_key, doc_id, imagens=None, indice=None, imagem_alvo=None):
-    """Exclusão idempotente de imagem diretamente no documento atual do Firestore.
-
-    Nunca confia na lista renderizada antes do clique. Lê novamente o documento,
-    normaliza os formatos antigo/novo e remove exatamente a ocorrência solicitada.
-    O campo legado também é apagado de verdade.
-    """
+    """Remove imagem do armazenamento separado ou, para registros antigos, do documento legado."""
     try:
+        anexos_col = _colecao_anexos_para(colecao)
+        docs = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
+        candidatos = []
+        for d in docs:
+            item = d.to_dict() or {}
+            if str(item.get("anotacao_id")) == str(doc_id):
+                candidatos.append((d, item))
+        candidatos.sort(key=lambda x: safe_int(x[1].get("ordem", 0)))
+
+        alvo = imagem_alvo if isinstance(imagem_alvo, str) and imagem_alvo else None
+        escolhido = None
+        if alvo:
+            for d, item in candidatos:
+                if item.get("imagem_b64") == alvo:
+                    escolhido = (d, item)
+                    break
+        elif indice is not None and 0 <= int(indice) < len(candidatos):
+            escolhido = candidatos[int(indice)]
+
+        if escolhido:
+            doc_ref, _ = escolhido
+            doc_ref.delete()
+            restantes = [item.get("imagem_b64") for d, item in candidatos if d.id != doc_ref.id and item.get("imagem_b64")]
+            for ordem, (d, _) in enumerate([(d, item) for d, item in candidatos if d.id != doc_ref.id]):
+                try:
+                    d.reference.update({"ordem": ordem})
+                except Exception:
+                    pass
+            for item in st.session_state.dados.get(state_key, []):
+                if str(item.get("id")) == str(doc_id):
+                    item["imagens_b64"] = restantes
+                    item.pop("imagem_b64", None)
+                    break
+            return True
+
+        # Compatibilidade com anotações antigas que guardam imagens dentro do doc.
         ref = db.collection(colecao).document(str(doc_id))
         snap = ref.get()
         if not snap.exists:
             return False
         doc = snap.to_dict() or {}
-
-        atual = doc.get("imagens_b64")
-        if not isinstance(atual, list):
-            atual = [atual] if isinstance(atual, str) and atual else []
-        atual = [x for x in atual if isinstance(x, str) and x]
-
+        atual = _lista_imagens_nota(doc.get("imagens_b64"))
         legado = doc.get("imagem_b64")
-        if isinstance(legado, str) and legado:
-            # Campo legado representa uma imagem adicional apenas quando não está
-            # na lista moderna.
-            if legado not in atual:
-                atual.insert(0, legado)
-
-        alvo = imagem_alvo if isinstance(imagem_alvo, str) and imagem_alvo else None
-        if alvo is None and indice is not None and 0 <= int(indice) < len(atual):
-            alvo = atual[int(indice)]
-        if not alvo or not atual:
+        if isinstance(legado, str) and legado and legado not in atual:
+            atual.insert(0, legado)
+        alvo = alvo or (atual[int(indice)] if indice is not None and 0 <= int(indice) < len(atual) else None)
+        if not alvo or alvo not in atual:
             return False
-
-        # Remove uma única ocorrência. Duplicatas restantes continuam sendo
-        # imagens válidas e podem ser removidas individualmente.
-        try:
-            pos = atual.index(alvo)
-        except ValueError:
-            return False
-        restantes = atual[:pos] + atual[pos+1:]
-
-        # update + DELETE_FIELD é importante: set(..., None) deixava o legado
-        # persistido e ele podia reaparecer após uma nova leitura.
-        ref.update({
-            "imagens_b64": restantes,
-            "imagem_b64": firestore.DELETE_FIELD,
-        })
-
-        dados = st.session_state.get("dados", {})
-        for item in dados.get(state_key, []):
+        atual.remove(alvo)
+        updates = {"imagens_b64": atual, "imagem_b64": firestore.DELETE_FIELD}
+        ref.update(updates)
+        for item in st.session_state.dados.get(state_key, []):
             if str(item.get("id")) == str(doc_id):
-                item["imagens_b64"] = list(restantes)
+                item["imagens_b64"] = list(atual)
                 item.pop("imagem_b64", None)
                 break
         return True
@@ -1130,6 +1136,22 @@ def db_update(col_name, state_key, doc_id, updates):
 
 def db_delete(col_name, state_key, doc_id):
     db.collection(col_name).document(doc_id).delete()
+    # Remove também os anexos armazenados separadamente pelas anotações.
+    if col_name in ("anotacoes", "anotacoes_hiit"):
+        try:
+            anexos_col = "anotacoes_imagens_hiit" if col_name == "anotacoes_hiit" else "anotacoes_imagens"
+            docs = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
+            batch = db.batch()
+            encontrou = False
+            for d in docs:
+                item = d.to_dict() or {}
+                if str(item.get("anotacao_id")) == str(doc_id):
+                    batch.delete(d.reference)
+                    encontrou = True
+            if encontrou:
+                batch.commit()
+        except Exception:
+            pass
     if state_key in st.session_state.dados:
         st.session_state.dados[state_key] = [i for i in st.session_state.dados[state_key] if str(i.get("id")) != str(doc_id)]
 
@@ -1197,39 +1219,42 @@ def otimizar_imagem_para_api(img_data, max_size=500):
         return ""
 
 def armazenar_imagem_nota_alta_qualidade(img_data):
-    """Conserva resolução e qualidade para imagens de Anotações.
+    """Prepara imagem para o Caderno preservando o máximo de qualidade possível.
 
-    Não usa o compressor da IA (1024 px/JPEG 65), que é inadequado para prints
-    médicos com texto pequeno. Prioriza o arquivo original; para objetos PIL,
-    grava PNG sem perdas. Se o PNG ficar grande demais para o limite de um campo
-    Firestore, usa JPEG 95 sem reduzir a resolução.
+    IMPORTANTE: imagens de anotações são armazenadas em documentos separados.
+    Ainda assim, cada imagem precisa respeitar o limite de um documento Firestore.
+    O alvo de ~650 KB de bytes brutos deixa margem para base64 + metadados.
+    A resolução só é reduzida como último recurso.
     """
+    MAX_RAW = 650_000
     try:
         if Image is None:
-            if isinstance(img_data, bytes):
-                return base64.b64encode(img_data).decode('utf-8')
-            if hasattr(img_data, 'getvalue'):
-                return base64.b64encode(img_data.getvalue()).decode('utf-8')
+            raw = None
+            if isinstance(img_data, bytes): raw = img_data
+            elif hasattr(img_data, 'getvalue'): raw = img_data.getvalue()
+            if raw:
+                return base64.b64encode(raw).decode('utf-8') if len(raw) <= MAX_RAW else ""
             return ""
 
-        # O componente de colagem entrega PIL.Image.Image. Para bytes/stream,
-        # preservamos o arquivo original quando possível.
         if isinstance(img_data, bytes):
             raw = img_data
             try:
                 Image.open(io.BytesIO(raw)).verify()
-                return base64.b64encode(raw).decode('utf-8')
+                if len(raw) <= MAX_RAW:
+                    return base64.b64encode(raw).decode('utf-8')
+                img = Image.open(io.BytesIO(raw))
             except Exception:
-                pass
-        if hasattr(img_data, 'getvalue'):
+                img = None
+        elif hasattr(img_data, 'getvalue'):
             raw = img_data.getvalue()
             try:
                 Image.open(io.BytesIO(raw)).verify()
-                return base64.b64encode(raw).decode('utf-8')
+                if len(raw) <= MAX_RAW:
+                    return base64.b64encode(raw).decode('utf-8')
+                img = Image.open(io.BytesIO(raw))
             except Exception:
-                pass
-
-        if isinstance(img_data, Image.Image):
+                img = None
+        elif isinstance(img_data, Image.Image):
             img = img_data.copy()
         elif hasattr(img_data, 'read'):
             img_data.seek(0)
@@ -1237,24 +1262,177 @@ def armazenar_imagem_nota_alta_qualidade(img_data):
         else:
             img = Image.open(img_data)
 
-        # PNG sem perdas é preferível para screenshots, tabelas e texto médico.
-        png = io.BytesIO()
+        if img is None:
+            return ""
+        img.load()
         if img.mode not in ('RGB', 'RGBA', 'L'):
             img = img.convert('RGBA' if 'A' in img.getbands() else 'RGB')
+
+        # 1) PNG sem perdas: melhor para prints, tabelas e texto quando couber.
+        png = io.BytesIO()
         img.save(png, format='PNG', optimize=True, compress_level=9)
         raw_png = png.getvalue()
-
-        # Um documento Firestore tem limite de ~1 MiB. Se necessário, mantém a
-        # resolução original e cai para JPEG 95; nunca reduz a dimensão.
-        if len(raw_png) <= 700_000:
+        if len(raw_png) <= MAX_RAW:
             return base64.b64encode(raw_png).decode('utf-8')
 
+        # 2) WebP lossless: normalmente reduz muito screenshots sem perda visual.
+        try:
+            webp_lossless = io.BytesIO()
+            img.save(webp_lossless, format='WEBP', lossless=True, method=6)
+            raw_webp = webp_lossless.getvalue()
+            if len(raw_webp) <= MAX_RAW:
+                return base64.b64encode(raw_webp).decode('utf-8')
+        except Exception:
+            pass
+
+        # 3) JPEG de alta qualidade, sem reduzir a resolução inicialmente.
         rgb = img.convert('RGB')
-        jpg = io.BytesIO()
-        rgb.save(jpg, format='JPEG', quality=95, subsampling=0, optimize=True)
-        return base64.b64encode(jpg.getvalue()).decode('utf-8')
+        for quality in (98, 95, 92, 90, 88, 85, 82, 78):
+            jpg = io.BytesIO()
+            rgb.save(jpg, format='JPEG', quality=quality, subsampling=0, optimize=True)
+            raw_jpg = jpg.getvalue()
+            if len(raw_jpg) <= MAX_RAW:
+                return base64.b64encode(raw_jpg).decode('utf-8')
+
+        # 4) Último recurso: reduz dimensões proporcionalmente e mantém qualidade alta.
+        original_w, original_h = rgb.size
+        for fator in (0.92, 0.84, 0.76, 0.68, 0.60, 0.52, 0.45):
+            novo = rgb.resize(
+                (max(1, int(original_w * fator)), max(1, int(original_h * fator))),
+                Image.Resampling.LANCZOS
+            )
+            for quality in (92, 88, 85, 80):
+                jpg = io.BytesIO()
+                novo.save(jpg, format='JPEG', quality=quality, subsampling=0, optimize=True)
+                raw_jpg = jpg.getvalue()
+                if len(raw_jpg) <= MAX_RAW:
+                    return base64.b64encode(raw_jpg).decode('utf-8')
+        return ""
     except Exception:
-        return otimizar_imagem_para_api(img_data, max_size=4096)
+        return ""
+
+
+def _lista_imagens_nota(valor):
+    if isinstance(valor, list):
+        return [x for x in valor if isinstance(x, str) and x]
+    if isinstance(valor, str) and valor:
+        return [valor]
+    return []
+
+
+def _colecao_anexos_para(colecao):
+    return "anotacoes_imagens_hiit" if colecao == "anotacoes_hiit" else "anotacoes_imagens"
+
+
+def salvar_anotacao_com_imagens(colecao, state_key, data):
+    """Salva a anotação sem colocar várias imagens dentro do mesmo documento.
+
+    O texto/metadados ficam no documento principal e cada imagem fica em um
+    documento próprio. Isso elimina o InvalidArgument causado pelo limite de
+    tamanho do documento Firestore ao colar várias imagens de alta qualidade.
+    """
+    imagens_brutas = _lista_imagens_nota(data.get("imagens_b64"))
+    imagens = []
+    for img in imagens_brutas:
+        # Estados antigos podem carregar base64 produzido por versões anteriores.
+        # Se estiver acima do limite seguro, reprocessa mantendo a maior qualidade possível.
+        if isinstance(img, str) and len(img) > 900_000:
+            try:
+                convertido = armazenar_imagem_nota_alta_qualidade(base64.b64decode(img))
+                if convertido:
+                    img = convertido
+            except Exception:
+                pass
+        if isinstance(img, str) and len(img) <= 900_000:
+            imagens.append(img)
+    principal = dict(data)
+    principal.pop("imagens_b64", None)
+    principal.pop("imagem_b64", None)
+    doc_ref = db.collection(colecao).document()
+    doc_ref.set(principal)
+    doc_id = doc_ref.id
+    principal["id"] = doc_id
+
+    if imagens:
+        batch = db.batch()
+        anexos_col = _colecao_anexos_para(colecao)
+        for ordem, img in enumerate(imagens):
+            ref_img = db.collection(anexos_col).document()
+            batch.set(ref_img, {
+                "usuario_id": str(data.get("usuario_id", st.session_state.get("user_id", ""))),
+                "anotacao_id": str(doc_id),
+                "colecao_origem": colecao,
+                "ordem": ordem,
+                "imagem_b64": img,
+                "data_criacao": data.get("data_criacao", str(get_agora().date()))
+            })
+        batch.commit()
+        principal["imagens_b64"] = imagens
+    else:
+        principal["imagens_b64"] = []
+
+    if state_key in st.session_state.dados:
+        st.session_state.dados[state_key].append(principal)
+    return doc_ref
+
+
+def carregar_imagens_separadas(colecao, notas, user_id):
+    """Hidrata as anotações com imagens armazenadas em documentos separados."""
+    try:
+        anexos_col = _colecao_anexos_para(colecao)
+        docs = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
+        por_nota = {}
+        for d in docs:
+            item = d.to_dict() or {}
+            aid = str(item.get("anotacao_id", ""))
+            img = item.get("imagem_b64")
+            if aid and isinstance(img, str) and img:
+                por_nota.setdefault(aid, []).append((safe_int(item.get("ordem", 0)), img))
+        for nota in notas:
+            aid = str(nota.get("id", ""))
+            pares = sorted(por_nota.get(aid, []), key=lambda x: x[0])
+            separadas = [img for _, img in pares]
+            antigas = _lista_imagens_nota(nota.get("imagens_b64"))
+            legado = nota.get("imagem_b64")
+            if isinstance(legado, str) and legado and legado not in antigas:
+                antigas.insert(0, legado)
+            # Se há anexos novos, eles são a fonte principal. Mantemos legado
+            # apenas para documentos antigos que ainda não foram migrados.
+            nota["imagens_b64"] = separadas if separadas else antigas
+        return notas
+    except Exception:
+        return notas
+
+
+def adicionar_imagem_anotacao(colecao, doc_id, imagem_b64, state_key):
+    """Adiciona uma imagem sem aumentar o tamanho do documento da anotação."""
+    if not imagem_b64:
+        return False
+    try:
+        anexos_col = _colecao_anexos_para(colecao)
+        existentes = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
+        ordens = []
+        for d in existentes:
+            x = d.to_dict() or {}
+            if str(x.get("anotacao_id")) == str(doc_id):
+                ordens.append(safe_int(x.get("ordem", 0)))
+        ref = db.collection(anexos_col).document()
+        ref.set({
+            "usuario_id": str(st.session_state.user_id),
+            "anotacao_id": str(doc_id),
+            "colecao_origem": colecao,
+            "ordem": (max(ordens) + 1) if ordens else 0,
+            "imagem_b64": imagem_b64,
+            "data_criacao": str(get_agora().date())
+        })
+        for item in st.session_state.dados.get(state_key, []):
+            if str(item.get("id")) == str(doc_id):
+                item.setdefault("imagens_b64", []).append(imagem_b64)
+                break
+        return True
+    except Exception as exc:
+        st.error(f"Não foi possível anexar a imagem: {exc}")
+        return False
 
 
 def get_ia_client():
@@ -1960,6 +2138,10 @@ else:
                     "anotacoes_hiit": anotacoes_hiit_recuperadas,
                     "flashcards_hiit": flashcards_hiit_recuperadas
                 }
+
+                # Imagens novas ficam em documentos separados para evitar o limite de 1 MiB do Firestore.
+                carregar_imagens_separadas("anotacoes", st.session_state.dados["anotacoes"], u_id)
+                carregar_imagens_separadas("anotacoes_hiit", st.session_state.dados["anotacoes_hiit"], u_id)
                 
                 if 'model_ia' not in st.session_state: 
                     st.session_state.model_ia = get_ia_client()
@@ -2975,9 +3157,9 @@ else:
                 if st.button("Salvar resumo HIIT", use_container_width=True, type="primary", key="save_hiit_note_v4"):
                     if sub_h and txt_h:
                         s_final_h = f"{sub_ah} - {sub_h}" if sub_ah and sub_ah != "Geral" else sub_h
-                        db_add("anotacoes_hiit", "anotacoes_hiit", {
+                        salvar_anotacao_com_imagens("anotacoes_hiit", "anotacoes_hiit", {
                             "usuario_id": u_id, "area": area_h, "subtema": s_final_h, "pontos_chave": txt_h,
-                            "imagens_b64": st.session_state.hiit_nota_imgs_temp, "data_criacao": str(hoje)
+                            "imagens_b64": list(st.session_state.hiit_nota_imgs_temp), "data_criacao": str(hoje)
                         })
                         st.session_state.limpar_nova_nota_hiit = True
                         time.sleep(0.5)
@@ -3108,9 +3290,9 @@ else:
                                                     if res_paste_edit.image_data is not None:
                                                         img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
                                                         if img_eb64 and img_eb64 not in imgs_exibir:
-                                                            imgs_exibir.append(img_eb64)
-                                                            db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"imagens_b64": imgs_exibir})
-                                                            # O componente já dispara o rerun; não forçar outro.
+                                                            if adicionar_imagem_anotacao("anotacoes_hiit", id_nh, img_eb64, "anotacoes_hiit"):
+                                                                # O componente já dispara o rerun; não forçar outro.
+                                                                pass
                                             with col_eimg:
                                                 if imgs_exibir:
                                                     cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
@@ -3982,12 +4164,12 @@ else:
                 if st.form_submit_button("💾 Salvar Anotação", use_container_width=True, type="primary"):
                     if s and p:
                         s_final = f"{sub_a} - {s}" if sub_a and sub_a != "Geral" else s
-                        db_add("anotacoes", "anotacoes", {
+                        salvar_anotacao_com_imagens("anotacoes", "anotacoes", {
                             "usuario_id": u_id,
                             "area": a,
                             "subtema": s_final,
                             "pontos_chave": p,
-                            "imagens_b64": st.session_state.nota_imgs_temp,
+                            "imagens_b64": list(st.session_state.nota_imgs_temp),
                             "data_criacao": str(hoje)
                         })
                         st.session_state.limpar_nova_nota = True
@@ -4091,9 +4273,9 @@ else:
                                                 if res_paste_edit.image_data is not None:
                                                     img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
                                                     if img_eb64 and img_eb64 not in imgs_exibir:
-                                                        imgs_exibir.append(img_eb64)
-                                                        db_update("anotacoes", "anotacoes", nota_id, {"imagens_b64": imgs_exibir, "imagem_b64": firestore.DELETE_FIELD})
-                                                        # O componente já dispara o rerun; não forçar outro.
+                                                        if adicionar_imagem_anotacao("anotacoes", nota_id, img_eb64, "anotacoes"):
+                                                            # O componente já dispara o rerun; não forçar outro.
+                                                            pass
                                         with col_eimg:
                                             if imgs_exibir:
                                                 cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
