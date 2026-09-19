@@ -1009,11 +1009,11 @@ def remover_imagem_firestore(colecao, state_key, doc_id, imagens=None, indice=No
     """Remove imagem do armazenamento separado ou, para registros antigos, do documento legado."""
     try:
         anexos_col = _colecao_anexos_para(colecao)
-        docs = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
+        docs = db.collection(anexos_col).where(filter=FieldFilter("anotacao_id", "==", str(doc_id))).get()
         candidatos = []
         for d in docs:
             item = d.to_dict() or {}
-            if str(item.get("anotacao_id")) == str(doc_id):
+            if str(item.get("usuario_id")) == str(st.session_state.user_id):
                 candidatos.append((d, item))
         candidatos.sort(key=lambda x: safe_int(x[1].get("ordem", 0)))
 
@@ -1031,11 +1031,6 @@ def remover_imagem_firestore(colecao, state_key, doc_id, imagens=None, indice=No
             doc_ref, _ = escolhido
             doc_ref.delete()
             restantes = [item.get("imagem_b64") for d, item in candidatos if d.id != doc_ref.id and item.get("imagem_b64")]
-            for ordem, (d, _) in enumerate([(d, item) for d, item in candidatos if d.id != doc_ref.id]):
-                try:
-                    d.reference.update({"ordem": ordem})
-                except Exception:
-                    pass
             for item in st.session_state.dados.get(state_key, []):
                 if str(item.get("id")) == str(doc_id):
                     item["imagens_b64"] = restantes
@@ -1140,12 +1135,12 @@ def db_delete(col_name, state_key, doc_id):
     if col_name in ("anotacoes", "anotacoes_hiit"):
         try:
             anexos_col = "anotacoes_imagens_hiit" if col_name == "anotacoes_hiit" else "anotacoes_imagens"
-            docs = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
+            docs = db.collection(anexos_col).where(filter=FieldFilter("anotacao_id", "==", str(doc_id))).get()
             batch = db.batch()
             encontrou = False
             for d in docs:
                 item = d.to_dict() or {}
-                if str(item.get("anotacao_id")) == str(doc_id):
+                if str(item.get("usuario_id")) == str(st.session_state.user_id):
                     batch.delete(d.reference)
                     encontrou = True
             if encontrou:
@@ -1410,18 +1405,19 @@ def adicionar_imagem_anotacao(colecao, doc_id, imagem_b64, state_key):
         return False
     try:
         anexos_col = _colecao_anexos_para(colecao)
-        existentes = db.collection(anexos_col).where(filter=FieldFilter("usuario_id", "==", str(st.session_state.user_id))).get()
-        ordens = []
-        for d in existentes:
-            x = d.to_dict() or {}
-            if str(x.get("anotacao_id")) == str(doc_id):
-                ordens.append(safe_int(x.get("ordem", 0)))
+        # A ordem é apenas visual; não precisamos consultar todos os anexos do usuário.
+        imagens_locais = []
+        for item in st.session_state.dados.get(state_key, []):
+            if str(item.get("id")) == str(doc_id):
+                imagens_locais = item.get("imagens_b64", []) or []
+                break
+        ordem = len(imagens_locais)
         ref = db.collection(anexos_col).document()
         ref.set({
             "usuario_id": str(st.session_state.user_id),
             "anotacao_id": str(doc_id),
             "colecao_origem": colecao,
-            "ordem": (max(ordens) + 1) if ordens else 0,
+            "ordem": ordem,
             "imagem_b64": imagem_b64,
             "data_criacao": str(get_agora().date())
         })
@@ -1744,11 +1740,44 @@ def remover_aula_do_cronograma(area_aula, tema_aula):
     return len(removidos)
 
 def get_user_docs(collection_name, user_id):
+    """Busca somente os documentos do usuário. O resultado é mantido em session_state.
+    Falhas isoladas não derrubam o aplicativo.
+    """
     try:
-        todos_docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
-        return [{"id": d.id, **d.to_dict()} for d in todos_docs]
-    except Exception as e:
+        docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
+        return [{"id": d.id, **(d.to_dict() or {})} for d in docs]
+    except Exception:
         return []
+
+def carregar_dados_usuario_em_paralelo(user_id):
+    """Carrega as coleções independentes em paralelo para reduzir o tempo de abertura.
+    A lógica de dados continua a mesma; apenas eliminamos 12 round-trips sequenciais.
+    """
+    mapa = {
+        "aulas": "aulas",
+        "revisoes": "revisoes",
+        "flashcards": "flashcards",
+        "questoes": "questoes_sessoes",
+        "simulados": "simulados",
+        "focus": "focus_sessoes",
+        "materiais": "materiais",
+        "cronogramas": "cronogramas",
+        "anotacoes": "anotacoes",
+        "questoes_hiit": "questoes_hiit",
+        "revisoes_hiit": "revisoes_hiit",
+        "anotacoes_hiit": "anotacoes_hiit",
+        "flashcards_hiit": "flashcards_hiit",
+    }
+    resultado = {k: [] for k in mapa}
+    with ThreadPoolExecutor(max_workers=min(8, len(mapa))) as executor:
+        futuros = {executor.submit(get_user_docs, colecao, user_id): chave for chave, colecao in mapa.items()}
+        for futuro in as_completed(futuros):
+            chave = futuros[futuro]
+            try:
+                resultado[chave] = futuro.result()
+            except Exception:
+                resultado[chave] = []
+    return resultado
 
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
@@ -2036,14 +2065,15 @@ if not saved_token and cookie_controller:
 
 if not st.session_state.logado and saved_token:
     try:
-        todos_usuarios = db.collection("usuarios").get()
-        for doc in todos_usuarios:
-            if doc.to_dict().get("token_sessao") == saved_token:
-                st.session_state.logado = True
-                st.session_state.user_id = doc.id
-                st.session_state.user_nome = doc.to_dict().get('nome', '')
-                st.rerun()
-    except: pass 
+        token_docs = db.collection("usuarios").where(filter=FieldFilter("token_sessao", "==", saved_token)).limit(1).get()
+        for doc in token_docs:
+            dados_token = doc.to_dict() or {}
+            st.session_state.logado = True
+            st.session_state.user_id = doc.id
+            st.session_state.user_nome = dados_token.get("nome", "")
+            st.rerun()
+    except Exception:
+        pass
 
 if not st.session_state.logado:
     if "temp_theme" not in st.session_state: st.session_state.temp_theme = "Escuro"
@@ -2063,18 +2093,20 @@ if not st.session_state.logado:
                     logou = False
                     u_limpo = u.strip()
                     p_limpo = p.strip()
-                    for doc in db.collection("usuarios").get():
-                        nome_banco = str(doc.to_dict().get("nome", "")).strip()
-                        if nome_banco.lower() == u_limpo.lower():
-                            if doc.to_dict().get("senha") == hash_senha(p) or doc.to_dict().get("senha") == hash_senha(p_limpo):
-                                st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, doc.to_dict().get('nome', '')
-                                logou = True
-                                if lembrar and cookie_controller:
-                                    novo_token = str(uuid.uuid4())
-                                    db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
-                                    cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
-                                    time.sleep(1) # Sincronização do Websocket para gravar o cookie com segurança
-                                st.rerun()
+                    candidatos_login = db.collection("usuarios").where(filter=FieldFilter("nome", "==", u_limpo)).limit(5).get()
+                    if not candidatos_login and u_limpo:
+                        # Compatibilidade com contas antigas/capitalização diferente.
+                        candidatos_login = db.collection("usuarios").get()
+                    for doc in candidatos_login:
+                        dados_login = doc.to_dict() or {}
+                        if dados_login.get("senha") == hash_senha(p) or dados_login.get("senha") == hash_senha(p_limpo):
+                            st.session_state.logado, st.session_state.user_id, st.session_state.user_nome = True, doc.id, dados_login.get('nome', '')
+                            logou = True
+                            if lembrar and cookie_controller:
+                                novo_token = str(uuid.uuid4())
+                                db.collection("usuarios").document(doc.id).update({"token_sessao": novo_token})
+                                cookie_controller.set('mr_token', novo_token, max_age=30*24*60*60, path='/')
+                            st.rerun()
                     if not logou: st.error("Usuário ou senha incorretos.")
                 except Exception as e: st.error(f"🚨 Erro no Firebase: {e}")
     with aba_c:
@@ -2084,10 +2116,13 @@ if not st.session_state.logado:
                 nu_limpo = nu.strip()
                 np_limpo = np.strip()
                 existe = False
-                for doc in db.collection("usuarios").get():
-                    if str(doc.to_dict().get("nome", "")).strip().lower() == nu_limpo.lower():
-                        existe = True
-                        break
+                candidatos_cadastro = db.collection("usuarios").where(filter=FieldFilter("nome", "==", nu_limpo)).limit(1).get()
+                if candidatos_cadastro:
+                    existe = True
+                elif nu_limpo:
+                    # Compatibilidade com contas antigas/capitalização diferente.
+                    candidatos_cadastro = db.collection("usuarios").get()
+                    existe = any(str(doc.to_dict().get("nome", "")).strip().lower() == nu_limpo.lower() for doc in candidatos_cadastro)
                 if existe: st.error("Usuário já existe.")
                 elif not nu_limpo or not np_limpo:
                     st.error("Preencha o usuário e a senha para criar a conta.")
@@ -2116,32 +2151,11 @@ else:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
                 
-                aulas_recuperadas = get_user_docs("aulas", u_id)
-                revisoes_recuperadas = get_user_docs("revisoes", u_id)
-                questoes_hiit_recuperadas = get_user_docs("questoes_hiit", u_id)
-                revisoes_hiit_recuperadas = get_user_docs("revisoes_hiit", u_id)
-                anotacoes_hiit_recuperadas = get_user_docs("anotacoes_hiit", u_id)
-                flashcards_hiit_recuperadas = get_user_docs("flashcards_hiit", u_id)
+                st.session_state.dados = carregar_dados_usuario_em_paralelo(u_id)
 
-                st.session_state.dados = {
-                    "aulas": aulas_recuperadas,
-                    "revisoes": revisoes_recuperadas,
-                    "flashcards": get_user_docs("flashcards", u_id),
-                    "questoes": get_user_docs("questoes_sessoes", u_id),
-                    "simulados": get_user_docs("simulados", u_id),
-                    "focus": get_user_docs("focus_sessoes", u_id),
-                    "materiais": get_user_docs("materiais", u_id),
-                    "cronogramas": get_user_docs("cronogramas", u_id),
-                    "anotacoes": get_user_docs("anotacoes", u_id),
-                    "questoes_hiit": questoes_hiit_recuperadas,
-                    "revisoes_hiit": revisoes_hiit_recuperadas,
-                    "anotacoes_hiit": anotacoes_hiit_recuperadas,
-                    "flashcards_hiit": flashcards_hiit_recuperadas
-                }
-
-                # Imagens novas ficam em documentos separados para evitar o limite de 1 MiB do Firestore.
-                carregar_imagens_separadas("anotacoes", st.session_state.dados["anotacoes"], u_id)
-                carregar_imagens_separadas("anotacoes_hiit", st.session_state.dados["anotacoes_hiit"], u_id)
+                # Imagens das anotações são carregadas sob demanda. Isso evita trazer
+                # dezenas/centenas de imagens em cada abertura do aplicativo.
+                st.session_state.imagens_hidratadas = {"anotacoes": False, "anotacoes_hiit": False}
                 
                 if 'model_ia' not in st.session_state: 
                     st.session_state.model_ia = get_ia_client()
@@ -2225,6 +2239,16 @@ else:
     menu_visual = st.sidebar.radio("Navegação", opcoes_visuais, index=opcoes_visuais.index(estado_visual), key="menu_navegacao_v3", label_visibility="collapsed")
     menu = mapa_interno.get(menu_visual, "🏠 Dashboard")
     st.session_state["menu_navegacao"] = menu
+
+    # Hidratação sob demanda das imagens: só traz o conteúdo pesado quando o usuário
+    # realmente abre o caderno correspondente.
+    if menu == "📝 Anotações Rápidas" and not st.session_state.get("imagens_hidratadas", {}).get("anotacoes", False):
+        carregar_imagens_separadas("anotacoes", st.session_state.dados.get("anotacoes", []), u_id)
+        st.session_state.imagens_hidratadas["anotacoes"] = True
+    elif menu == "⚡ Revisão HIIT" and not st.session_state.get("imagens_hidratadas", {}).get("anotacoes_hiit", False):
+        carregar_imagens_separadas("anotacoes_hiit", st.session_state.dados.get("anotacoes_hiit", []), u_id)
+        st.session_state.imagens_hidratadas["anotacoes_hiit"] = True
+
     st.sidebar.markdown("<div class='rp-nav-caption'>ATALHOS</div>", unsafe_allow_html=True)
     q1, q2 = st.sidebar.columns(2)
     with q1:
