@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
 import tempfile
 import zipfile
 import os
@@ -142,7 +143,7 @@ def aplicar_css_tema(modo):
     css_str = f"""
     <style>
     @keyframes fadein {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-    .main {{ animation: fadein 0.4s ease-out; }}
+    .main {{ animation:none !important; }}
     
     .stApp, [data-testid="stAppViewContainer"], .main {{ background-color: {bg_color} !important; }}
     h1:not(#tmr), h2, h3, h4, h5, h6, .stMarkdown p, label {{ color: {text_color} !important; font-family: 'Inter', sans-serif; }}
@@ -1065,10 +1066,14 @@ def remover_imagem_firestore(colecao, state_key, doc_id, imagens=None, indice=No
         if escolhido:
             doc_ref, _ = escolhido
             doc_ref.delete()
-            restantes = [item.get("imagem_b64") for d, item in candidatos if d.id != doc_ref.id and item.get("imagem_b64")]
+            restantes_qtd = max(0, len(candidatos) - 1)
             for item in st.session_state.dados.get(state_key, []):
                 if str(item.get("id")) == str(doc_id):
-                    item["imagens_b64"] = restantes
+                    # Não mantém os base64 restantes na sessão; eles serão buscados
+                    # novamente apenas se o usuário abrir o visualizador.
+                    item["imagens_b64"] = []
+                    item["imagens_qtd"] = restantes_qtd
+                    item["_imagens_carregadas"] = False
                     item.pop("imagem_b64", None)
                     break
             return True
@@ -1186,6 +1191,10 @@ def db_delete(col_name, state_key, doc_id):
         st.session_state.dados[state_key] = [i for i in st.session_state.dados[state_key] if str(i.get("id")) != str(doc_id)]
 
 def invalidar_cache(colecoes=None):
+    try:
+        get_user_docs.clear()
+    except Exception:
+        pass
     if colecoes and 'dados' in st.session_state:
         if isinstance(colecoes, str): colecoes = [colecoes]
         for colecao in colecoes:
@@ -1193,6 +1202,7 @@ def invalidar_cache(colecoes=None):
             if colecao == "questoes": col_db = "questoes_sessoes"
             elif colecao == "focus": col_db = "focus_sessoes"
             st.session_state.dados[colecao] = get_user_docs(col_db, st.session_state.user_id)
+            st.session_state.setdefault("colecoes_carregadas", set()).add(colecao)
     else:
         st.session_state.pop('dados', None)
         st.session_state.user_data_loaded = False
@@ -1414,6 +1424,53 @@ def _colecao_anexos_para(colecao):
     return "anotacoes_imagens_hiit" if colecao == "anotacoes_hiit" else "anotacoes_imagens"
 
 
+def obter_imagens_nota(colecao, nota, user_id=None):
+    """Carrega imagens de UMA anotação somente quando elas realmente serão exibidas.
+
+    A versão anterior hidratava todos os anexos de todas as anotações ao abrir a tela.
+    Isso colocava centenas de MB de base64 na sessão e deixava cada rerun pesado.
+    Aqui o documento principal fica leve e somente a nota aberta consulta seus anexos.
+    """
+    if not isinstance(nota, dict):
+        return []
+    if nota.get("_imagens_carregadas"):
+        return list(nota.get("imagens_b64", []) or [])
+
+    imagens = _lista_imagens_nota(nota.get("imagens_b64"))
+    legado = nota.get("imagem_b64")
+    if isinstance(legado, str) and legado and legado not in imagens:
+        imagens.insert(0, legado)
+
+    # Registros novos usam documentos separados. Consultamos apenas pelo ID da nota,
+    # evitando a busca de todos os anexos do usuário.
+    nota_id = str(nota.get("id", "")).strip()
+    if nota_id:
+        try:
+            anexos_col = _colecao_anexos_para(colecao)
+            docs = db.collection(anexos_col).where(
+                filter=FieldFilter("anotacao_id", "==", nota_id)
+            ).get()
+            separados = []
+            for d in docs:
+                item = d.to_dict() or {}
+                if user_id is not None and str(item.get("usuario_id")) != str(user_id):
+                    continue
+                img = item.get("imagem_b64")
+                if isinstance(img, str) and img:
+                    separados.append((safe_int(item.get("ordem", 0)), img))
+            separados.sort(key=lambda x: x[0])
+            if separados:
+                imagens = [img for _, img in separados]
+        except Exception:
+            # Se a busca falhar, ainda exibimos imagens legadas que estejam no doc.
+            pass
+
+    nota["imagens_b64"] = imagens
+    nota["imagens_qtd"] = len(imagens)
+    nota["_imagens_carregadas"] = True
+    return list(imagens)
+
+
 def salvar_anotacao_com_imagens(colecao, state_key, data):
     """Salva a anotação sem colocar várias imagens dentro do mesmo documento.
 
@@ -1457,9 +1514,12 @@ def salvar_anotacao_com_imagens(colecao, state_key, data):
                 "data_criacao": data.get("data_criacao", str(get_agora().date()))
             })
         batch.commit()
-        principal["imagens_b64"] = imagens
-    else:
-        principal["imagens_b64"] = []
+
+    # Nunca mantém os bytes grandes na sessão só porque a anotação foi criada.
+    # Eles serão buscados apenas quando o usuário abrir as imagens.
+    principal["imagens_b64"] = []
+    principal["imagens_qtd"] = len(imagens)
+    principal["_imagens_carregadas"] = False
 
     if state_key in st.session_state.dados:
         st.session_state.dados[state_key].append(principal)
@@ -1518,7 +1578,9 @@ def adicionar_imagem_anotacao(colecao, doc_id, imagem_b64, state_key):
         })
         for item in st.session_state.dados.get(state_key, []):
             if str(item.get("id")) == str(doc_id):
-                item.setdefault("imagens_b64", []).append(imagem_b64)
+                item["imagens_b64"] = []
+                item["imagens_qtd"] = safe_int(item.get("imagens_qtd", 0)) + 1
+                item["_imagens_carregadas"] = False
                 break
         return True
     except Exception as exc:
@@ -1719,30 +1781,37 @@ def get_agora():
 def hash_senha(senha): return hashlib.sha256(str.encode(senha)).hexdigest()
 def is_super_admin(nome): return str(nome).lower().strip() in ['joao', 'joão', 'joao victor']
 
+@lru_cache(maxsize=4096)
+def _parse_data_str_cached(d_str):
+    """Parser de datas puro e cacheado; evita milhares de conversões repetidas em cada rerun."""
+    if not d_str:
+        return get_agora().date()
+    d_str = str(d_str).strip()[:10]
+    if len(d_str) == 10:
+        if d_str[4] == '-' and d_str[7] == '-':
+            try: return date(int(d_str[0:4]), int(d_str[5:7]), int(d_str[8:10]))
+            except Exception: pass
+        elif d_str[2] == '/' and d_str[5] == '/':
+            try: return date(int(d_str[6:10]), int(d_str[3:5]), int(d_str[0:2]))
+            except Exception: pass
+    try:
+        if '-' in d_str:
+            parts = d_str.split('-')
+            if len(parts[0]) == 4: return datetime.strptime(d_str, "%Y-%m-%d").date()
+            return datetime.strptime(d_str, "%d-%m-%Y").date()
+        if '/' in d_str:
+            parts = d_str.split('/')
+            if len(parts[0]) == 4: return datetime.strptime(d_str, "%Y/%m/%d").date()
+            return datetime.strptime(d_str, "%d/%m/%Y").date()
+    except Exception:
+        pass
+    return get_agora().date()
+
 def parse_data(d):
     if not d: return get_agora().date()
     if isinstance(d, datetime): return d.date()
     if isinstance(d, date): return d
-    if isinstance(d, str):
-        d_str = d.strip()[:10]
-        if len(d_str) == 10:
-            if d_str[4] == '-' and d_str[7] == '-':
-                try: return date(int(d_str[0:4]), int(d_str[5:7]), int(d_str[8:10]))
-                except: pass
-            elif d_str[2] == '/' and d_str[5] == '/':
-                try: return date(int(d_str[6:10]), int(d_str[3:5]), int(d_str[0:2]))
-                except: pass
-        try:
-            if '-' in d_str:
-                parts = d_str.split('-')
-                if len(parts[0]) == 4: return datetime.strptime(d_str, "%Y-%m-%d").date()
-                else: return datetime.strptime(d_str, "%d-%m-%Y").date()
-            elif '/' in d_str:
-                parts = d_str.split('/')
-                if len(parts[0]) == 4: return datetime.strptime(d_str, "%Y/%m/%d").date()
-                else: return datetime.strptime(d_str, "%d/%m/%Y").date()
-        except: pass
-    return get_agora().date()
+    return _parse_data_str_cached(str(d))
 
 def formatar_data_br(d):
     if not d: return "-"
@@ -1834,10 +1903,9 @@ def remover_aula_do_cronograma(area_aula, tema_aula):
         ]
     return len(removidos)
 
+@st.cache_data(ttl=30, max_entries=300, show_spinner=False)
 def get_user_docs(collection_name, user_id):
-    """Busca somente os documentos do usuário. O resultado é mantido em session_state.
-    Falhas isoladas não derrubam o aplicativo.
-    """
+    """Busca somente os documentos do usuário. Cache curto reduz round-trips em reruns/relogin."""
     try:
         docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
         return [{"id": d.id, **(d.to_dict() or {})} for d in docs]
@@ -1864,7 +1932,7 @@ def carregar_dados_usuario_em_paralelo(user_id):
         "flashcards_hiit": "flashcards_hiit",
     }
     resultado = {k: [] for k in mapa}
-    with ThreadPoolExecutor(max_workers=min(8, len(mapa))) as executor:
+    with ThreadPoolExecutor(max_workers=min(6, len(mapa))) as executor:
         futuros = {executor.submit(get_user_docs, colecao, user_id): chave for chave, colecao in mapa.items()}
         for futuro in as_completed(futuros):
             chave = futuros[futuro]
@@ -1873,6 +1941,54 @@ def carregar_dados_usuario_em_paralelo(user_id):
             except Exception:
                 resultado[chave] = []
     return resultado
+
+MENU_COLECOES = {
+    "🏠 Dashboard": ["aulas", "revisoes", "questoes", "questoes_hiit", "revisoes_hiit", "flashcards", "simulados", "focus"],
+    "🗓️ Cronograma IA": ["cronogramas", "aulas"],
+    "⚡ Revisão HIIT": ["questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit", "aulas"],
+    "🎯 Questões": ["questoes", "revisoes", "aulas"],
+    "📚 Registro de Aulas": ["aulas"],
+    "📝 Anotações Rápidas": ["anotacoes", "aulas"],
+    "📅 Agenda de Revisões": ["revisoes", "aulas"],
+    "✨ AI Tutor & Flashcards": ["flashcards", "anotacoes", "flashcards_hiit", "anotacoes_hiit"],
+    "📁 Materiais e Simulados": ["materiais", "simulados"],
+    "🏥 Simulados & OSCE": ["simulados", "materiais", "questoes"],
+    "📍 GPS da Aprovação": ["aulas", "questoes", "revisoes", "simulados", "focus"],
+    "⏱️ Modo Foco": ["focus"],
+    "⚙️ Configurações": [],
+    "📱 Instalar App": [],
+    "👑 Admin": [],
+}
+
+def garantir_dados_menu(user_id, menu):
+    """Carrega somente o que a tela atual realmente usa.
+    Isso reduz o pico de rede/CPU e evita que abrir uma tela espere por
+    coleções que pertencem a outras áreas do aplicativo.
+    """
+    dados = st.session_state.setdefault("dados", {})
+    carregados = st.session_state.setdefault("colecoes_carregadas", set())
+    chaves = MENU_COLECOES.get(menu, [])
+    faltantes = [k for k in chaves if k not in carregados]
+    if not faltantes:
+        return
+    mapa_db = {
+        "questoes": "questoes_sessoes", "focus": "focus_sessoes",
+        "aulas": "aulas", "revisoes": "revisoes", "flashcards": "flashcards",
+        "simulados": "simulados", "materiais": "materiais", "cronogramas": "cronogramas",
+        "anotacoes": "anotacoes", "questoes_hiit": "questoes_hiit",
+        "revisoes_hiit": "revisoes_hiit", "anotacoes_hiit": "anotacoes_hiit",
+        "flashcards_hiit": "flashcards_hiit"
+    }
+    carregando = {k: mapa_db[k] for k in faltantes}
+    with ThreadPoolExecutor(max_workers=min(5, len(carregando))) as executor:
+        futuros = {executor.submit(get_user_docs, colecao, user_id): chave for chave, colecao in carregando.items()}
+        for futuro in as_completed(futuros):
+            chave = futuros[futuro]
+            try:
+                dados[chave] = futuro.result()
+            except Exception:
+                dados[chave] = []
+            carregados.add(chave)
 
 def gerar_calendario_html(aulas_lista, ano, mes):
     modo = st.session_state.get("user_settings", {}).get("tema_modo", "Escuro")
@@ -1901,7 +2017,7 @@ def gerar_calendario_html(aulas_lista, ano, mes):
             else:
                 if day in aulas_dict:
                     temas = "".join([f"<div style='background-color:{cor_area(a.get('area'), mapa_aulas)}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(a.get('tema', '')))}'>{html.escape(limpar_texto(a.get('tema', '')))}</div>" for a in aulas_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition:none;'><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
         html_code += "</tr>"
@@ -1935,7 +2051,7 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
             else:
                 if day in revs_dict:
                     temas = "".join([f"<div style='background-color:{CORES_AREAS.get(normalizar_area(r.get('area'), mapa_aulas), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
-                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition: transform 0.2s;' onmouseover=\"this.style.transform='scale(1.02)'\" onmouseout=\"this.style.transform='scale(1)'\"><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
+                    html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition:none;'><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
         html_code += "</tr>"
@@ -2241,21 +2357,22 @@ else:
         }
 
     if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Carregando seus dados da nuvem..."):
+        with st.spinner("Preparando seu ambiente..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
-                
-                st.session_state.dados = carregar_dados_usuario_em_paralelo(u_id)
-
-                # Imagens das anotações são carregadas sob demanda. Isso evita trazer
-                # dezenas/centenas de imagens em cada abertura do aplicativo.
+                # Não baixa as 13 coleções aqui. A tela atual será carregada sob demanda.
+                st.session_state.dados = {
+                    "aulas": [], "revisoes": [], "flashcards": [], "questoes": [],
+                    "simulados": [], "focus": [], "materiais": [], "cronogramas": [],
+                    "anotacoes": [], "questoes_hiit": [], "revisoes_hiit": [],
+                    "anotacoes_hiit": [], "flashcards_hiit": []
+                }
+                st.session_state.colecoes_carregadas = set()
                 st.session_state.imagens_hidratadas = {"anotacoes": False, "anotacoes_hiit": False}
-                
-                if 'model_ia' not in st.session_state: 
+                if 'model_ia' not in st.session_state:
                     st.session_state.model_ia = get_ia_client()
-                
-                st.session_state.user_data_loaded = True 
+                st.session_state.user_data_loaded = True
             except Exception as e:
                 st.error(f"🚨 Falha de conexão: {str(e)}")
                 st.stop()
@@ -2264,7 +2381,7 @@ else:
     
     _dados_cache = st.session_state.get("dados", {})
     dados_aulas = _dados_cache.get("aulas", [])
-    mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas} 
+    mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas}
     dados_revisoes = _dados_cache.get("revisoes", [])
     dados_questoes = _dados_cache.get("questoes", [])
     dados_flashcards = _dados_cache.get("flashcards", [])
@@ -2280,8 +2397,29 @@ else:
 
     # APLICA O TEMA DO USUARIO LOGADO
     modo_atual = user_settings.get("tema_modo", "Escuro")
+    # Camada de desempenho: evita efeitos visuais que causam repaints durante reruns.
     aplicar_css_tema(modo_atual)
     aplicar_ui_v3(modo_atual)
+    if not st.session_state.get("rp_performance_ready"):
+        st.session_state.rp_performance_ready = True
+
+    menu_preload = st.session_state.get("menu_navegacao", "🏠 Dashboard")
+    garantir_dados_menu(u_id, menu_preload)
+    _dados_cache = st.session_state.get("dados", {})
+    dados_aulas = _dados_cache.get("aulas", [])
+    mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas}
+    dados_revisoes = _dados_cache.get("revisoes", [])
+    dados_questoes = _dados_cache.get("questoes", [])
+    dados_flashcards = _dados_cache.get("flashcards", [])
+    dados_simulados = _dados_cache.get("simulados", [])
+    dados_focus = _dados_cache.get("focus", [])
+    dados_materiais = _dados_cache.get("materiais", [])
+    dados_cronogramas = _dados_cache.get("cronogramas", [])
+    dados_anotacoes = _dados_cache.get("anotacoes", [])
+    dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
+    dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
+    dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
+    dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
 
     # BARRA LATERAL — HUB DE NAVEGAÇÃO 2.1
     with st.sidebar:
@@ -2294,7 +2432,6 @@ else:
         if st.button("🚪 Sair da Conta", use_container_width=True):
             db.collection("usuarios").document(u_id).update({"token_sessao": None})
             if cookie_controller: cookie_controller.remove('mr_token')
-            time.sleep(0.5)
             st.session_state.clear()
             st.rerun()
         st.markdown("---")
@@ -2350,15 +2487,27 @@ else:
 
     menu = estado_antigo
     st.session_state["menu_navegacao"] = menu
+    garantir_dados_menu(u_id, menu)
 
-    # Hidratação sob demanda das imagens: só traz o conteúdo pesado quando o usuário
-    # realmente abre o caderno correspondente.
-    if menu == "📝 Anotações Rápidas" and not st.session_state.get("imagens_hidratadas", {}).get("anotacoes", False):
-        carregar_imagens_separadas("anotacoes", st.session_state.dados.get("anotacoes", []), u_id)
-        st.session_state.imagens_hidratadas["anotacoes"] = True
-    elif menu == "⚡ Revisão HIIT" and not st.session_state.get("imagens_hidratadas", {}).get("anotacoes_hiit", False):
-        carregar_imagens_separadas("anotacoes_hiit", st.session_state.dados.get("anotacoes_hiit", []), u_id)
-        st.session_state.imagens_hidratadas["anotacoes_hiit"] = True
+    # Atualiza referências locais depois do carregamento sob demanda.
+    _dados_cache = st.session_state.get("dados", {})
+    dados_aulas = _dados_cache.get("aulas", [])
+    mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas}
+    dados_revisoes = _dados_cache.get("revisoes", [])
+    dados_questoes = _dados_cache.get("questoes", [])
+    dados_flashcards = _dados_cache.get("flashcards", [])
+    dados_simulados = _dados_cache.get("simulados", [])
+    dados_focus = _dados_cache.get("focus", [])
+    dados_materiais = _dados_cache.get("materiais", [])
+    dados_cronogramas = _dados_cache.get("cronogramas", [])
+    dados_anotacoes = _dados_cache.get("anotacoes", [])
+    dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
+    dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
+    dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
+    dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
+
+    # Imagens são carregadas por anotação, somente quando o usuário pede para vê-las.
+    # Isso mantém a navegação leve mesmo com muitas imagens salvas.
 
     st.sidebar.markdown("<div class='rp-nav-caption'>ATALHOS</div>", unsafe_allow_html=True)
     q1, q2 = st.sidebar.columns(2)
@@ -2431,7 +2580,7 @@ else:
                         font_color=modo_grafico_font, showlegend=True,
                         legend=dict(orientation="h", y=-0.05), margin=dict(t=10,b=10,l=5,r=5)
                     )
-                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.plotly_chart(fig_pie1, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
                 else:
                     st.info("Registre questões para visualizar seu desempenho.")
             with col_g2:
@@ -2483,7 +2632,7 @@ else:
                         font_color=modo_grafico_font, showlegend=False,
                         margin=dict(t=8,b=8,l=8,r=48), height=max(300, 42 * len(df_g))
                     )
-                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.plotly_chart(fig_bar1, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
                     legenda_materias = " · ".join([
                         f"<span style='color:{CORES_AREAS.get(a, '#64748b')};font-weight:700'>●</span> {a}"
                         for a in AREAS_MED if a in set(df_g['area'])
@@ -2772,7 +2921,7 @@ else:
                 if t_questoes_h > 0: 
                     fig_pie_h = px.pie(names=['Acertos', 'Erros'], values=[t_acertos_h, t_erros_h], hole=0.6, color_discrete_sequence=["#2563eb", '#ef4444'])
                     fig_pie_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.plotly_chart(fig_pie_h, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
             with col_gh2:
                 todas_questoes_hiit_grafico = [{"area": normalizar_area(q.get('area'), mapa_aulas), "acertos": safe_int(q.get('acertos')), "erros": safe_int(q.get('erros'))} for q in qs_hiit_all] + [{"area": normalizar_area(r.get('area'), mapa_aulas), "acertos": safe_int(r.get('acertos')), "erros": safe_int(r.get('erros'))} for r in revs_hiit_all]
                 df_rh = pd.DataFrame(todas_questoes_hiit_grafico).dropna(subset=['area'])
@@ -2799,7 +2948,7 @@ else:
                         )
                     fig_bar_h.update_xaxes(range=[0, 110], ticksuffix='%', gridcolor='rgba(128,128,128,.12)')
                     fig_bar_h.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, showlegend=False, margin=dict(t=0, b=0, l=0, r=48))
-                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.plotly_chart(fig_bar_h, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
                     st.markdown(
                         "<div style='font-size:11px;line-height:1.7'>"
                         "<span style='color:#ef4444;font-weight:700'>● &lt;60%</span> · "
@@ -3019,14 +3168,12 @@ else:
                             if qh_dados.get('id'):
                                 db_update("questoes_hiit", "questoes_hiit", qh_id_alvo, {"acertos": novo_ac_h, "erros": novo_er_h})
                                 st.toast("Registro HIIT atualizado com sucesso!", icon="✅")
-                                time.sleep(0.5)
                                 st.rerun()
                             
                         if col_btn2h.button("🗑️ Excluir Registro", use_container_width=True, key=f"dl_h_{qh_id_alvo}"):
                             if qh_dados.get('id'):
                                 db_delete("questoes_hiit", "questoes_hiit", qh_id_alvo)
                                 st.toast("Registro HIIT excluído!", icon="🗑️")
-                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_cal_hiit:
@@ -3150,8 +3297,7 @@ else:
                                 else:
                                     st.toast("✅ Sessão Concluída!", icon="🚀")
                                     
-                                time.sleep(1)
-                                st.rerun()
+                                    st.rerun()
 
         with aba_notas_hiit:
             preservar_posicao_caderno("rp_caderno_scroll_hiit")
@@ -3297,7 +3443,6 @@ else:
                             "imagens_b64": list(st.session_state.hiit_nota_imgs_temp), "data_criacao": str(hoje)
                         })
                         st.session_state.limpar_nova_nota_hiit = True
-                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.error("Preencha o tema e a anotação.")
@@ -3336,20 +3481,32 @@ else:
                                             if st.button("🗑️ Excluir", key=f"del_h_{id_nh}", use_container_width=True):
                                                 db_delete("anotacoes_hiit", "anotacoes_hiit", id_nh)
                                                 st.toast("Anotação excluída!", icon="🗑️")
-                                                time.sleep(0.5)
                                                 st.rerun()
                                                 
                                         st.markdown(f"<div style='border-left: 3px solid #2563eb; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{nh.get('pontos_chave', '')}\n\n</div>", unsafe_allow_html=True)
                                         
-                                        imgs_exibir = list(nh.get('imagens_b64', []))
-                                        if imgs_exibir:
-                                            st.write("") 
-                                            cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                            for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                                with cols_view[idx_v % 4]:
-                                                    if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                        try: render_imagem_zoom_seguro(img_b64_v, chave=f"hiit_view_{nh.get('id', 'x')}_{idx_v}", altura=360)
-                                                        except: pass
+                                        qtd_img_h = safe_int(nh.get("imagens_qtd", 0))
+                                        if st.button(
+                                            f"🖼️ Ver imagens{f" ({qtd_img_h})" if qtd_img_h else ""}",
+                                            key=f"ver_img_h_{id_nh}", use_container_width=True
+                                            ):
+                                            st.session_state["nota_hiit_visualizando"] = id_nh
+                                            st.rerun()
+
+                                        if st.session_state.get("nota_hiit_visualizando") == id_nh:
+                                            imgs_exibir = obter_imagens_nota("anotacoes_hiit", nh, u_id)
+                                            if imgs_exibir:
+                                                st.write("")
+                                                cols_view = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                                for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                                    with cols_view[idx_v % 3]:
+                                                        if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                            try:
+                                                                render_imagem_zoom_seguro(img_b64_v, chave=f"hiit_view_{id_nh}_{idx_v}", altura=360)
+                                                            except Exception:
+                                                                pass
+                                            else:
+                                                st.info("Nenhuma imagem encontrada nesta anotação.")
 
                                         st.divider()
                                         
@@ -3429,15 +3586,16 @@ else:
                                                                 # O componente já dispara o rerun; não forçar outro.
                                                                 pass
                                             with col_eimg:
-                                                if imgs_exibir:
-                                                    cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                    for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                                imgs_edicao_n = obter_imagens_nota("anotacoes", nota, u_id)
+                                                if imgs_edicao_n:
+                                                    cols_e = st.columns(max(1, min(len(imgs_edicao_n), 3)))
+                                                    for idx_e, img_b64_e in enumerate(imgs_edicao_n):
                                                         with cols_e[idx_e % 3]:
                                                             if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                                 try: render_imagem_zoom_seguro(img_b64_e, chave=f"hiit_edit_{id_nh}_{idx_e}", altura=360)
                                                                 except: pass
                                                             if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}", use_container_width=True):
-                                                                if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e, img_b64_e):
+                                                                if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_edicao_h, idx_e, img_b64_e):
                                                                     st.toast("Imagem removida da anotação.", icon="🗑️")
 
                                             st.markdown("#### ✍️ Editar Texto")
@@ -3469,7 +3627,6 @@ else:
                                                         db_update("anotacoes_hiit", "anotacoes_hiit", id_nh, {"area": edit_ah, "subtema": edit_sh_final, "pontos_chave": edit_ph})
                                                         st.session_state.nota_hiit_em_edicao = None
                                                         st.toast("✅ Anotação atualizada!", icon="📝")
-                                                        time.sleep(0.5)
                                                         st.rerun()
                                                     else:
                                                         st.error("Preencha o subtema e a anotação para salvar.")
@@ -3550,7 +3707,6 @@ else:
                     if st.button("🗑️ Excluir Flashcard", key="btn_del_fc_h"):
                         db_delete("flashcards_hiit", "flashcards_hiit", del_fc_h.split(" | ")[0])
                         st.toast("Excluído!", icon="🗑️")
-                        time.sleep(0.5)
                         st.rerun()
 
     elif menu == "🎯 Questões":
@@ -3621,7 +3777,6 @@ else:
                     # -------------------------------------------------------------------
                     
                     st.toast("Questões registradas!", icon="✅")
-                    time.sleep(1)
                     st.rerun()
             
             if dados_questoes: 
@@ -3686,7 +3841,6 @@ else:
                             if q_dados.get('id'):
                                 db_update("questoes_sessoes", "questoes", q_id_alvo, {"acertos": novo_ac, "erros": novo_er})
                                 st.toast("Registro atualizado com sucesso!", icon="✅")
-                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
@@ -3695,7 +3849,6 @@ else:
                             if q_dados.get('id'):
                                 db_delete("questoes_sessoes", "questoes", q_id_alvo)
                                 st.toast("Registro excluído!", icon="🗑️")
-                                time.sleep(0.5)
                                 st.rerun()
                             else:
                                 st.error("Erro: Registro sem ID.")
@@ -3836,7 +3989,6 @@ else:
                         t_final = f"{sub_f} - {t}" if sub_f and sub_f != "Geral" else t
                         db_add("flashcards", "flashcards", {"usuario_id": u_id, "area": a, "tema": t_final or "Sem Tema", "frente": f, "verso": v, "path_imagem": None, "data_prox_revisao": str(get_agora().date()), "intervalo": 0, "facilidade": 2.5})
                         st.toast("Flashcard salvo!", icon="📚")
-                        time.sleep(0.5)
                         st.rerun()
             
             with aba_f3:
@@ -3901,8 +4053,7 @@ else:
                         st.toast(f"Aula registrada! {removidas_crono} item(ns) removido(s) do cronograma.", icon="📚")
                     else:
                         st.toast("Aula registrada com sucesso!", icon="📚")
-                    time.sleep(0.5)
-                    st.rerun()
+                        st.rerun()
                     
             with st.expander("🗑️ Excluir Aula do Banco"):
                 opcoes_del_dict = {f"{formatar_data_br(a.get('data_aula'))} - {limpar_texto(a.get('tema'))}": a.get('id') for a in dados_aulas}
@@ -3913,7 +4064,6 @@ else:
                         db.collection("aulas").document(id_del).delete()
                         st.session_state.dados["aulas"] = [au for au in st.session_state.dados["aulas"] if str(au.get("id")) != id_del]
                         st.toast("Aula apagada.", icon="🗑️")
-                        time.sleep(0.5)
                         st.rerun()
 
         with col_lista:
@@ -4035,7 +4185,7 @@ else:
                     
                     modo_grafico_font = "#f8fafc" if st.session_state.get('user_settings', {}).get('tema_modo', 'Escuro') == 'Escuro' else "#0f172a"
                     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
 
         with aba_simulado:
             col_sim1, col_sim2 = st.columns(2)
@@ -4309,7 +4459,6 @@ else:
                         })
                         st.session_state.limpar_nova_nota = True
                         st.session_state.draft_nota_txt = "" # Limpa o rascunho apenas após o save final
-                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.error("Preencha o subtema e a anotação para salvar.")
@@ -4367,19 +4516,28 @@ else:
                                     conteudo_nota = nota.get('pontos_chave', '')
                                     st.markdown(f"<div style='border-left: 3px solid {cor_area(nota.get('area'), mapa_aulas)}; padding-left: 15px; margin-top: 10px; margin-bottom: 20px;'>\n\n{conteudo_nota}\n\n</div>", unsafe_allow_html=True)
                                     
-                                    # Exibindo as imagens de forma organizada (Grade)
-                                    imgs_exibir = list(nota.get('imagens_b64', []))
-                                    if nota.get('imagem_b64') and nota.get('imagem_b64') not in imgs_exibir:
-                                        imgs_exibir.insert(0, nota['imagem_b64'])
-                                        
-                                    if imgs_exibir:
-                                        st.write("") # Espaçamento
-                                        cols_view = st.columns(max(1, min(len(imgs_exibir), 4)))
-                                        for idx_v, img_b64_v in enumerate(imgs_exibir):
-                                            with cols_view[idx_v % 4]:
-                                                if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: render_imagem_zoom_seguro(img_b64_v, chave=f"nota_view_{nota_id}_{idx_v}", altura=360)
-                                                    except: pass
+                                    qtd_img_n = safe_int(nota.get("imagens_qtd", 0))
+                                    if st.button(
+                                            f"🖼️ Ver imagens{f" ({qtd_img_n})" if qtd_img_n else ""}",
+                                            key=f"ver_img_n_{nota_id}", use_container_width=True
+                                        ):
+                                            st.session_state["nota_visualizando"] = nota_id
+                                            st.rerun()
+
+                                    if st.session_state.get("nota_visualizando") == nota_id:
+                                        imgs_exibir = obter_imagens_nota("anotacoes", nota, u_id)
+                                        if imgs_exibir:
+                                            st.write("")
+                                            cols_view = st.columns(max(1, min(len(imgs_exibir), 3)))
+                                            for idx_v, img_b64_v in enumerate(imgs_exibir):
+                                                with cols_view[idx_v % 3]:
+                                                    if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
+                                                        try:
+                                                            render_imagem_zoom_seguro(img_b64_v, chave=f"nota_view_{nota_id}_{idx_v}", altura=360)
+                                                        except Exception:
+                                                            pass
+                                        else:
+                                            st.info("Nenhuma imagem encontrada nesta anotação.")
                                     
                                     st.divider()
                                     
@@ -4412,15 +4570,16 @@ else:
                                                             # O componente já dispara o rerun; não forçar outro.
                                                             pass
                                         with col_eimg:
-                                            if imgs_exibir:
-                                                cols_e = st.columns(max(1, min(len(imgs_exibir), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_exibir):
+                                            imgs_edicao_h = obter_imagens_nota("anotacoes_hiit", nh, u_id)
+                                            if imgs_edicao_h:
+                                                cols_e = st.columns(max(1, min(len(imgs_edicao_h), 3)))
+                                                for idx_e, img_b64_e in enumerate(imgs_edicao_h):
                                                     with cols_e[idx_e % 3]:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                             try: render_imagem_zoom_seguro(img_b64_e, chave=f"nota_edit_{nota_id}_{idx_e}", altura=360)
                                                             except: pass
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}", use_container_width=True):
-                                                            if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e, img_b64_e):
+                                                            if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_edicao_n, idx_e, img_b64_e):
                                                                 st.toast("Imagem removida da anotação.", icon="🗑️")
 
                                         st.markdown("#### ✍️ Editar Texto")
@@ -4453,7 +4612,6 @@ else:
                                                     db_update("anotacoes", "anotacoes", nota_id, {"area": edit_a, "subtema": edit_s_final, "pontos_chave": edit_p})
                                                     st.session_state.nota_em_edicao = None
                                                     st.toast("✅ Anotação atualizada!", icon="📝")
-                                                    time.sleep(0.5)
                                                     st.rerun()
                                                 else:
                                                     st.error("Preencha o subtema e a anotação para salvar.")
@@ -4572,7 +4730,6 @@ else:
                             if st.form_submit_button("✅ Marcar Concluída", use_container_width=True):
                                 db_update("revisoes", "revisoes", r['id'], {"status": "Concluída", "questoes_feitas": q, "erros": e, "acertos": q-e, "flashcards_feitas": f, "data_conclusao": get_agora().strftime("%Y-%m-%d %H:%M:%S")})
                                 st.toast("✅ Revisão Concluída!", icon="🚀")
-                                time.sleep(0.5)
                                 st.rerun()
 
         with aba_historico:
@@ -4600,11 +4757,11 @@ else:
                     with c1g: 
                         fig1 = px.bar(df_ag, x="Data", y=["Acertos", "Erros"], barmode="group", color_discrete_map={"Acertos":"#22c55e", "Erros":"#ef4444"})
                         fig1.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                        st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
                     with c2g: 
                         fig2 = px.bar(df_ag, x="Data", y="Cards")
                         fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color=modo_grafico_font, margin=dict(t=0, b=0, l=0, r=0))
-                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False}, theme=None)
+                        st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False, 'displaylogo': False, 'responsive': True}, theme=None)
                     
                     df_h["Data"] = df_h["Conclusão_dt"].dt.strftime('%d/%m/%Y')
                     df_h = df_h.sort_values(by="Conclusão_dt", ascending=False)
@@ -4621,7 +4778,6 @@ else:
                             if st.button("Desfazer Conclusão e Voltar para Pendente", use_container_width=True):
                                 db_update("revisoes", "revisoes", opcoes_desfazer[rev_selecionada], {"status": "Pendente", "questoes_feitas": 0, "erros": 0, "acertos": 0, "flashcards_feitas": 0, "data_conclusao": None})
                                 st.toast("Revisão desfeita!", icon="⏪")
-                                time.sleep(0.5)
                                 st.rerun()
 
     elif menu == "⚙️ Configurações":
