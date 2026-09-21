@@ -3592,8 +3592,8 @@ else:
                                                                 pass
                                             with col_eimg:
                                                 if imgs_edicao_h:
-                                                    cols_e = st.columns(max(1, min(len(imgs_edicao_n), 3)))
-                                                    for idx_e, img_b64_e in enumerate(imgs_edicao_n):
+                                                    cols_e = st.columns(max(1, min(len(imgs_edicao_h), 3)))
+                                                    for idx_e, img_b64_e in enumerate(imgs_edicao_h):
                                                         with cols_e[idx_e % 3]:
                                                             if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                                 try: render_imagem_zoom_seguro(img_b64_e, chave=f"hiit_edit_{id_nh}_{idx_e}", altura=360)
