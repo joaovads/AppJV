@@ -3568,6 +3568,11 @@ else:
                                                 st.rerun()
                                                 
                                             st.markdown("#### 🖼️ Imagens da Anotação")
+                                            # Carrega as imagens desta anotação antes do botão de colagem.
+                                            # Isso evita depender de uma variável criada apenas no bloco
+                                            # de visualização e elimina NameError após o primeiro rerun.
+                                            imgs_edicao_h = obter_imagens_nota("anotacoes_hiit", nh, u_id)
+                                            imgs_exibir_edit_h = imgs_edicao_h or []
                                             col_ebtn, col_eimg = st.columns([1, 2])
                                             with col_ebtn:
                                                 st.markdown("➕ **Adicionar Mais Imagens:**")
@@ -3581,13 +3586,12 @@ else:
                                                     )
                                                     if res_paste_edit.image_data is not None:
                                                         img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
-                                                        if img_eb64 and img_eb64 not in imgs_exibir:
+                                                        if img_eb64 and img_eb64 not in imgs_exibir_edit_h:
                                                             if adicionar_imagem_anotacao("anotacoes_hiit", id_nh, img_eb64, "anotacoes_hiit"):
                                                                 # O componente já dispara o rerun; não forçar outro.
                                                                 pass
                                             with col_eimg:
-                                                imgs_edicao_n = obter_imagens_nota("anotacoes", nota, u_id)
-                                                if imgs_edicao_n:
+                                                if imgs_edicao_h:
                                                     cols_e = st.columns(max(1, min(len(imgs_edicao_n), 3)))
                                                     for idx_e, img_b64_e in enumerate(imgs_edicao_n):
                                                         with cols_e[idx_e % 3]:
@@ -4552,6 +4556,9 @@ else:
                                             st.rerun()
                                             
                                         st.markdown("#### 🖼️ Imagens da Anotação")
+                                        # Carrega as imagens da anotação normal antes do bloco de edição.
+                                        imgs_edicao_n = obter_imagens_nota("anotacoes", nota, u_id)
+                                        imgs_exibir_edit_n = imgs_edicao_n or []
                                         col_ebtn, col_eimg = st.columns([1, 2])
                                         with col_ebtn:
                                             st.markdown("➕ **Adicionar Mais Imagens:**")
@@ -4565,15 +4572,14 @@ else:
                                                 )
                                                 if res_paste_edit.image_data is not None:
                                                     img_eb64 = armazenar_imagem_nota_alta_qualidade(res_paste_edit.image_data)
-                                                    if img_eb64 and img_eb64 not in imgs_exibir:
+                                                    if img_eb64 and img_eb64 not in imgs_exibir_edit_n:
                                                         if adicionar_imagem_anotacao("anotacoes", nota_id, img_eb64, "anotacoes"):
                                                             # O componente já dispara o rerun; não forçar outro.
                                                             pass
                                         with col_eimg:
-                                            imgs_edicao_h = obter_imagens_nota("anotacoes_hiit", nh, u_id)
-                                            if imgs_edicao_h:
-                                                cols_e = st.columns(max(1, min(len(imgs_edicao_h), 3)))
-                                                for idx_e, img_b64_e in enumerate(imgs_edicao_h):
+                                            if imgs_edicao_n:
+                                                cols_e = st.columns(max(1, min(len(imgs_edicao_n), 3)))
+                                                for idx_e, img_b64_e in enumerate(imgs_edicao_n):
                                                     with cols_e[idx_e % 3]:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
                                                             try: render_imagem_zoom_seguro(img_b64_e, chave=f"nota_edit_{nota_id}_{idx_e}", altura=360)
