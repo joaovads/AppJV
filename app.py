@@ -815,6 +815,40 @@ def aplicar_ui_v3(modo):
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {{background:{text} !important;border-color:{text} !important;}}
     [data-testid="stSidebar"] [role="radiogroup"] label p {{color:{muted} !important;font-size:.79rem !important;font-weight:680 !important;margin:0 !important;}}
     [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {{color:{bg} !important;font-weight:800 !important;}}
+
+    /* Navegação robusta por botões: sem círculos de radio e com área de toque ampla. */
+    [data-testid="stSidebar"] .stButton > button {{
+      width:100% !important; min-height:39px !important; margin:1px 0 !important;
+      padding:7px 12px !important; border-radius:7px !important;
+      border:1px solid transparent !important; background:transparent !important;
+      color:{muted} !important; text-align:left !important;
+      justify-content:flex-start !important; box-shadow:none !important;
+      font-size:.80rem !important; font-weight:680 !important;
+    }}
+    [data-testid="stSidebar"] .stButton > button:hover {{
+      background:{hover} !important; border-color:{border} !important;
+      color:{text} !important; transform:none !important;
+    }}
+    [data-testid="stSidebar"] .stButton > button[kind="primary"],
+    [data-testid="stSidebar"] .stButton > button[data-testid="baseButton-primary"] {{
+      background:{text} !important; border-color:{text} !important; color:{bg} !important;
+      font-weight:800 !important;
+    }}
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] p,
+    [data-testid="stSidebar"] .stButton > button[data-testid="baseButton-primary"] p {{
+      color:{bg} !important; font-weight:800 !important;
+    }}
+    [data-testid="stSidebar"] .stButton > button p {{
+      margin:0 !important; line-height:1.2 !important; text-align:left !important;
+    }}
+    @media(max-width:760px) {{
+      [data-testid="stSidebar"] .block-container {{padding:.85rem .72rem 1rem !important;}}
+      .rp-brand {{padding:5px 10px 14px !important;margin-bottom:8px !important;}}
+      .rp-brand-title {{font-size:1rem !important;}}
+      .rp-brand-sub {{font-size:.50rem !important;margin-top:4px !important;}}
+      .rp-nav-caption {{padding:8px 9px 5px !important;}}
+      [data-testid="stSidebar"] .stButton > button {{min-height:42px !important;font-size:.82rem !important;padding:8px 11px !important;}}
+    }}
     [data-testid="stSidebar"] hr {{border-color:{border} !important;margin:15px 0 !important;}}
 
     /* ===== CABECALHO DE PAGINA ===== */
@@ -1164,72 +1198,70 @@ def invalidar_cache(colecoes=None):
         st.session_state.user_data_loaded = False
 
 # ==========================================
-# COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
+# VISUALIZADOR DE IMAGENS — ISOLADO DO LAYOUT
 # ==========================================
-# IMPORTANTE: não usamos response_format/json_schema nas chamadas;
-# todo JSON é validado localmente para evitar HTTP 400 json_validate_failed.
 def render_imagem_zoom_seguro(img_b64, chave="rpzoom", altura=360):
-    """Visualizador isolado: zoom/pan dentro do próprio iframe, sem CSS no app.
-    Não altera DOM, CSS ou layout do Streamlit pai.
-    """
+    """Visualizador autocontido. O zoom fica dentro do próprio componente e
+    não injeta CSS/JS no documento principal do Streamlit."""
     if not img_b64:
         return
     try:
-        # Normaliza caso venha com prefixo data:image/...
         raw = str(img_b64)
         if raw.startswith("data:") and "," in raw:
             raw = raw.split(",", 1)[1]
-        # JSON evita quebrar o HTML caso a string tenha caracteres especiais.
-        import json as _json
         src = "data:image/*;base64," + raw
-        src_js = _json.dumps(src)
-        html = f"""
-        <div id="wrap_{chave}" style="width:100%;height:{int(altura)}px;position:relative;overflow:hidden;border:1px solid #d7dee7;border-radius:12px;background:#f7f9fb;box-sizing:border-box;font-family:Arial,sans-serif;">
-          <div id="view_{chave}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in;">
-            <img id="img_{chave}" src={src_js} draggable="false" style="max-width:94%;max-height:88%;width:auto;height:auto;object-fit:contain;transform:translate(0px,0px) scale(1);transform-origin:center center;user-select:none;-webkit-user-drag:none;" />
+        src_js = json.dumps(src)
+        html_zoom = f"""
+        <div id="rpz_{chave}" style="width:100%;height:{int(altura)}px;position:relative;overflow:hidden;border:1px solid #d7dee7;border-radius:10px;background:#f7f9fb;box-sizing:border-box;font-family:Arial,sans-serif;">
+          <div id="rpv_{chave}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in;">
+            <img id="rpi_{chave}" src={src_js} draggable="false" style="max-width:94%;max-height:88%;width:auto;height:auto;object-fit:contain;transform:translate(0px,0px) scale(1);transform-origin:center center;user-select:none;-webkit-user-drag:none;" />
           </div>
-          <div style="position:absolute;right:8px;top:8px;z-index:5;display:flex;gap:5px;">
-            <button id="minus_{chave}" title="Diminuir" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.94);border-radius:7px;width:30px;height:30px;font-size:18px;cursor:pointer;">−</button>
-            <button id="reset_{chave}" title="100%" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.94);border-radius:7px;height:30px;padding:0 8px;font-size:12px;cursor:pointer;">100%</button>
-            <button id="plus_{chave}" title="Aumentar" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.94);border-radius:7px;width:30px;height:30px;font-size:18px;cursor:pointer;">+</button>
+          <div style="position:absolute;right:8px;top:8px;z-index:5;display:flex;gap:4px;">
+            <button id="rzm_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">−</button>
+            <button id="rzr_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;height:30px;padding:0 8px;font-size:11px;cursor:pointer;">100%</button>
+            <button id="rzp_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">+</button>
           </div>
-          <div id="hint_{chave}" style="position:absolute;left:8px;bottom:7px;background:rgba(17,24,39,.72);color:white;border-radius:7px;padding:4px 7px;font-size:11px;pointer-events:none;">Roda do mouse / pinça para zoom • arraste para mover</div>
+          <div style="position:absolute;left:8px;bottom:7px;background:rgba(17,24,39,.68);color:#fff;border-radius:6px;padding:4px 7px;font-size:10px;pointer-events:none;">Roda/pinça: zoom · arraste: mover</div>
         </div>
         <script>
         (() => {{
-          const img=document.getElementById('img_{chave}'), view=document.getElementById('view_{chave}');
-          const plus=document.getElementById('plus_{chave}'), minus=document.getElementById('minus_{chave}'), reset=document.getElementById('reset_{chave}');
-          let scale=1, x=0, y=0, dragging=false, sx=0, sy=0, ox=0, oy=0, lastDist=0;
+          const img=document.getElementById('rpi_{chave}');
+          const view=document.getElementById('rpv_{chave}');
+          const plus=document.getElementById('rzp_{chave}');
+          const minus=document.getElementById('rzm_{chave}');
+          const reset=document.getElementById('rzr_{chave}');
+          if(!img||!view) return;
+          let scale=1,x=0,y=0,drag=false,sx=0,sy=0,ox=0,oy=0,lastDist=0;
           const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-          function paint(){{ img.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`; img.style.cursor=scale>1?'grab':'zoom-in'; }}
-          function setScale(v){{ scale=clamp(v,1,5); if(scale===1){{x=0;y=0;}} paint(); }}
-          plus.onclick=()=>setScale(scale*1.25); minus.onclick=()=>setScale(scale/1.25); reset.onclick=()=>setScale(1);
-          view.addEventListener('wheel',e=>{{e.preventDefault(); setScale(scale*(e.deltaY<0?1.15:1/1.15));}},{{passive:false}});
-          view.addEventListener('dblclick',e=>{{e.preventDefault(); setScale(scale>1?1:2.5);}});
-          view.addEventListener('pointerdown',e=>{{
-            if(scale<=1)return; dragging=true; view.setPointerCapture(e.pointerId); sx=e.clientX; sy=e.clientY; ox=x; oy=y;
-            img.style.cursor='grabbing';
-          }});
-          view.addEventListener('pointermove',e=>{{if(!dragging)return; x=ox+e.clientX-sx; y=oy+e.clientY-sy; paint();}});
-          view.addEventListener('pointerup',e=>{{dragging=false; try{{view.releasePointerCapture(e.pointerId);}}catch(_{{}}){{}} paint();}});
-          view.addEventListener('pointercancel',()=>{{dragging=false;paint();}});
-          function dist(a,b){{return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}}
-          view.addEventListener('touchstart',e=>{{if(e.touches.length===2){{lastDist=dist(e.touches[0],e.touches[1]);}}}},{{passive:true}});
-          view.addEventListener('touchmove',e=>{{
-            if(e.touches.length===2){{e.preventDefault(); const d=dist(e.touches[0],e.touches[1]); if(lastDist) setScale(scale*(d/lastDist)); lastDist=d;}}
-          }},{{passive:false}});
+          const paint=()=>{{img.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`;img.style.cursor=scale>1?'grab':'zoom-in';}};
+          const setScale=(v)=>{{scale=clamp(v,1,5);if(scale===1){{x=0;y=0;}}paint();}};
+          plus.onclick=()=>setScale(scale*1.25);minus.onclick=()=>setScale(scale/1.25);reset.onclick=()=>setScale(1);
+          view.addEventListener('wheel',e=>{{e.preventDefault();setScale(scale*(e.deltaY<0?1.15:1/1.15));}},{{passive:false}});
+          view.addEventListener('dblclick',e=>{{e.preventDefault();setScale(scale>1?1:2.5);}});
+          view.addEventListener('pointerdown',e=>{{if(scale<=1)return;drag=true;view.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;ox=x;oy=y;}});
+          view.addEventListener('pointermove',e=>{{if(!drag)return;x=ox+e.clientX-sx;y=oy+e.clientY-sy;paint();}});
+          view.addEventListener('pointerup',e=>{{drag=false;try{{view.releasePointerCapture(e.pointerId);}}catch(_){{}}paint();}});
+          view.addEventListener('pointercancel',()=>{{drag=false;paint();}});
+          const dist=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
+          view.addEventListener('touchstart',e=>{{if(e.touches.length===2)lastDist=dist(e.touches[0],e.touches[1]);}},{{passive:true}});
+          view.addEventListener('touchmove',e=>{{if(e.touches.length===2){{e.preventDefault();const d=dist(e.touches[0],e.touches[1]);if(lastDist)setScale(scale*(d/lastDist));lastDist=d;}}}},{{passive:false}});
           view.addEventListener('touchend',()=>{{lastDist=0;}});
           paint();
         }})();
         </script>
         """
-        components.html(html, height=int(altura), scrolling=False)
+        components.html(html_zoom, height=int(altura), scrolling=False)
     except Exception:
         try:
-            render_imagem_zoom_seguro(img_b64, chave="nota_img", altura=360)
+            st.image(base64.b64decode(raw), use_container_width=True)
         except Exception:
             pass
 
+# ==========================================
+# COMPRESSOR E EXTRATOR SEGURO DE JSON E IA
+# ==========================================
+# IMPORTANTE: não usamos response_format/json_schema nas chamadas;
+# todo JSON é validado localmente para evitar HTTP 400 json_validate_failed.
 def otimizar_imagem_para_api(img_data, max_size=500):
     if Image is None:
         try:
@@ -2299,8 +2331,24 @@ else:
     estado_visual = mapa_exibicao.get(estado_antigo, estado_antigo if estado_antigo in opcoes_visuais else opcoes_visuais[0])
 
     st.sidebar.markdown("<div class='rp-nav-caption'>ESTUDO</div>", unsafe_allow_html=True)
-    menu_visual = st.sidebar.radio("Navegação", opcoes_visuais, index=opcoes_visuais.index(estado_visual), key="menu_navegacao_v3", label_visibility="collapsed")
-    menu = mapa_interno.get(menu_visual, "🏠 Dashboard")
+
+    # Navegação por botões reais, em vez do radio nativo do Streamlit.
+    # Isso elimina os círculos do radio, melhora o toque no celular e evita
+    # depender de seletores DOM frágeis para manter o item ativo.
+    for idx_nav, menu_item_visual in enumerate(opcoes_visuais):
+        menu_item_interno = mapa_interno.get(menu_item_visual, "🏠 Dashboard")
+        selecionado = menu_item_interno == estado_antigo
+        tipo_botao = "primary" if selecionado else "secondary"
+        if st.sidebar.button(
+            menu_item_visual,
+            key=f"rp_nav_btn_{idx_nav}",
+            use_container_width=True,
+            type=tipo_botao,
+        ):
+            st.session_state["menu_navegacao"] = menu_item_interno
+            st.rerun()
+
+    menu = estado_antigo
     st.session_state["menu_navegacao"] = menu
 
     # Hidratação sob demanda das imagens: só traz o conteúdo pesado quando o usuário
@@ -3224,7 +3272,7 @@ else:
                         with cols[idx % len(cols)]:
                             if isinstance(img_b64, str) and len(img_b64) > 50:
                                 try:
-                                    render_imagem_zoom_seguro(img_b64, chave="hiit_img", altura=360)
+                                    st.image(base64.b64decode(img_b64), use_container_width=True)
                                 except Exception:
                                     pass
                             if st.button("Remover imagem", key=f"rm_hiit_img_{idx}", use_container_width=True):
@@ -3300,7 +3348,7 @@ else:
                                             for idx_v, img_b64_v in enumerate(imgs_exibir):
                                                 with cols_view[idx_v % 4]:
                                                     if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                        try: render_imagem_zoom_seguro(img_b64_v, chave="nota_img_v", altura=360)
+                                                        try: render_imagem_zoom_seguro(img_b64_v, chave=f"hiit_view_{nh.get('id', 'x')}_{idx_v}", altura=360)
                                                         except: pass
 
                                         st.divider()
@@ -3386,7 +3434,7 @@ else:
                                                     for idx_e, img_b64_e in enumerate(imgs_exibir):
                                                         with cols_e[idx_e % 3]:
                                                             if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                                try: render_imagem_zoom_seguro(img_b64_e, chave="nota_img_e", altura=360)
+                                                                try: render_imagem_zoom_seguro(img_b64_e, chave=f"hiit_edit_{id_nh}_{idx_e}", altura=360)
                                                                 except: pass
                                                             if st.button("🗑️ Remover", key=f"rmv_medit_h_{id_nh}_{idx_e}", use_container_width=True):
                                                                 if remover_imagem_firestore("anotacoes_hiit", "anotacoes_hiit", id_nh, imgs_exibir, idx_e, img_b64_e):
@@ -4045,7 +4093,7 @@ else:
                     with st.container(border=True):
                         st.markdown(f"**Questão {q.get('num', i+1)}**")
                         if q.get('imagem_fonte'):
-                            with st.expander("🖼️ Ver Imagem"): render_imagem_zoom_seguro(q['imagem_fonte'], chave="questao_fonte", altura=420)
+                            with st.expander("🖼️ Ver Imagem"): render_imagem_zoom_seguro(q['imagem_fonte'], chave=f"questao_fonte_{q.get('id','x')}", altura=420)
                         st.write(q.get('texto', ''))
                         opcoes_dict = q.get('opcoes', {})
                         if opcoes_dict: st.session_state.respostas_usuario[i] = st.radio("Selecione:", options=list(opcoes_dict.keys()), format_func=lambda x: f"{x}) {opcoes_dict.get(x, '')}", key=f"q_radio_{i}", index=None)
@@ -4330,7 +4378,7 @@ else:
                                         for idx_v, img_b64_v in enumerate(imgs_exibir):
                                             with cols_view[idx_v % 4]:
                                                 if isinstance(img_b64_v, str) and len(img_b64_v) > 50:
-                                                    try: render_imagem_zoom_seguro(img_b64_v, chave="hiit_img_v", altura=360)
+                                                    try: render_imagem_zoom_seguro(img_b64_v, chave=f"nota_view_{nota_id}_{idx_v}", altura=360)
                                                     except: pass
                                     
                                     st.divider()
@@ -4369,7 +4417,7 @@ else:
                                                 for idx_e, img_b64_e in enumerate(imgs_exibir):
                                                     with cols_e[idx_e % 3]:
                                                         if isinstance(img_b64_e, str) and len(img_b64_e) > 50:
-                                                            try: render_imagem_zoom_seguro(img_b64_e, chave="hiit_img_e", altura=360)
+                                                            try: render_imagem_zoom_seguro(img_b64_e, chave=f"nota_edit_{nota_id}_{idx_e}", altura=360)
                                                             except: pass
                                                         if st.button("🗑️ Remover", key=f"rmv_medit_{nota_id}_{idx_e}", use_container_width=True):
                                                             if remover_imagem_firestore("anotacoes", "anotacoes", nota_id, imgs_exibir, idx_e, img_b64_e):
