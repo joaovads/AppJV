@@ -1211,8 +1211,12 @@ def invalidar_cache(colecoes=None):
 # VISUALIZADOR DE IMAGENS — ISOLADO DO LAYOUT
 # ==========================================
 def render_imagem_zoom_seguro(img_b64, chave="rpzoom", altura=360):
-    """Visualizador autocontido. O zoom fica dentro do próprio componente e
-    não injeta CSS/JS no documento principal do Streamlit."""
+    """Visualizador isolado com zoom + tela cheia.
+
+    A imagem exibida usa exatamente o base64 armazenado, sem recompressão.
+    A tela cheia é solicitada somente ao componente da imagem, sem alterar
+    o DOM/CSS principal do Streamlit.
+    """
     if not img_b64:
         return
     try:
@@ -1223,39 +1227,120 @@ def render_imagem_zoom_seguro(img_b64, chave="rpzoom", altura=360):
         src_js = json.dumps(src)
         html_zoom = f"""
         <div id="rpz_{chave}" style="width:100%;height:{int(altura)}px;position:relative;overflow:hidden;border:1px solid #d7dee7;border-radius:10px;background:#f7f9fb;box-sizing:border-box;font-family:Arial,sans-serif;">
-          <div id="rpv_{chave}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in;">
-            <img id="rpi_{chave}" src={src_js} draggable="false" style="max-width:94%;max-height:88%;width:auto;height:auto;object-fit:contain;transform:translate(0px,0px) scale(1);transform-origin:center center;user-select:none;-webkit-user-drag:none;" />
+          <div id="rpv_{chave}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:zoom-in;background:#f7f9fb;">
+            <img id="rpi_{chave}" src={src_js} draggable="false" style="max-width:94%;max-height:88%;width:auto;height:auto;object-fit:contain;image-rendering:auto;transform:translate(0px,0px) scale(1);transform-origin:center center;user-select:none;-webkit-user-drag:none;" />
           </div>
           <div style="position:absolute;right:8px;top:8px;z-index:5;display:flex;gap:4px;">
-            <button id="rzm_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">−</button>
-            <button id="rzr_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;height:30px;padding:0 8px;font-size:11px;cursor:pointer;">100%</button>
-            <button id="rzp_{chave}" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.96);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">+</button>
+            <button id="rzm_{chave}" title="Diminuir zoom" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.97);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">−</button>
+            <button id="rzr_{chave}" title="Voltar a 100%" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.97);border-radius:6px;height:30px;padding:0 8px;font-size:11px;cursor:pointer;">100%</button>
+            <button id="rzp_{chave}" title="Aumentar zoom" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.97);border-radius:6px;width:30px;height:30px;font-size:18px;cursor:pointer;">+</button>
+            <button id="rzf_{chave}" title="Tela cheia" style="border:1px solid #cbd5e1;background:rgba(255,255,255,.97);border-radius:6px;width:34px;height:30px;font-size:16px;cursor:pointer;">⛶</button>
           </div>
-          <div style="position:absolute;left:8px;bottom:7px;background:rgba(17,24,39,.68);color:#fff;border-radius:6px;padding:4px 7px;font-size:10px;pointer-events:none;">Roda/pinça: zoom · arraste: mover</div>
+          <div id="rzhelp_{chave}" style="position:absolute;left:8px;bottom:7px;background:rgba(17,24,39,.68);color:#fff;border-radius:6px;padding:4px 7px;font-size:10px;pointer-events:none;">Roda/pinça: zoom · arraste: mover · ⛶: tela cheia</div>
         </div>
         <script>
         (() => {{
+          const root=document.getElementById('rpz_{chave}');
           const img=document.getElementById('rpi_{chave}');
           const view=document.getElementById('rpv_{chave}');
           const plus=document.getElementById('rzp_{chave}');
           const minus=document.getElementById('rzm_{chave}');
           const reset=document.getElementById('rzr_{chave}');
-          if(!img||!view) return;
+          const full=document.getElementById('rzf_{chave}');
+          const help=document.getElementById('rzhelp_{chave}');
+          if(!root||!img||!view) return;
+
           let scale=1,x=0,y=0,drag=false,sx=0,sy=0,ox=0,oy=0,lastDist=0;
           const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-          const paint=()=>{{img.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`;img.style.cursor=scale>1?'grab':'zoom-in';}};
-          const setScale=(v)=>{{scale=clamp(v,1,5);if(scale===1){{x=0;y=0;}}paint();}};
-          plus.onclick=()=>setScale(scale*1.25);minus.onclick=()=>setScale(scale/1.25);reset.onclick=()=>setScale(1);
-          view.addEventListener('wheel',e=>{{e.preventDefault();setScale(scale*(e.deltaY<0?1.15:1/1.15));}},{{passive:false}});
-          view.addEventListener('dblclick',e=>{{e.preventDefault();setScale(scale>1?1:2.5);}});
-          view.addEventListener('pointerdown',e=>{{if(scale<=1)return;drag=true;view.setPointerCapture(e.pointerId);sx=e.clientX;sy=e.clientY;ox=x;oy=y;}});
-          view.addEventListener('pointermove',e=>{{if(!drag)return;x=ox+e.clientX-sx;y=oy+e.clientY-sy;paint();}});
-          view.addEventListener('pointerup',e=>{{drag=false;try{{view.releasePointerCapture(e.pointerId);}}catch(_){{}}paint();}});
+          const paint=()=>{{
+            img.style.transform=`translate(${{x}}px,${{y}}px) scale(${{scale}})`;
+            img.style.cursor=scale>1?'grab':'zoom-in';
+          }};
+          const setScale=(v)=>{{
+            scale=clamp(v,1,5);
+            if(scale===1){{x=0;y=0;}}
+            paint();
+          }};
+
+          plus.onclick=()=>setScale(scale*1.25);
+          minus.onclick=()=>setScale(scale/1.25);
+          reset.onclick=()=>setScale(1);
+
+          view.addEventListener('wheel',e=>{{
+            e.preventDefault();
+            setScale(scale*(e.deltaY<0?1.15:1/1.15));
+          }},{{passive:false}});
+
+          view.addEventListener('dblclick',e=>{{
+            e.preventDefault();
+            setScale(scale>1?1:2.5);
+          }});
+
+          view.addEventListener('pointerdown',e=>{{
+            if(scale<=1)return;
+            drag=true;
+            view.setPointerCapture(e.pointerId);
+            sx=e.clientX; sy=e.clientY; ox=x; oy=y;
+          }});
+          view.addEventListener('pointermove',e=>{{
+            if(!drag)return;
+            x=ox+e.clientX-sx; y=oy+e.clientY-sy; paint();
+          }});
+          view.addEventListener('pointerup',e=>{{
+            drag=false;
+            try{{view.releasePointerCapture(e.pointerId);}}catch(_){{}}
+            paint();
+          }});
           view.addEventListener('pointercancel',()=>{{drag=false;paint();}});
+
           const dist=(a,b)=>Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);
-          view.addEventListener('touchstart',e=>{{if(e.touches.length===2)lastDist=dist(e.touches[0],e.touches[1]);}},{{passive:true}});
-          view.addEventListener('touchmove',e=>{{if(e.touches.length===2){{e.preventDefault();const d=dist(e.touches[0],e.touches[1]);if(lastDist)setScale(scale*(d/lastDist));lastDist=d;}}}},{{passive:false}});
+          view.addEventListener('touchstart',e=>{{
+            if(e.touches.length===2)lastDist=dist(e.touches[0],e.touches[1]);
+          }},{{passive:true}});
+          view.addEventListener('touchmove',e=>{{
+            if(e.touches.length===2){{
+              e.preventDefault();
+              const d=dist(e.touches[0],e.touches[1]);
+              if(lastDist)setScale(scale*(d/lastDist));
+              lastDist=d;
+            }}
+          }},{{passive:false}});
           view.addEventListener('touchend',()=>{{lastDist=0;}});
+
+          const setFullscreenButton=()=>{{
+            const active=document.fullscreenElement===root;
+            full.textContent=active?'⤢':'⛶';
+            full.title=active?'Sair da tela cheia':'Tela cheia';
+            if(help) help.style.display=active?'none':'';
+          }};
+
+          full.onclick=async()=>{{
+            try{{
+              if(document.fullscreenElement){{
+                await document.exitFullscreen();
+              }}else if(root.requestFullscreen){{
+                await root.requestFullscreen();
+              }}else{{
+                // Fallback para navegadores móveis sem Fullscreen API.
+                root.style.position='fixed';
+                root.style.inset='0';
+                root.style.width='100vw';
+                root.style.height='100vh';
+                root.style.zIndex='999999';
+                root.style.borderRadius='0';
+                root.style.background='#000';
+                view.style.background='#000';
+                img.style.maxWidth='96%';
+                img.style.maxHeight='94%';
+                full.textContent='⤢';
+              }}
+            }}catch(err){{
+              // Se o navegador bloquear fullscreen, mantém o visualizador normal.
+            }}
+            setTimeout(setFullscreenButton,50);
+          }};
+
+          document.addEventListener('fullscreenchange',setFullscreenButton);
           paint();
         }})();
         </script>
@@ -2859,8 +2944,11 @@ else:
                     pr=paste_image_button(label="Colar imagem (Ctrl+V)",background_color="#2563eb",hover_background_color="#1d4ed8",key="paste_crono29")
                     if pr.image_data is not None:
                         buf=io.BytesIO(); pr.image_data.save(buf,format="PNG"); h=hashlib.md5(buf.getvalue()).hexdigest()
-                        if not any(x['hash']==h for x in st.session_state.get('prints_colados',[])): st.session_state.prints_colados.append({'hash':h,'img':pr.image_data,'bytes':buf.getvalue()}); st.rerun()
-                if st.session_state.get('prints_colados'): st.success(f"{len(st.session_state.prints_colados)} print(s) na fila")
+                        fila_prints = st.session_state.setdefault('prints_colados', [])
+                        if not any(isinstance(x, dict) and x.get('hash') == h for x in fila_prints):
+                            fila_prints.append({'hash': h, 'img': pr.image_data, 'bytes': buf.getvalue()})
+                            st.rerun()
+                if st.session_state.get('prints_colados'): st.success(f"{len(st.session_state.get('prints_colados', []))} print(s) na fila")
             with cb:
                 imgs=st.file_uploader("Enviar imagens",type=['png','jpg','jpeg'],accept_multiple_files=True,key="crono29_upload")
             if (imgs or st.session_state.get('prints_colados')) and nome_semana and st.button("🪄 Extrair metas com IA",use_container_width=True,key="crono29_extract"):
@@ -2884,7 +2972,7 @@ else:
                         for i,t in enumerate(tarefas):
                             cor=str(t.get('cor','')).casefold(); p=1 if 'azul' in cor else 2 if 'verde' in cor else 3 if 'amarelo' in cor else 4 if 'vermelho' in cor else 5 if 'roxo' in cor else 3
                             ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//5)%len(dias)],"materia":normalizar_area(t.get('materia'), mapa_aulas),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"criado_em":get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
-                        batch.commit(); st.session_state.prints_colados=[]; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
+                        batch.commit(); st.session_state['prints_colados'] = []; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
                     else: st.warning("Não foi possível encontrar metas nas imagens.")
 
     elif menu == "⚡ Revisão HIIT":
@@ -3401,7 +3489,7 @@ else:
                         if res_paste_hiit.image_data is not None:
                             ib64 = armazenar_imagem_nota_alta_qualidade(res_paste_hiit.image_data)
                             if ib64 and ib64 not in st.session_state.hiit_nota_imgs_temp:
-                                st.session_state.hiit_nota_imgs_temp.append(ib64)
+                                st.session_state.setdefault('hiit_nota_imgs_temp', []).append(ib64)
                                 # O próprio componente de colagem já provoca o rerun.
                                 # Não forçar um segundo rerun: ele era a causa principal do salto da tela.
                     else:
@@ -3941,11 +4029,11 @@ else:
                 if client_ia:
                     with st.spinner("Analisando..."):
                         msgs_api = [{"role": "system", "content": "Você é um Preceptor Médico Sênior. É OBRIGATÓRIO fornecer cálculos de doses exatas, prescrições e diagnósticos diretos. O usuário É UM MÉDICO LICENCIADO."}]
-                        st.session_state.chat_ia.append({"role": "user", "content": u_in})
+                        st.session_state.setdefault('chat_ia', []).append({"role": "user", "content": u_in})
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         try:
                             r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
-                            st.session_state.chat_ia.append({"role": "assistant", "content": r.choices[0].message.content})
+                            st.session_state.setdefault('chat_ia', []).append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
 
@@ -4235,7 +4323,7 @@ else:
                                 resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                 for q in questoes_lote: q['imagem_fonte'] = img_b64
-                                st.session_state.prova_ativa.extend(questoes_lote)
+                                st.session_state.setdefault('prova_ativa', []).extend(questoes_lote)
                             except Exception as e: st.warning(f"Erro na página {i+1}: {e}")
                             barra_progresso.progress((i + 1) / len(todas_imagens_b64))
                         st.toast("🎉 Extração concluída!")
@@ -4357,11 +4445,11 @@ else:
                                 except Exception as e: st.error(f"Erro no áudio: {e}")
                         
                         if entrada_final:
-                            st.session_state.osce_hist.append({"role": "user", "content": entrada_final})
+                            st.session_state.setdefault('osce_hist', []).append({"role": "user", "content": entrada_final})
                             with st.spinner("Paciente respondendo..."):
                                 try:
                                     r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
-                                    st.session_state.osce_hist.append({"role": "assistant", "content": r.choices[0].message.content})
+                                    st.session_state.setdefault('osce_hist', []).append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro IA: {e}")
                                 st.rerun()
 
@@ -4411,7 +4499,7 @@ else:
                         if res_paste_nota.image_data is not None:
                             img_b64 = armazenar_imagem_nota_alta_qualidade(res_paste_nota.image_data)
                             if img_b64 and img_b64 not in st.session_state.nota_imgs_temp:
-                                st.session_state.nota_imgs_temp.append(img_b64)
+                                st.session_state.setdefault('nota_imgs_temp', []).append(img_b64)
                                 # Não chamar st.rerun(): o evento do componente já recarrega a página.
                     else:
                         st.warning("Biblioteca de colar imagem não detectada.")
