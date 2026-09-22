@@ -2572,30 +2572,34 @@ else:
 
     st.sidebar.markdown("<div class='rp-nav-caption'>ESTUDO</div>", unsafe_allow_html=True)
 
-    # Navegação por botões reais, em vez do radio nativo do Streamlit.
-    # Isso elimina os círculos do radio, melhora o toque no celular e evita
-    # depender de seletores DOM frágeis para manter o item ativo.
-    menu_clicado = None
+    # Navegação baseada em estado + callbacks.
+    # O callback altera a aba antes do novo ciclo de renderização, evitando
+    # a antiga sequência menu_clicado -> segundo ajuste de estado -> rerender.
+    if "menu_navegacao" not in st.session_state or st.session_state.get("menu_navegacao") not in opcoes_internas:
+        st.session_state["menu_navegacao"] = opcoes_internas[0]
+
+    def _selecionar_menu(destino):
+        st.session_state["menu_navegacao"] = destino
+        st.session_state.pop("menu_destino_v3", None)
+
+    menu = st.session_state["menu_navegacao"]
     for idx_nav, menu_item_visual in enumerate(opcoes_visuais):
-        menu_item_interno = mapa_interno.get(menu_item_visual, "🏠 Dashboard")
-        selecionado = menu_item_interno == estado_antigo
-        tipo_botao = "primary" if selecionado else "secondary"
-        if st.sidebar.button(
-            menu_item_visual,
+        menu_item_interno = mapa_interno.get(menu_item_visual, opcoes_internas[0])
+        selecionado = menu_item_interno == menu
+        # O marcador faz parte do texto e não depende de CSS/DOM interno do Streamlit.
+        label_nav = ("✓  " if selecionado else "   ") + menu_item_visual
+        st.sidebar.button(
+            label_nav,
             key=f"rp_nav_btn_{idx_nav}",
             use_container_width=True,
-            type=tipo_botao,
-        ):
-            menu_clicado = menu_item_interno
+            type="primary" if selecionado else "secondary",
+            on_click=_selecionar_menu,
+            args=(menu_item_interno,),
+        )
 
-    # O clique do botão já provoca um rerun do Streamlit. Não chamamos st.rerun()
-    # novamente: isso eliminava uma execução inteira e era uma das principais
-    # fontes das travadas ao trocar de aba.
-    menu = menu_clicado or estado_antigo
-    st.session_state["menu_navegacao"] = menu
+    # Carrega apenas as coleções necessárias para a aba já selecionada.
     garantir_dados_menu(u_id, menu)
 
-    # Atualiza referências locais depois do carregamento sob demanda.
     _dados_cache = st.session_state.get("dados", {})
     dados_aulas = _dados_cache.get("aulas", [])
     mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas}
@@ -2612,41 +2616,24 @@ else:
     dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
     dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
 
-    # Imagens são carregadas por anotação, somente quando o usuário pede para vê-las.
-    # Isso mantém a navegação leve mesmo com muitas imagens salvas.
-
     st.sidebar.markdown("<div class='rp-nav-caption'>ATALHOS</div>", unsafe_allow_html=True)
     q1, q2 = st.sidebar.columns(2)
     with q1:
-        if st.button("Início", use_container_width=True, key="quick_home_v3"):
-            st.session_state["menu_navegacao"] = "🏠 Dashboard"
-            st.session_state["menu_destino_v3"] = "🏠 Dashboard"
-            # O próprio clique já causa o rerun; não criar um segundo rerun.
+        st.button(
+            "Início",
+            use_container_width=True,
+            key="quick_home_v3",
+            on_click=_selecionar_menu,
+            args=("🏠 Dashboard",),
+        )
     with q2:
-        if st.button("Questões", use_container_width=True, key="quick_q_v3"):
-            st.session_state["menu_navegacao"] = "🎯 Questões"
-            st.session_state["menu_destino_v3"] = "🎯 Questões"
-
-    # Atalhos também não precisam de um segundo st.rerun(). O clique já causou
-    # a execução atual; apenas sincronizamos a tela e carregamos a nova coleção.
-    menu_atual_state = st.session_state.get("menu_navegacao", menu)
-    if menu_atual_state != menu:
-        menu = menu_atual_state
-        garantir_dados_menu(u_id, menu)
-        _dados_cache = st.session_state.get("dados", {})
-        dados_aulas = _dados_cache.get("aulas", [])
-        dados_revisoes = _dados_cache.get("revisoes", [])
-        dados_questoes = _dados_cache.get("questoes", [])
-        dados_flashcards = _dados_cache.get("flashcards", [])
-        dados_simulados = _dados_cache.get("simulados", [])
-        dados_focus = _dados_cache.get("focus", [])
-        dados_materiais = _dados_cache.get("materiais", [])
-        dados_cronogramas = _dados_cache.get("cronogramas", [])
-        dados_anotacoes = _dados_cache.get("anotacoes", [])
-        dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
-        dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
-        dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
-        dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
+        st.button(
+            "Questões",
+            use_container_width=True,
+            key="quick_q_v3",
+            on_click=_selecionar_menu,
+            args=("🎯 Questões",),
+        )
 
     render_shell(menu, st.session_state.user_nome, modo_atual)
 
