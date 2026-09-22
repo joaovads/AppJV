@@ -2987,12 +2987,58 @@ else:
                         except Exception as e: st.warning(f"Imagem {i+1}: {e}")
                         prog.progress((i+1)/max(1,len(imagens)))
                     if tarefas:
+                        # =========================================================
+                        # DISTRIBUIÇÃO POR PRIORIDADE — BLOCO DE ESTUDO
+                        # Azul (diamante) termina primeiro; somente então começa o
+                        # Verde. Depois vêm Amarelo, Vermelho e Roxo.
+                        # São 5 aulas por dia, de segunda a sábado.
+                        # =========================================================
                         dias=["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"]
+                        prioridade_cor = {
+                            "azul": 1,
+                            "verde": 2,
+                            "amarelo": 3,
+                            "vermelho": 4,
+                            "roxo": 5,
+                        }
+                        def prioridade_tarefa(t):
+                            cor = str(t.get('cor','')).casefold().strip()
+                            for nome_cor, valor in prioridade_cor.items():
+                                if nome_cor in cor:
+                                    return valor
+                            return 3
+
+                        # Ordenação estável: a prioridade define a fase da semana,
+                        # enquanto a ordem original preserva a sequência extraída
+                        # dentro da mesma cor.
+                        tarefas_ordenadas = sorted(
+                            enumerate(tarefas),
+                            key=lambda par: (prioridade_tarefa(par[1]), par[0])
+                        )
+
                         batch=db.batch()
-                        for i,t in enumerate(tarefas):
-                            cor=str(t.get('cor','')).casefold(); p=1 if 'azul' in cor else 2 if 'verde' in cor else 3 if 'amarelo' in cor else 4 if 'vermelho' in cor else 5 if 'roxo' in cor else 3
-                            ref=db.collection('cronogramas').document(); item={"usuario_id":u_id,"semana":nome_semana.strip(),"dia":dias[(i//5)%len(dias)],"materia":normalizar_area(t.get('materia'), mapa_aulas),"tema":str(t.get('tema','Sem tema')).strip(),"prioridade":p,"concluido":False,"data_importacao":str(hoje),"criado_em":get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),"data_conclusao":None}; batch.set(ref,item); item['id']=ref.id; st.session_state.dados['cronogramas'].append(item)
-                        batch.commit(); st.session_state['prints_colados'] = []; st.toast(f"{len(tarefas)} metas importadas!",icon="🎯"); st.rerun()
+                        for pos, (_indice_original, t) in enumerate(tarefas_ordenadas):
+                            p = prioridade_tarefa(t)
+                            # 5 aulas/dia. Como a lista já está agrupada por prioridade,
+                            # nenhuma verde entra antes de todas as azuis anteriores.
+                            dia = dias[(pos // 5) % len(dias)]
+                            ref=db.collection('cronogramas').document()
+                            item={
+                                "usuario_id":u_id,
+                                "semana":nome_semana.strip(),
+                                "dia":dia,
+                                "materia":normalizar_area(t.get('materia'), mapa_aulas),
+                                "tema":str(t.get('tema','Sem tema')).strip(),
+                                "prioridade":p,
+                                "concluido":False,
+                                "data_importacao":str(hoje),
+                                "criado_em":get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                                "data_conclusao":None
+                            }
+                            batch.set(ref,item)
+                            item['id']=ref.id
+                            st.session_state.dados['cronogramas'].append(item)
+                        batch.commit(); st.session_state['prints_colados'] = []; st.toast(f"{len(tarefas)} metas importadas por prioridade!",icon="🎯"); st.rerun()
                     else: st.warning("Não foi possível encontrar metas nas imagens.")
 
     elif menu == "⚡ Revisão HIIT":
