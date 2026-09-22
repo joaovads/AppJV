@@ -1712,11 +1712,11 @@ def chamar_ia(client, *, modelo, **kwargs):
                 requested = int(requested) if requested is not None else 800
             except Exception:
                 requested = 800
-            cap = 600 if modelo_tentativa == "qwen/qwen3.8-27b" and any(
+            cap = 480 if modelo_tentativa == "qwen/qwen3.8-27b" and any(
                 isinstance(m, dict) and isinstance(m.get("content"), list)
                 and any(isinstance(part, dict) and part.get("type") == "image_url" for part in m.get("content", []))
                 for m in call_kwargs.get("messages", [])
-            ) else 900
+            ) else 600
             call_kwargs["max_completion_tokens"] = min(max(128, requested), cap)
 
             if modelo_tentativa == "qwen/qwen3.8-27b":
@@ -1746,7 +1746,7 @@ def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema
     payload = dict(
         messages=messages,
         temperature=0.1,
-        max_completion_tokens=min(int(max_completion_tokens or 800), 900),
+        max_completion_tokens=min(int(max_completion_tokens or 600), 600),
     )
     # Qwen 3.8 permite desligar o raciocínio para respostas estruturadas simples.
     if modelo == MODELO_VISAO or modelo == MODELO_TEXTO:
@@ -2508,8 +2508,6 @@ else:
     if not st.session_state.get("rp_performance_ready"):
         st.session_state.rp_performance_ready = True
 
-    menu_preload = st.session_state.get("menu_navegacao", "🏠 Dashboard")
-    garantir_dados_menu(u_id, menu_preload)
     _dados_cache = st.session_state.get("dados", {})
     dados_aulas = _dados_cache.get("aulas", [])
     mapa_aulas = {str(a.get("id")).strip(): a for a in dados_aulas}
@@ -2577,6 +2575,7 @@ else:
     # Navegação por botões reais, em vez do radio nativo do Streamlit.
     # Isso elimina os círculos do radio, melhora o toque no celular e evita
     # depender de seletores DOM frágeis para manter o item ativo.
+    menu_clicado = None
     for idx_nav, menu_item_visual in enumerate(opcoes_visuais):
         menu_item_interno = mapa_interno.get(menu_item_visual, "🏠 Dashboard")
         selecionado = menu_item_interno == estado_antigo
@@ -2587,10 +2586,12 @@ else:
             use_container_width=True,
             type=tipo_botao,
         ):
-            st.session_state["menu_navegacao"] = menu_item_interno
-            st.rerun()
+            menu_clicado = menu_item_interno
 
-    menu = estado_antigo
+    # O clique do botão já provoca um rerun do Streamlit. Não chamamos st.rerun()
+    # novamente: isso eliminava uma execução inteira e era uma das principais
+    # fontes das travadas ao trocar de aba.
+    menu = menu_clicado or estado_antigo
     st.session_state["menu_navegacao"] = menu
     garantir_dados_menu(u_id, menu)
 
@@ -2618,12 +2619,35 @@ else:
     q1, q2 = st.sidebar.columns(2)
     with q1:
         if st.button("Início", use_container_width=True, key="quick_home_v3"):
+            st.session_state["menu_navegacao"] = "🏠 Dashboard"
             st.session_state["menu_destino_v3"] = "🏠 Dashboard"
-            st.rerun()
+            # O próprio clique já causa o rerun; não criar um segundo rerun.
     with q2:
         if st.button("Questões", use_container_width=True, key="quick_q_v3"):
+            st.session_state["menu_navegacao"] = "🎯 Questões"
             st.session_state["menu_destino_v3"] = "🎯 Questões"
-            st.rerun()
+
+    # Atalhos também não precisam de um segundo st.rerun(). O clique já causou
+    # a execução atual; apenas sincronizamos a tela e carregamos a nova coleção.
+    menu_atual_state = st.session_state.get("menu_navegacao", menu)
+    if menu_atual_state != menu:
+        menu = menu_atual_state
+        garantir_dados_menu(u_id, menu)
+        _dados_cache = st.session_state.get("dados", {})
+        dados_aulas = _dados_cache.get("aulas", [])
+        dados_revisoes = _dados_cache.get("revisoes", [])
+        dados_questoes = _dados_cache.get("questoes", [])
+        dados_flashcards = _dados_cache.get("flashcards", [])
+        dados_simulados = _dados_cache.get("simulados", [])
+        dados_focus = _dados_cache.get("focus", [])
+        dados_materiais = _dados_cache.get("materiais", [])
+        dados_cronogramas = _dados_cache.get("cronogramas", [])
+        dados_anotacoes = _dados_cache.get("anotacoes", [])
+        dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
+        dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
+        dados_anotacoes_hiit = _dados_cache.get("anotacoes_hiit", [])
+        dados_flashcards_hiit = _dados_cache.get("flashcards_hiit", [])
+
     render_shell(menu, st.session_state.user_nome, modo_atual)
 
     # ==========================================
@@ -2982,7 +3006,7 @@ else:
                     prompt="Extraia TODAS as tarefas visíveis. Retorne somente JSON: {\"tarefas\":[{\"materia\":\"Clínica Médica\",\"tema\":\"...\",\"cor\":\"azul\"}]} Use somente nomes oficiais de matéria: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral."
                     for i,b64 in enumerate(imagens):
                         try:
-                            r=chamar_ia(client,modelo=MODELO_VISAO,messages=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}],temperature=.1,max_tokens=600)
+                            r=chamar_ia(client,modelo=MODELO_VISAO,messages=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}],temperature=.1,max_tokens=480)
                             tarefas.extend(extrair_json_seguro(r.choices[0].message.content).get('tarefas',[]))
                         except Exception as e: st.warning(f"Imagem {i+1}: {e}")
                         prog.progress((i+1)/max(1,len(imagens)))
