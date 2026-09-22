@@ -2037,7 +2037,7 @@ def carregar_dados_usuario_em_paralelo(user_id):
         "flashcards_hiit": "flashcards_hiit",
     }
     resultado = {k: [] for k in mapa}
-    with ThreadPoolExecutor(max_workers=min(6, len(mapa))) as executor:
+    with ThreadPoolExecutor(max_workers=min(8, len(mapa))) as executor:
         futuros = {executor.submit(get_user_docs, colecao, user_id): chave for chave, colecao in mapa.items()}
         for futuro in as_completed(futuros):
             chave = futuros[futuro]
@@ -2462,18 +2462,20 @@ else:
         }
 
     if st.session_state.get('user_data_loaded') is not True:
-        with st.spinner("Preparando seu ambiente..."):
+        with st.spinner("Preparando seu ambiente de estudo..."):
             try:
                 user_doc = db.collection("usuarios").document(u_id).get()
                 st.session_state.user_settings = user_doc.to_dict() if user_doc.exists else {}
-                # Não baixa as 13 coleções aqui. A tela atual será carregada sob demanda.
-                st.session_state.dados = {
-                    "aulas": [], "revisoes": [], "flashcards": [], "questoes": [],
-                    "simulados": [], "focus": [], "materiais": [], "cronogramas": [],
-                    "anotacoes": [], "questoes_hiit": [], "revisoes_hiit": [],
-                    "anotacoes_hiit": [], "flashcards_hiit": []
-                }
-                st.session_state.colecoes_carregadas = set()
+
+                # PRÉ-CARREGAMENTO ÚNICO: todas as coleções leves são buscadas em
+                # paralelo durante a abertura da sessão. Assim, trocar de aba depois
+                # disso não depende de nenhuma nova consulta ao Firestore.
+                dados_precarregados = carregar_dados_usuario_em_paralelo(u_id)
+                st.session_state.dados = dados_precarregados
+                st.session_state.colecoes_carregadas = set(dados_precarregados.keys())
+
+                # Imagens continuam sob demanda. Elas não entram neste pré-carregamento,
+                # preservando memória, velocidade e a qualidade/resolução dos anexos.
                 st.session_state.imagens_hidratadas = {"anotacoes": False, "anotacoes_hiit": False}
                 if 'model_ia' not in st.session_state:
                     st.session_state.model_ia = get_ia_client()
