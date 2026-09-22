@@ -58,17 +58,17 @@ st.set_page_config(page_title="Residência PRO 4.0", page_icon="🏥", layout="w
 # Modelos atuais da Groq (2026-08)
 # Texto: substitui llama-3.1-8b-instant, desligado em 16/08/2026.
 # Visão: substitui llama-3.2-11b-vision-preview, desligado em 14/04/2025.
-MODELO_TEXTO = "qwen/qwen3.6-27b"
-MODELO_VISAO = "qwen/qwen3.6-27b"
+MODELO_TEXTO = "qwen/qwen3.8-27b"
+MODELO_VISAO = "qwen/qwen3.8-27b"
 
 # Fallbacks para evitar que uma descontinuação/restrição de modelo derrube a função inteira.
 MODELOS_TEXTO_FALLBACK = [
-    "qwen/qwen3.6-27b",
+    "qwen/qwen3.8-27b",
     "openai/gpt-oss-20b",
 ]
 # Ambos são multimodais; não use um modelo somente-texto como fallback de visão.
 MODELOS_VISAO_FALLBACK = [
-    "qwen/qwen3.6-27b",
+    "qwen/qwen3.8-27b",
 ]
 
 
@@ -1699,7 +1699,7 @@ def chamar_ia(client, *, modelo, **kwargs):
     for modelo_tentativa in candidatos:
         try:
             call_kwargs = dict(kwargs)
-            if modelo_tentativa == "qwen/qwen3.6-27b":
+            if modelo_tentativa == "qwen/qwen3.8-27b":
                 call_kwargs.setdefault("reasoning_effort", "none")
                 call_kwargs.setdefault("include_reasoning", False)
             elif modelo_tentativa in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
@@ -1728,7 +1728,7 @@ def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema
         temperature=0.1,
         max_completion_tokens=max_completion_tokens,
     )
-    # Qwen 3.6 permite desligar o raciocínio para respostas estruturadas simples.
+    # Qwen 3.8 permite desligar o raciocínio para respostas estruturadas simples.
     if modelo == MODELO_VISAO or modelo == MODELO_TEXTO:
         payload["reasoning_effort"] = "none"
         payload["include_reasoning"] = False
@@ -3959,7 +3959,7 @@ else:
                         with st.spinner("Construindo caso clínico..."):
                             try:
                                 prompt_clonagem = f"[SISTEMA NÍVEL 5] Você é banca de residência médica. O aluno errou o conceito: '{conceito_alvo}'. Crie uma questão INÉDITA de caso clínico para testar isso, com alternativas e gabarito comentado. Siga as diretrizes do MS."
-                                resposta_clone = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
+                                resposta_clone = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_clonagem}], temperature=0.4, max_tokens=2500)
                                 with st.container(border=True): st.markdown(resposta_clone.choices[0].message.content)
                             except Exception as e: st.error(str(e))
                 
@@ -4008,7 +4008,7 @@ else:
                         prompt_recup = f"[SISTEMA NÍVEL 5] Você é um tutor médico focado em recuperação. O aluno está com desempenho crítico (abaixo de 60%) nos seguintes temas: {', '.join(piores_3)}. Crie um mini-simulado com 1 questão de caso clínico rigoroso (estilo residência) para cada um desses temas, com alternativas e gabarito comentado focado em explicar o conceito-chave. Não escreva introduções."
                         with st.spinner("Convocando o Tutor IA para montar seu plano de recuperação. Aguarde..."):
                             try:
-                                resposta_recup = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
+                                resposta_recup = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt_recup}], temperature=0.3, max_tokens=3000)
                                 with st.container(border=True):
                                     st.markdown(resposta_recup.choices[0].message.content)
                             except Exception as e:
@@ -4032,7 +4032,7 @@ else:
                         st.session_state.setdefault('chat_ia', []).append({"role": "user", "content": u_in})
                         for m in st.session_state.chat_ia: msgs_api.append({"role": m["role"], "content": str(m["content"])})
                         try:
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
+                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=msgs_api, temperature=0.2, max_tokens=2500)
                             st.session_state.setdefault('chat_ia', []).append({"role": "assistant", "content": r.choices[0].message.content})
                         except Exception as e: st.error(str(e))
                         st.rerun()
@@ -4112,7 +4112,7 @@ else:
                     with st.spinner("Avaliando..."):
                         try:
                             transcription = client_ia.audio.transcriptions.create(file=("audio.wav", aud_f.getvalue()), model="whisper-large-v3")
-                            r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
+                            r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": "Avalie rigidamente o aluno."}, {"role": "user", "content": f"Avalie: '{tema_f}'. Transcrição: '{transcription.text}'."}], temperature=0.2, max_tokens=2500)
                             st.success(r.choices[0].message.content)
                         except Exception as e: st.error(f"Erro: {e}")
 
@@ -4320,7 +4320,7 @@ else:
                             Retorne apenas o JSON. Não pense, não explique e não use tags markdown."""
                             try:
                                 msg_api = [{"role": "user", "content": [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}]}]
-                                resposta = client_ia.chat.completions.create(model=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
+                                resposta = chamar_ia(client_ia, modelo=MODELO_VISAO, messages=msg_api, temperature=0.1, max_tokens=1200)
                                 questoes_lote = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                 for q in questoes_lote: q['imagem_fonte'] = img_b64
                                 st.session_state.setdefault('prova_ativa', []).extend(questoes_lote)
@@ -4380,7 +4380,7 @@ else:
                                     prompt = f"""Baseado no material fornecido, crie um simulado de {qtd_q} questões. Retorne um JSON no formato: {{"questoes": [{{"num": 1, "texto": "...", "opcoes": {{"A": "...", "B": "..."}}, "correta": "A", "comentario": "..."}}]}}
                                     Material: {texto_pdf}"""
                                     
-                                    resposta = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
+                                    resposta = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "user", "content": prompt}], temperature=0.2, max_tokens=2500)
                                     questoes_pdf = extrair_json_seguro(resposta.choices[0].message.content).get("questoes", [])
                                     
                                     if questoes_pdf:
@@ -4434,7 +4434,7 @@ else:
                             st.session_state.osce_finished = True
                             with st.spinner("Corrigindo conduta..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
+                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist + [{"role": "user", "content": f"O aluno prescreveu: {prescricao_final}. Avalie de 0 a 10 e aponte os erros baseados nas diretrizes."}], temperature=0.3, max_tokens=2500)
                                     st.session_state.osce_eval = r.choices[0].message.content; st.rerun()
                                 except Exception as e: st.error(str(e))
                         
@@ -4448,7 +4448,7 @@ else:
                             st.session_state.setdefault('osce_hist', []).append({"role": "user", "content": entrada_final})
                             with st.spinner("Paciente respondendo..."):
                                 try:
-                                    r = client_ia.chat.completions.create(model=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
+                                    r = chamar_ia(client_ia, modelo=MODELO_TEXTO, messages=[{"role": "system", "content": st.session_state.osce_sys_prompt}] + st.session_state.osce_hist, temperature=0.6, max_tokens=1000)
                                     st.session_state.setdefault('osce_hist', []).append({"role": "assistant", "content": r.choices[0].message.content})
                                 except Exception as e: st.error(f"Erro IA: {e}")
                                 st.rerun()
