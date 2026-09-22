@@ -1699,6 +1699,26 @@ def chamar_ia(client, *, modelo, **kwargs):
     for modelo_tentativa in candidatos:
         try:
             call_kwargs = dict(kwargs)
+
+            # A organização pode ter OTPM muito menor que o limite do modelo.
+            # Nunca solicite mais que 900 tokens em uma única chamada: isso evita
+            # o 429 "Requested XXXX > OTPM 1000" observado no plano on_demand.
+            # Também usamos max_completion_tokens, que é o parâmetro atual da API.
+            requested = call_kwargs.pop("max_completion_tokens", None)
+            legacy = call_kwargs.pop("max_tokens", None)
+            if requested is None:
+                requested = legacy
+            try:
+                requested = int(requested) if requested is not None else 800
+            except Exception:
+                requested = 800
+            cap = 600 if modelo_tentativa == "qwen/qwen3.8-27b" and any(
+                isinstance(m, dict) and isinstance(m.get("content"), list)
+                and any(isinstance(part, dict) and part.get("type") == "image_url" for part in m.get("content", []))
+                for m in call_kwargs.get("messages", [])
+            ) else 900
+            call_kwargs["max_completion_tokens"] = min(max(128, requested), cap)
+
             if modelo_tentativa == "qwen/qwen3.8-27b":
                 call_kwargs.setdefault("reasoning_effort", "none")
                 call_kwargs.setdefault("include_reasoning", False)
@@ -1726,7 +1746,7 @@ def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema
     payload = dict(
         messages=messages,
         temperature=0.1,
-        max_completion_tokens=max_completion_tokens,
+        max_completion_tokens=min(int(max_completion_tokens or 800), 900),
     )
     # Qwen 3.8 permite desligar o raciocínio para respostas estruturadas simples.
     if modelo == MODELO_VISAO or modelo == MODELO_TEXTO:
@@ -2962,7 +2982,7 @@ else:
                     prompt="Extraia TODAS as tarefas visíveis. Retorne somente JSON: {\"tarefas\":[{\"materia\":\"Clínica Médica\",\"tema\":\"...\",\"cor\":\"azul\"}]} Use somente nomes oficiais de matéria: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral."
                     for i,b64 in enumerate(imagens):
                         try:
-                            r=chamar_ia(client,modelo=MODELO_VISAO,messages=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}],temperature=.1,max_tokens=2500)
+                            r=chamar_ia(client,modelo=MODELO_VISAO,messages=[{"role":"user","content":[{"type":"text","text":prompt},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}],temperature=.1,max_tokens=600)
                             tarefas.extend(extrair_json_seguro(r.choices[0].message.content).get('tarefas',[]))
                         except Exception as e: st.warning(f"Imagem {i+1}: {e}")
                         prog.progress((i+1)/max(1,len(imagens)))
