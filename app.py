@@ -3001,10 +3001,11 @@ else:
                         prog.progress((i+1)/max(1,len(imagens)))
                     if tarefas:
                         # =========================================================
-                        # DISTRIBUIÇÃO POR PRIORIDADE — BLOCO DE ESTUDO
-                        # Azul (diamante) termina primeiro; somente então começa o
-                        # Verde. Depois vêm Amarelo, Vermelho e Roxo.
-                        # São 5 aulas por dia, de segunda a sábado.
+                        # DISTRIBUIÇÃO SEMANAL EM CICLOS 2-2-1
+                        # 2 diamantes, 2 verdes e 1 amarelo por dia. Quando uma
+                        # cor acaba, seus espaços passam à próxima cor disponível
+                        # na ordem azul, verde, amarelo, vermelho e roxo.
+                        # Mantém até 5 temas/dia, de segunda a sábado, sem perder temas.
                         # =========================================================
                         dias=["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"]
                         prioridade_cor = {
@@ -3014,6 +3015,8 @@ else:
                             "vermelho": 4,
                             "roxo": 5,
                         }
+                        ordem_cores = [1, 2, 3, 4, 5]
+
                         def prioridade_tarefa(t):
                             cor = str(t.get('cor','')).casefold().strip()
                             for nome_cor, valor in prioridade_cor.items():
@@ -3021,20 +3024,31 @@ else:
                                     return valor
                             return 3
 
-                        # Ordenação estável: a prioridade define a fase da semana,
-                        # enquanto a ordem original preserva a sequência extraída
-                        # dentro da mesma cor.
-                        tarefas_ordenadas = sorted(
-                            enumerate(tarefas),
-                            key=lambda par: (prioridade_tarefa(par[1]), par[0])
-                        )
+                        # Filas por cor preservam a ordem original extraída pela IA.
+                        filas = {p: [] for p in ordem_cores}
+                        for indice_original, tarefa in enumerate(tarefas):
+                            filas[prioridade_tarefa(tarefa)].append((indice_original, tarefa))
+
+                        # Sequência diária: 2 azul + 2 verde + 1 amarelo.
+                        # Slot vazio procura a próxima cor disponível; se não houver
+                        # cores posteriores, usa a primeira ainda disponível.
+                        padrao_diario = [1, 1, 2, 2, 3]
+                        tarefas_distribuidas = []
+                        while any(filas[p] for p in ordem_cores):
+                            for dia in dias:
+                                if not any(filas[p] for p in ordem_cores):
+                                    break
+                                for prioridade_slot in padrao_diario:
+                                    if not any(filas[p] for p in ordem_cores):
+                                        break
+                                    candidatos = [p for p in ordem_cores if p >= prioridade_slot and filas[p]]
+                                    if not candidatos:
+                                        candidatos = [p for p in ordem_cores if filas[p]]
+                                    p_escolhida = candidatos[0]
+                                    tarefas_distribuidas.append((dia, p_escolhida, filas[p_escolhida].pop(0)))
 
                         batch=db.batch()
-                        for pos, (_indice_original, t) in enumerate(tarefas_ordenadas):
-                            p = prioridade_tarefa(t)
-                            # 5 aulas/dia. Como a lista já está agrupada por prioridade,
-                            # nenhuma verde entra antes de todas as azuis anteriores.
-                            dia = dias[(pos // 5) % len(dias)]
+                        for pos, (dia, p, (_indice_original, t)) in enumerate(tarefas_distribuidas):
                             ref=db.collection('cronogramas').document()
                             item={
                                 "usuario_id":u_id,
