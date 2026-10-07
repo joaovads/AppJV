@@ -2926,42 +2926,92 @@ else:
                     q = busca_rf.casefold()
                     filtrados_rf = [x for x in filtrados_rf if q in str(x.get("tema", "")).casefold() or q in normalizar_area(x.get("materia"), mapa_aulas).casefold()]
 
-                # Agrupamento por data/bloco para uma leitura rápida na reta final.
-                grupos_rf = {}
+                # =========================================================
+                # ORGANIZAÇÃO POR SEMANA — EXCLUSÃO INDEPENDENTE
+                # Cada semana da Revisão Final é agrupada pela semana de
+                # calendário (segunda a domingo). Se o print já trouxer
+                # "semana"/"bloco", esse identificador é preservado.
+                # =========================================================
+                def _rf_semana_chave(item):
+                    valor_semana = str(item.get("semana") or item.get("bloco") or "").strip()
+                    if valor_semana:
+                        return valor_semana
+                    valor_data = str(item.get("data") or "").strip()
+                    if valor_data:
+                        dt = pd.to_datetime(valor_data, dayfirst=True, errors="coerce")
+                        if not pd.isna(dt):
+                            dt = dt.to_pydatetime()
+                            inicio = dt - timedelta(days=dt.weekday())
+                            fim = inicio + timedelta(days=6)
+                            return f"Semana · {inicio.strftime('%d/%m/%Y')} — {fim.strftime('%d/%m/%Y')}"
+                    return "Semana sem data definida"
+
+                # Agrupa primeiro por semana para que seja possível excluir
+                # uma semana inteira sem tocar nas demais.
+                semanas_rf = {}
                 for item in filtrados_rf:
-                    chave = str(item.get("data") or item.get("bloco") or "Sem data definida").strip() or "Sem data definida"
-                    grupos_rf.setdefault(chave, []).append(item)
+                    chave_sem = _rf_semana_chave(item)
+                    semanas_rf.setdefault(chave_sem, []).append(item)
 
-                for grupo, itens in grupos_rf.items():
-                    feitos = sum(bool(x.get("concluido")) for x in itens)
-                    pct_grupo = feitos / len(itens) * 100 if itens else 0
+                for semana_rf, itens_semana_rf in semanas_rf.items():
+                    feitos_semana_rf = sum(bool(x.get("concluido")) for x in itens_semana_rf)
+                    pct_semana_rf = (feitos_semana_rf / len(itens_semana_rf) * 100) if itens_semana_rf else 0
                     with st.container(border=True):
-                        st.markdown(f"### 📅 {html.escape(grupo)}")
-                        st.caption(f"{feitos}/{len(itens)} revisados · {pct_grupo:.0f}%")
-                        st.progress(min(max(pct_grupo / 100, 0), 1))
-                        for item in itens:
-                            rid = str(item.get("id", ""))
-                            mat = normalizar_area(item.get("materia"), mapa_aulas)
-                            cor = cor_area(mat)
-                            tema = html.escape(limpar_texto(item.get("tema", "Sem tema")))
-                            col_a, col_b, col_c = st.columns([0.7, 3.5, 1.0])
-                            with col_a:
-                                if bool(item.get("concluido")):
-                                    st.markdown("### ✅")
-                                elif st.button("✓", key=f"rf_done_{rid}", help="Marcar como revisado"):
-                                    agora = get_agora().strftime("%Y-%m-%d %H:%M:%S")
-                                    db_update("revisoes_finais", "revisoes_finais", rid, {"concluido": True, "data_conclusao": agora})
-                                    for local in st.session_state.dados.get("revisoes_finais", []):
-                                        if str(local.get("id")) == rid:
-                                            local.update({"concluido": True, "data_conclusao": agora})
+                        cab_rf_a, cab_rf_b = st.columns([5.2, 1.3])
+                        with cab_rf_a:
+                            st.markdown(f"### 📅 {html.escape(semana_rf)}")
+                            st.caption(f"{len(itens_semana_rf)} temas · {feitos_semana_rf} revisados · {pct_semana_rf:.0f}% concluído")
+                        with cab_rf_b:
+                            if st.button("🗑️ Excluir semana", key=f"rf_del_sem_{hash(semana_rf)}", help="Excluir todos os temas desta semana da Revisão Final"):
+                                ids_rf_del = [str(x.get("id")) for x in itens_semana_rf if str(x.get("id"))]
+                                if ids_rf_del:
+                                    batch_rf_del = db.batch()
+                                    for rid_rf_del in ids_rf_del:
+                                        batch_rf_del.delete(db.collection("revisoes_finais").document(rid_rf_del))
+                                    batch_rf_del.commit()
+                                    st.session_state.dados["revisoes_finais"] = [
+                                        x for x in st.session_state.dados.get("revisoes_finais", [])
+                                        if str(x.get("id")) not in ids_rf_del
+                                    ]
+                                    st.toast(f"Semana '{semana_rf}' excluída da Revisão Final.", icon="🗑️")
                                     st.rerun()
-                            with col_b:
-                                estilo = "text-decoration:line-through;opacity:.65" if bool(item.get("concluido")) else ""
-                                st.markdown(f"<div style='padding:5px 0;{estilo}'><span style='color:{cor};font-weight:900'>●</span> <strong>{tema}</strong><br><small style='color:var(--rp-muted)'>{html.escape(mat)}</small></div>", unsafe_allow_html=True)
-                            with col_c:
-                                p = safe_int(item.get("prioridade", 3))
-                                st.markdown(f"<div style='text-align:right;padding-top:8px;font-weight:700;color:{cor}'>{PRIORIDADES.get(p, 'Revisão')}</div>", unsafe_allow_html=True)
+                        st.progress(min(max(pct_semana_rf / 100, 0), 1))
 
+                        # Dentro da semana, mantém a organização original por data/bloco.
+                        grupos_rf = {}
+                        for item in itens_semana_rf:
+                            chave = str(item.get("data") or item.get("bloco") or item.get("dia") or "Sem data definida").strip() or "Sem data definida"
+                            grupos_rf.setdefault(chave, []).append(item)
+
+                        for grupo, itens in grupos_rf.items():
+                            feitos = sum(bool(x.get("concluido")) for x in itens)
+                            pct_grupo = feitos / len(itens) * 100 if itens else 0
+                            with st.container(border=True):
+                                st.markdown(f"### 📅 {html.escape(grupo)}")
+                                st.caption(f"{feitos}/{len(itens)} revisados · {pct_grupo:.0f}%")
+                                st.progress(min(max(pct_grupo / 100, 0), 1))
+                                for item in itens:
+                                    rid = str(item.get("id", ""))
+                                    mat = normalizar_area(item.get("materia"), mapa_aulas)
+                                    cor = cor_area(mat)
+                                    tema = html.escape(limpar_texto(item.get("tema", "Sem tema")))
+                                    col_a, col_b, col_c = st.columns([0.7, 3.5, 1.0])
+                                    with col_a:
+                                        if bool(item.get("concluido")):
+                                            st.markdown("### ✅")
+                                        elif st.button("✓", key=f"rf_done_{rid}", help="Marcar como revisado"):
+                                            agora = get_agora().strftime("%Y-%m-%d %H:%M:%S")
+                                            db_update("revisoes_finais", "revisoes_finais", rid, {"concluido": True, "data_conclusao": agora})
+                                            for local in st.session_state.dados.get("revisoes_finais", []):
+                                                if str(local.get("id")) == rid:
+                                                    local.update({"concluido": True, "data_conclusao": agora})
+                                            st.rerun()
+                                    with col_b:
+                                        estilo = "text-decoration:line-through;opacity:.65" if bool(item.get("concluido")) else ""
+                                        st.markdown(f"<div style='padding:5px 0;{estilo}'><span style='color:{cor};font-weight:900'>●</span> <strong>{tema}</strong><br><small style='color:var(--rp-muted)'>{html.escape(mat)}</small></div>", unsafe_allow_html=True)
+                                    with col_c:
+                                        p = safe_int(item.get("prioridade", 3))
+                                        st.markdown(f"<div style='text-align:right;padding-top:8px;font-weight:700;color:{cor}'>{PRIORIDADES.get(p, 'Revisão')}</div>", unsafe_allow_html=True)
         with aba_rf_importar:
             st.markdown("### 📸 Extrair seu cronograma final")
             st.caption("Cole um ou vários prints exatamente como você faz no Cronograma IA. A IA extrai matéria, tema, cor e, quando estiver visível, data/dia.")
