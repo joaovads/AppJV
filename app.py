@@ -3075,35 +3075,50 @@ else:
 
                             largura_rf, altura_rf = img_rf.size
 
-                            # CRONOGRAMA POR DIA: quando o print tem os dias lado a lado,
-                            # nunca devemos mandar uma faixa horizontal que contenha
-                            # domingo + segunda + terça para a mesma chamada.
-                            # Cada coluna é tratada como uma unidade independente.
-                            # Isso reduz drasticamente a troca de dias pela visão.
-                            if largura_rf >= altura_rf * 1.05:
-                                numero_colunas_rf = 7
-                                sobreposicao_rf = 0.035
-                                largura_col_rf = largura_rf / numero_colunas_rf
-                                for idx_col_rf in range(numero_colunas_rf):
-                                    centro_rf = (idx_col_rf + 0.5) * largura_col_rf
-                                    x1_rf = max(0, int(centro_rf - largura_col_rf * (0.5 + sobreposicao_rf)))
-                                    x2_rf = min(largura_rf, int(centro_rf + largura_col_rf * (0.5 + sobreposicao_rf)))
-                                    recorte_rf = img_rf.crop((x1_rf, 0, x2_rf, altura_rf))
-                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
-                                    fontes_rf.append((len(fontes_rf) + 1, idx_col_rf + 1, numero_colunas_rf))
+                            # LEITURA SEGMENTADA COM CABEÇALHO PRESERVADO
+                            # Não dividir por colunas: isso fazia a IA perder o contexto do
+                            # cabeçalho e misturar dias. Cada recorte mantém TODAS as colunas
+                            # e repete a faixa superior onde ficam os dias/semana.
+                            # Assim, domingo, segunda, terça etc. permanecem no mesmo contexto.
+                            if altura_rf >= 900:
+                                # Quanto maior o print, mais faixas. O cabeçalho é repetido
+                                # em todas elas para que cada chamada saiba exatamente onde
+                                # começa cada dia.
+                                numero_blocos_rf = 4 if altura_rf >= 1800 else 3
+                                header_h_rf = max(140, min(int(altura_rf * 0.22), 420))
+                                corpo_inicio_rf = max(0, header_h_rf - int(altura_rf * 0.035))
+                                corpo_h_rf = max(1, altura_rf - corpo_inicio_rf)
+                                passo_rf = corpo_h_rf / numero_blocos_rf
+                                sobre_rf = max(40, int(passo_rf * 0.12))
+
+                                for idx_bloco_rf in range(numero_blocos_rf):
+                                    y1_corpo_rf = int(corpo_inicio_rf + idx_bloco_rf * passo_rf - (sobre_rf if idx_bloco_rf > 0 else 0))
+                                    y2_corpo_rf = int(corpo_inicio_rf + (idx_bloco_rf + 1) * passo_rf + (sobre_rf if idx_bloco_rf < numero_blocos_rf - 1 else 0))
+                                    y1_corpo_rf = max(corpo_inicio_rf, y1_corpo_rf)
+                                    y2_corpo_rf = min(altura_rf, y2_corpo_rf)
+                                    if y2_corpo_rf <= y1_corpo_rf:
+                                        continue
+
+                                    # Cabeçalho completo + uma faixa do corpo.
+                                    recorte_rf = img_rf.crop((0, 0, largura_rf, y2_corpo_rf))
+                                    # Não recortar o início do documento; o modelo precisa
+                                    # enxergar os cabeçalhos das colunas em cada chamada.
+                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=1100))
+                                    fontes_rf.append((len(fontes_rf) + 1, idx_bloco_rf + 1, numero_blocos_rf))
                             else:
-                                # Prints estreitos/mobile: mantém leitura vertical, mas
-                                # divide em blocos para não perder aulas no final.
-                                numero_blocos_rf = 3 if altura_rf >= 1200 else 2
-                                fracao_rf = 0.44 if numero_blocos_rf == 3 else 0.58
-                                posicoes_rf = [0.00, 0.28, 0.56] if numero_blocos_rf == 3 else [0.00, 0.42]
-                                for idx_bloco_rf, pos_rf in enumerate(posicoes_rf):
-                                    y1_rf = int(altura_rf * pos_rf)
-                                    y2_rf = min(altura_rf, int(altura_rf * (pos_rf + fracao_rf)))
+                                # Imagens mobile/verticais: manter a coluna inteira e dividir
+                                # somente na vertical, com sobreposição suficiente para não
+                                # cortar um cabeçalho de dia ou uma aula ao meio.
+                                numero_blocos_rf = 3 if altura_rf >= 1400 else 2
+                                sobre_rf = int(altura_rf * 0.10)
+                                corpo_rf = altura_rf / numero_blocos_rf
+                                for idx_bloco_rf in range(numero_blocos_rf):
+                                    y1_rf = max(0, int(idx_bloco_rf * corpo_rf - (sobre_rf if idx_bloco_rf else 0)))
+                                    y2_rf = min(altura_rf, int((idx_bloco_rf + 1) * corpo_rf + (sobre_rf if idx_bloco_rf < numero_blocos_rf - 1 else 0)))
                                     if y2_rf <= y1_rf:
                                         continue
                                     recorte_rf = img_rf.crop((0, y1_rf, largura_rf, y2_rf))
-                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
+                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=1100))
                                     fontes_rf.append((len(fontes_rf) + 1, idx_bloco_rf + 1, numero_blocos_rf))
                         except Exception as exc_img_rf:
                             st.warning(f"Não foi possível preparar um print para leitura: {exc_img_rf}")
@@ -3112,22 +3127,22 @@ else:
                     prog_rf = st.progress(0)
                     total_blocos_rf = max(1, len(imagens_rf))
                     prompt_rf = (
-                        "VOCÊ ESTÁ LENDO UM RECORTE ISOLADO DE UM CRONOGRAMA DE ESTUDOS. "
-                        "REGRA CRÍTICA: NÃO MISTURE DIAS. O recorte pode representar UMA ÚNICA COLUNA/DIA. "
-                        "Associe uma aula somente ao dia cujo cabeçalho esteja VISIVELMENTE na mesma coluna. "
-                        "NUNCA use a posição do recorte para adivinhar o dia e NUNCA transfira uma aula para outro dia. "
-                        "Se o cabeçalho do dia não estiver visível, deixe o campo dia vazio. Não invente. "
-                        "Se houver mais de um cabeçalho de dia visível no recorte, mantenha cada item junto do cabeçalho correspondente; "
-                        "se isso não puder ser determinado com segurança, deixe dia vazio. "
-                        "Leia TODAS as linhas, cartões, aulas, temas, subtítulos e tarefas visíveis, de cima para baixo. "
-                        "NÃO resuma, NÃO agrupe, NÃO pule itens e NÃO invente. Cada aula/tema visível deve virar uma linha independente. "
-                        "Preserve o texto do print o mais fielmente possível. Se uma matéria ou cabeçalho estiver visível, associe-o apenas às linhas abaixo dele dentro da mesma coluna. "
-                        "Se uma informação não estiver visível, use \"\". "
+                        "LEIA ESTE RECORTE COMO PARTE DE UM CRONOGRAMA. "
+                        "A IMAGEM MANTÉM TODAS AS COLUNAS E O CABEÇALHO SUPERIOR. "
+                        "REGRA ABSOLUTA: NÃO MISTURE OS DIAS. Domingo, Segunda-feira, Terça-feira, Quarta-feira, Quinta-feira, Sexta-feira e Sábado são colunas independentes. "
+                        "Primeiro identifique visualmente os cabeçalhos dos dias. Depois leia cada coluna de cima para baixo e associe cada aula SOMENTE à coluna em que ela aparece. "
+                        "NÃO use a ordem das linhas para decidir o dia. NÃO deslocar itens de uma coluna para outra. "
+                        "Se uma aula estiver na coluna de Segunda-feira, o campo dia deve ser Segunda-feira; se estiver na coluna de Domingo, deve ser Domingo, e assim por diante. "
+                        "Se o cabeçalho de um dia não estiver legível, deixe dia vazio em vez de adivinhar. "
+                        "Leia TODAS as aulas, temas, subtítulos e tarefas visíveis, de cima até o último item do recorte. NÃO resuma, NÃO agrupe e NÃO pule linhas. "
+                        "Quando o mesmo item aparecer novamente por causa da sobreposição entre recortes, ele será deduplicado depois. "
+                        "Preserve o texto do cronograma o mais fielmente possível. "
+                        "Se matéria, cor ou data estiverem visíveis, associe apenas ao item correspondente. Se não estiverem visíveis, use string vazia. "
                         "Retorne SOMENTE JSON válido, sem markdown, exatamente neste formato: "
                         "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
                         "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
                         "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
-                        "IMPORTANTE: percorra todo o recorte até o último item legível."
+                        "IMPORTANTE: faça uma varredura visual completa de CADA coluna antes de responder."
                     )
                     for i, b64 in enumerate(imagens_rf):
                         try:
