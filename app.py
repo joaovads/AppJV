@@ -2953,7 +2953,23 @@ else:
                     chave_sem = _rf_semana_chave(item)
                     semanas_rf.setdefault(chave_sem, []).append(item)
 
-                for semana_rf, itens_semana_rf in semanas_rf.items():
+                # Semanas sempre em ordem cronológica, nunca na ordem em que a IA respondeu.
+                def _rf_inicio_semana(chave, itens):
+                    datas = []
+                    for x in itens:
+                        v = str(x.get("data") or "").strip()
+                        if v:
+                            dt = pd.to_datetime(v, dayfirst=True, errors="coerce")
+                            if not pd.isna(dt):
+                                datas.append(dt.to_pydatetime())
+                    return min(datas) if datas else datetime.max
+
+                semanas_rf_ordenadas = sorted(
+                    semanas_rf.items(),
+                    key=lambda par: _rf_inicio_semana(par[0], par[1])
+                )
+
+                for semana_rf, itens_semana_rf in semanas_rf_ordenadas:
                     feitos_semana_rf = sum(bool(x.get("concluido")) for x in itens_semana_rf)
                     pct_semana_rf = (feitos_semana_rf / len(itens_semana_rf) * 100) if itens_semana_rf else 0
                     with st.container(border=True):
@@ -2983,7 +2999,27 @@ else:
                             chave = str(item.get("data") or item.get("bloco") or item.get("dia") or "Sem data definida").strip() or "Sem data definida"
                             grupos_rf.setdefault(chave, []).append(item)
 
-                        for grupo, itens in grupos_rf.items():
+                        def _rf_grupo_data_ordem(valor):
+                            dt = pd.to_datetime(str(valor), dayfirst=True, errors="coerce")
+                            return dt.to_pydatetime() if not pd.isna(dt) else datetime.max
+
+                        grupos_rf_ordenados = sorted(grupos_rf.items(), key=lambda par: _rf_grupo_data_ordem(par[0]))
+                        ordem_dias_tela_rf = {
+                            "segunda": 0, "segunda-feira": 0,
+                            "terça": 1, "terça-feira": 1, "terca": 1, "terca-feira": 1,
+                            "quarta": 2, "quarta-feira": 2,
+                            "quinta": 3, "quinta-feira": 3,
+                            "sexta": 4, "sexta-feira": 4,
+                            "sábado": 5, "sabado": 5,
+                            "domingo": 6,
+                        }
+                        for grupo, itens in grupos_rf_ordenados:
+                            itens = sorted(
+                                itens,
+                                key=lambda x: ordem_dias_tela_rf.get(
+                                    re.sub(r"\s+", " ", str(x.get("dia") or "").strip().casefold()), 99
+                                )
+                            )
                             feitos = sum(bool(x.get("concluido")) for x in itens)
                             pct_grupo = feitos / len(itens) * 100 if itens else 0
                             with st.container(border=True):
@@ -3178,9 +3214,57 @@ else:
                         for t in tarefas_rf:
                             tema = str(t.get("tema", "Sem tema")).strip() or "Sem tema"
                             chave = (normalizar_area(t.get("materia"), mapa_aulas), tema.casefold(), str(t.get("data", "")).strip().casefold(), str(t.get("dia", "")).strip().casefold())
-                            if chave in vistos: continue
+                            if chave in vistos:
+                                continue
                             vistos.add(chave)
                             novas_rf.append(t)
+
+                        # ORDEM CRONOLÓGICA DA IMPORTAÇÃO
+                        # A visão pode devolver os recortes fora da ordem visual.
+                        # Nunca usamos a ordem das respostas da IA como ordem do cronograma.
+                        # Primeiro: data real (quando disponível).
+                        # Segundo: dia da semana.
+                        # Terceiro: posição original apenas como desempate.
+                        ordem_dias_rf = {
+                            "segunda": 0, "segunda-feira": 0,
+                            "terça": 1, "terça-feira": 1,
+                            "terca": 1, "terca-feira": 1,
+                            "quarta": 2, "quarta-feira": 2,
+                            "quinta": 3, "quinta-feira": 3,
+                            "sexta": 4, "sexta-feira": 4,
+                            "sábado": 5, "sábado-feira": 5,
+                            "sabado": 5,
+                            "domingo": 6,
+                        }
+
+                        def _rf_data_sort(t):
+                            valor = str(t.get("data") or "").strip()
+                            if not valor:
+                                return None
+                            try:
+                                dt = pd.to_datetime(valor, dayfirst=True, errors="coerce")
+                                if pd.isna(dt):
+                                    return None
+                                return dt.to_pydatetime()
+                            except Exception:
+                                return None
+
+                        def _rf_dia_sort(t):
+                            dia = re.sub(r"\s+", " ", str(t.get("dia") or "").strip().casefold())
+                            return ordem_dias_rf.get(dia, 99)
+
+                        novas_rf = [
+                            item for _, item in sorted(
+                                enumerate(novas_rf),
+                                key=lambda par: (
+                                    0 if _rf_data_sort(par[1]) is not None else 1,
+                                    _rf_data_sort(par[1]) or datetime.max,
+                                    _rf_dia_sort(par[1]),
+                                    par[0],
+                                )
+                            )
+                        ]
+
                         batch_rf = db.batch()
                         for t in novas_rf:
                             ref_rf = db.collection("revisoes_finais").document()
