@@ -2050,6 +2050,7 @@ def carregar_dados_usuario_em_paralelo(user_id):
 MENU_COLECOES = {
     "🏠 Dashboard": ["aulas", "revisoes", "questoes", "questoes_hiit", "revisoes_hiit", "flashcards", "simulados", "focus"],
     "🗓️ Cronograma IA": ["cronogramas", "aulas"],
+    "🧠 Revisão Final": ["revisoes_finais", "aulas"],
     "⚡ Revisão HIIT": ["questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit", "aulas"],
     "🎯 Questões": ["questoes", "revisoes", "aulas"],
     "📚 Registro de Aulas": ["aulas"],
@@ -2080,6 +2081,7 @@ def garantir_dados_menu(user_id, menu):
         "questoes": "questoes_sessoes", "focus": "focus_sessoes",
         "aulas": "aulas", "revisoes": "revisoes", "flashcards": "flashcards",
         "simulados": "simulados", "materiais": "materiais", "cronogramas": "cronogramas",
+        "revisoes_finais": "revisoes_finais",
         "anotacoes": "anotacoes", "questoes_hiit": "questoes_hiit",
         "revisoes_hiit": "revisoes_hiit", "anotacoes_hiit": "anotacoes_hiit",
         "flashcards_hiit": "flashcards_hiit"
@@ -2496,6 +2498,7 @@ else:
     dados_focus = _dados_cache.get("focus", [])
     dados_materiais = _dados_cache.get("materiais", [])
     dados_cronogramas = _dados_cache.get("cronogramas", [])
+    dados_revisoes_finais = _dados_cache.get("revisoes_finais", [])
     dados_anotacoes = _dados_cache.get("anotacoes", [])
     dados_questoes_hiit = _dados_cache.get("questoes_hiit", [])
     dados_revisoes_hiit = _dados_cache.get("revisoes_hiit", [])
@@ -2545,14 +2548,14 @@ else:
     # NAVEGAÇÃO 4.0 — workspace de estudo
     # ==========================================
     opcoes_internas = [
-        "🏠 Dashboard", "🗓️ Cronograma IA", "⚡ Revisão HIIT", "🎯 Questões",
+        "🏠 Dashboard", "🗓️ Cronograma IA", "🧠 Revisão Final", "⚡ Revisão HIIT", "🎯 Questões",
         "📚 Registro de Aulas", "📝 Anotações Rápidas", "📅 Agenda de Revisões",
         "✨ AI Tutor & Flashcards", "📁 Materiais e Simulados", "🏥 Simulados & OSCE",
         "📍 GPS da Aprovação", "⏱️ Modo Foco", "⚙️ Configurações", "📱 Instalar App"
     ]
     rotulos_menu = {
         "🏠 Dashboard":"Visão geral", "🗓️ Cronograma IA":"Plano de estudo",
-        "⚡ Revisão HIIT":"Revisão HIIT", "🎯 Questões":"Banco de questões",
+        "🧠 Revisão Final":"Revisão Final", "⚡ Revisão HIIT":"Revisão HIIT", "🎯 Questões":"Banco de questões",
         "📚 Registro de Aulas":"Aulas estudadas", "📝 Anotações Rápidas":"Caderno de notas",
         "📅 Agenda de Revisões":"Agenda de revisões", "✨ AI Tutor & Flashcards":"Tutor e cartões",
         "📁 Materiais e Simulados":"Biblioteca", "🏥 Simulados & OSCE":"Simulados e OSCE",
@@ -2795,6 +2798,253 @@ else:
         with col2: 
             with st.container(border=True):
                 st.subheader("🍎 No iPhone (Safari)"); st.markdown("1. Toque no botão **Compartilhar**.\n2. Selecione **Adicionar à Tela de Início**.\n3. Confirme.")
+
+    elif menu == "🧠 Revisão Final":
+        # =============================================================
+        # REVISÃO FINAL — MÓDULO ADITIVO
+        # Não altera o Cronograma IA existente. Este módulo usa uma
+        # coleção própria para a reta final e mantém tudo separado.
+        # =============================================================
+        registros_rf = list(dados_revisoes_finais or [])
+        temas_rf = [x for x in registros_rf if str(x.get("tipo", "tema")) == "tema"]
+        questoes_rf = [x for x in registros_rf if str(x.get("tipo", "")) == "questoes"]
+        total_rf = len(temas_rf)
+        concl_rf = [x for x in temas_rf if bool(x.get("concluido"))]
+        pend_rf = [x for x in temas_rf if not bool(x.get("concluido"))]
+        pct_rf = (len(concl_rf) / total_rf * 100) if total_rf else 0
+
+        st.markdown(f"""
+        <div class="rp-simple-crono-head">
+          <div>
+            <div class="rp-kicker">RETA FINAL</div>
+            <div class="rp-simple-crono-title">Revisão Final</div>
+            <div class="rp-simple-crono-sub">Transforme os prints do seu cronograma em uma lista objetiva de revisão e acompanhe seu avanço em tempo real.</div>
+          </div>
+          <div class="rp-simple-crono-progress"><strong>{pct_rf:.0f}%</strong><span>revisado</span></div>
+        </div>""", unsafe_allow_html=True)
+
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Temas", total_rf)
+        k2.metric("Pendentes", len(pend_rf))
+        k3.metric("Revisados", len(concl_rf))
+        k4.metric("Questões registradas", sum(safe_int(x.get("questoes")) for x in questoes_rf))
+        st.progress(min(max(pct_rf / 100, 0), 1), text=f"Progresso da revisão final · {pct_rf:.0f}%")
+
+        aba_rf_plano, aba_rf_importar, aba_rf_questoes = st.tabs([
+            "📋 Meu cronograma final", "📸 Extrair dos prints", "🎯 Questões → Revisões"
+        ])
+
+        with aba_rf_plano:
+            if not temas_rf:
+                st.info("Seu cronograma final está vazio. Vá em **Extrair dos prints** para começar.")
+            else:
+                areas_rf = sorted(set(normalizar_area(x.get("materia"), mapa_aulas) for x in temas_rf))
+                datas_rf = sorted(set(str(x.get("data") or "").strip() for x in temas_rf if str(x.get("data") or "").strip()))
+                f1, f2, f3 = st.columns([1.3, 1.3, 2.2])
+                filtro_rf_status = f1.selectbox("Status", ["Todos", "Pendentes", "Revisados"], key="rf_status")
+                filtro_rf_area = f2.selectbox("Área", ["Todas"] + areas_rf, key="rf_area")
+                busca_rf = f3.text_input("Buscar tema", placeholder="Ex.: insuficiência cardíaca", key="rf_busca")
+                filtrados_rf = temas_rf
+                if filtro_rf_status == "Pendentes":
+                    filtrados_rf = [x for x in filtrados_rf if not bool(x.get("concluido"))]
+                elif filtro_rf_status == "Revisados":
+                    filtrados_rf = [x for x in filtrados_rf if bool(x.get("concluido"))]
+                if filtro_rf_area != "Todas":
+                    filtrados_rf = [x for x in filtrados_rf if normalizar_area(x.get("materia"), mapa_aulas) == filtro_rf_area]
+                if busca_rf:
+                    q = busca_rf.casefold()
+                    filtrados_rf = [x for x in filtrados_rf if q in str(x.get("tema", "")).casefold() or q in normalizar_area(x.get("materia"), mapa_aulas).casefold()]
+
+                # Agrupamento por data/bloco para uma leitura rápida na reta final.
+                grupos_rf = {}
+                for item in filtrados_rf:
+                    chave = str(item.get("data") or item.get("bloco") or "Sem data definida").strip() or "Sem data definida"
+                    grupos_rf.setdefault(chave, []).append(item)
+
+                for grupo, itens in grupos_rf.items():
+                    feitos = sum(bool(x.get("concluido")) for x in itens)
+                    pct_grupo = feitos / len(itens) * 100 if itens else 0
+                    with st.container(border=True):
+                        st.markdown(f"### 📅 {html.escape(grupo)}")
+                        st.caption(f"{feitos}/{len(itens)} revisados · {pct_grupo:.0f}%")
+                        st.progress(min(max(pct_grupo / 100, 0), 1))
+                        for item in itens:
+                            rid = str(item.get("id", ""))
+                            mat = normalizar_area(item.get("materia"), mapa_aulas)
+                            cor = cor_area(mat)
+                            tema = html.escape(limpar_texto(item.get("tema", "Sem tema")))
+                            col_a, col_b, col_c = st.columns([0.7, 3.5, 1.0])
+                            with col_a:
+                                if bool(item.get("concluido")):
+                                    st.markdown("### ✅")
+                                elif st.button("✓", key=f"rf_done_{rid}", help="Marcar como revisado"):
+                                    agora = get_agora().strftime("%Y-%m-%d %H:%M:%S")
+                                    db_update("revisoes_finais", "revisoes_finais", rid, {"concluido": True, "data_conclusao": agora})
+                                    for local in st.session_state.dados.get("revisoes_finais", []):
+                                        if str(local.get("id")) == rid:
+                                            local.update({"concluido": True, "data_conclusao": agora})
+                                    st.rerun()
+                            with col_b:
+                                estilo = "text-decoration:line-through;opacity:.65" if bool(item.get("concluido")) else ""
+                                st.markdown(f"<div style='padding:5px 0;{estilo}'><span style='color:{cor};font-weight:900'>●</span> <strong>{tema}</strong><br><small style='color:var(--rp-muted)'>{html.escape(mat)}</small></div>", unsafe_allow_html=True)
+                            with col_c:
+                                p = safe_int(item.get("prioridade", 3))
+                                st.markdown(f"<div style='text-align:right;padding-top:8px;font-weight:700;color:{cor}'>{PRIORIDADES.get(p, 'Revisão')}</div>", unsafe_allow_html=True)
+
+        with aba_rf_importar:
+            st.markdown("### 📸 Extrair seu cronograma final")
+            st.caption("Cole um ou vários prints exatamente como você faz no Cronograma IA. A IA extrai matéria, tema, cor e, quando estiver visível, data/dia.")
+            nome_rf = st.text_input("Bloco / semana da reta final", placeholder="Ex.: Semana Final · 06 a 12/10", key="rf_nome_bloco")
+            ca, cb = st.columns(2)
+            with ca:
+                st.markdown("**📋 Colar prints**")
+                if paste_image_button is not None:
+                    pr_rf = paste_image_button(label="Colar imagem (Ctrl+V)", background_color="#2563eb", hover_background_color="#1d4ed8", key="paste_rf")
+                    if pr_rf.image_data is not None:
+                        buf = io.BytesIO(); pr_rf.image_data.save(buf, format="PNG")
+                        h = hashlib.md5(buf.getvalue()).hexdigest()
+                        fila_rf = st.session_state.setdefault("prints_revisao_final", [])
+                        if not any(isinstance(x, dict) and x.get("hash") == h for x in fila_rf):
+                            fila_rf.append({"hash": h, "img": pr_rf.image_data, "bytes": buf.getvalue()})
+                            st.rerun()
+                if st.session_state.get("prints_revisao_final"):
+                    st.success(f"{len(st.session_state['prints_revisao_final'])} print(s) na fila")
+            with cb:
+                uploads_rf = st.file_uploader("Enviar imagens", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="rf_upload")
+
+            if st.session_state.get("prints_revisao_final"):
+                if st.button("🗑️ Limpar fila", key="rf_clear_queue"):
+                    st.session_state["prints_revisao_final"] = []
+                    st.rerun()
+
+            if (uploads_rf or st.session_state.get("prints_revisao_final")) and st.button("🪄 Extrair cronograma final", use_container_width=True, type="primary", key="rf_extract"):
+                client_rf = get_ia_client()
+                if not client_rf:
+                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
+                else:
+                    imagens_rf = []
+                    for im in (uploads_rf or []): imagens_rf.append(otimizar_imagem_para_api(im, max_size=720))
+                    for x in st.session_state.get("prints_revisao_final", []): imagens_rf.append(otimizar_imagem_para_api(x["img"], max_size=720))
+                    tarefas_rf = []
+                    prog_rf = st.progress(0)
+                    prompt_rf = (
+                        "Analise o print do cronograma de estudos. Extraia TODAS as linhas/tarefas visíveis, sem resumir e sem inventar. "
+                        "Retorne somente JSON no formato {\"tarefas\":[{\"materia\":\"Clínica Médica\",\"tema\":\"...\",\"cor\":\"azul\",\"data\":\"...\",\"dia\":\"...\"}]}. "
+                        "Se data ou dia não estiver visível, use string vazia. Use apenas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
+                        "Preserve o texto do tema o mais fielmente possível."
+                    )
+                    for i, b64 in enumerate(imagens_rf):
+                        try:
+                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=[{"role":"user","content":[{"type":"text","text":prompt_rf},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}], temperature=.1, max_tokens=480)
+                            tarefas_rf.extend(extrair_json_seguro(r_rf.choices[0].message.content).get("tarefas", []))
+                        except Exception as exc:
+                            st.warning(f"Imagem {i+1}: {exc}")
+                        prog_rf.progress((i + 1) / max(1, len(imagens_rf)))
+                    if tarefas_rf:
+                        # Evita duplicatas dentro da mesma importação.
+                        vistos = set()
+                        novas_rf = []
+                        for t in tarefas_rf:
+                            tema = str(t.get("tema", "Sem tema")).strip() or "Sem tema"
+                            chave = (normalizar_area(t.get("materia"), mapa_aulas), tema.casefold(), str(t.get("data", "")).strip().casefold())
+                            if chave in vistos: continue
+                            vistos.add(chave)
+                            novas_rf.append(t)
+                        batch_rf = db.batch()
+                        for t in novas_rf:
+                            ref_rf = db.collection("revisoes_finais").document()
+                            item_rf = {
+                                "usuario_id": u_id,
+                                "tipo": "tema",
+                                "bloco": nome_rf.strip() or "Reta final",
+                                "data": str(t.get("data", "")).strip(),
+                                "dia": str(t.get("dia", "")).strip(),
+                                "materia": normalizar_area(t.get("materia"), mapa_aulas),
+                                "tema": str(t.get("tema", "Sem tema")).strip() or "Sem tema",
+                                "prioridade": 1 if "azul" in str(t.get("cor", "")).casefold() else 2 if "verde" in str(t.get("cor", "")).casefold() else 3 if "amarelo" in str(t.get("cor", "")).casefold() else 4 if "vermelho" in str(t.get("cor", "")).casefold() else 5,
+                                "concluido": False,
+                                "data_conclusao": None,
+                                "criado_em": get_agora().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                            }
+                            batch_rf.set(ref_rf, item_rf)
+                            item_rf["id"] = ref_rf.id
+                            st.session_state.dados.setdefault("revisoes_finais", []).append(item_rf)
+                        batch_rf.commit()
+                        st.session_state["prints_revisao_final"] = []
+                        st.toast(f"{len(novas_rf)} temas extraídos para a reta final!", icon="🎯")
+                        st.rerun()
+                    else:
+                        st.warning("Não foi possível encontrar temas nos prints.")
+
+        with aba_rf_questoes:
+            st.markdown("### 🎯 Desempenho → próximas revisões")
+            st.caption("Informe questões, acertos e erros. A porcentagem é calculada automaticamente e o sistema define o intervalo de revisão.")
+            cq1, cq2 = st.columns(2)
+            with cq1:
+                tema_qf = st.text_input("Tema / bloco", placeholder="Ex.: Sepse", key="rf_q_tema")
+                total_qf = st.number_input("Questões feitas", min_value=0, step=1, value=0, key="rf_q_total")
+                acertos_qf = st.number_input("Acertos", min_value=0, step=1, value=0, key="rf_q_acertos")
+                erros_qf = st.number_input("Erros", min_value=0, step=1, value=0, key="rf_q_erros")
+            with cq2:
+                data_base_qf = st.date_input("Data da realização", value=hoje, key="rf_q_data")
+                calculo_qf = acertos_qf + erros_qf
+                pct_qf = (acertos_qf / calculo_qf * 100) if calculo_qf else 0
+                if calculo_qf:
+                    if calculo_qf != total_qf:
+                        st.warning(f"Acertos + erros = {calculo_qf}, mas você informou {total_qf} questões.")
+                    cor_qf = cor_percentual_acerto(pct_qf)
+                    st.markdown(f"<div style='border:1px solid {cor_qf};border-left:4px solid {cor_qf};padding:14px;border-radius:8px;margin-top:8px'><div style='color:var(--rp-muted);font-size:.72rem;text-transform:uppercase'>Aproveitamento</div><div style='font-size:2rem;font-weight:800;color:{cor_qf}'>{pct_qf:.1f}%</div></div>", unsafe_allow_html=True)
+                    if pct_qf < 60:
+                        intervalo = [1, 3, 7]
+                        nivel = "🔴 Recuperação intensiva"
+                    elif pct_qf < 70:
+                        intervalo = [3, 7, 14]
+                        nivel = "🟠 Reforço prioritário"
+                    elif pct_qf < 80:
+                        intervalo = [7, 14]
+                        nivel = "🟡 Consolidação"
+                    elif pct_qf < 90:
+                        intervalo = [14]
+                        nivel = "🟢 Manutenção"
+                    else:
+                        intervalo = [21]
+                        nivel = "🔵 Domínio"
+                    st.markdown(f"**{nivel}**")
+                    st.markdown("**Próximas revisões**")
+                    for dias_rev in intervalo:
+                        d_rev = data_base_qf + timedelta(days=dias_rev)
+                        st.markdown(f"• **+{dias_rev} dia(s)** → {d_rev.strftime('%d/%m/%Y')}")
+                    if tema_qf.strip() and total_qf == calculo_qf and st.button("💾 Salvar desempenho e revisões", use_container_width=True, type="primary", key="rf_q_save"):
+                        ref_qf = db.collection("revisoes_finais").document()
+                        item_qf = {
+                            "usuario_id": u_id, "tipo": "questoes", "tema": tema_qf.strip(),
+                            "questoes": int(total_qf), "acertos": int(acertos_qf), "erros": int(erros_qf),
+                            "percentual": round(pct_qf, 1), "nivel": nivel,
+                            "data_realizacao": str(data_base_qf),
+                            "revisoes": [str(data_base_qf + timedelta(days=d)) for d in intervalo],
+                            "criado_em": get_agora().strftime("%Y-%m-%d %H:%M:%S.%f")
+                        }
+                        ref_qf.set(item_qf)
+                        item_qf["id"] = ref_qf.id
+                        st.session_state.dados.setdefault("revisoes_finais", []).append(item_qf)
+                        st.toast("Desempenho salvo e revisões programadas.", icon="📅")
+                        st.rerun()
+                else:
+                    st.info("Informe acertos e erros para calcular seu aproveitamento.")
+
+            if questoes_rf:
+                st.divider()
+                st.markdown("#### Histórico de desempenho")
+                for qf in sorted(questoes_rf, key=lambda x: str(x.get("criado_em", "")), reverse=True):
+                    pct_hist = float(qf.get("percentual", 0) or 0)
+                    cor_hist = cor_percentual_acerto(pct_hist)
+                    revs_hist = qf.get("revisoes", [])
+                    st.markdown(
+                        f"<div style='padding:10px 12px;border:1px solid var(--rp-border);border-left:4px solid {cor_hist};border-radius:7px;margin:6px 0'>"
+                        f"<strong>{html.escape(str(qf.get('tema','Tema')))}</strong> · <span style='color:{cor_hist};font-weight:800'>{pct_hist:.1f}%</span><br>"
+                        f"<small>{safe_int(qf.get('questoes'))} questões · {safe_int(qf.get('acertos'))} acertos · {safe_int(qf.get('erros'))} erros · Revisões: {', '.join(revs_hist)}</small></div>",
+                        unsafe_allow_html=True
+                    )
 
     elif menu == "🗓️ Cronograma IA":
         # =============================================================
