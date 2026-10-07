@@ -3074,24 +3074,37 @@ else:
                                 img_rf = fundo_rf
 
                             largura_rf, altura_rf = img_rf.size
-                            # Três faixas horizontais com sobreposição. Em prints muito
-                            # compridos, isso aumenta muito a chance de capturar TODAS as aulas.
-                            faixas_rf = 3 if altura_rf >= 1200 else 2
-                            if faixas_rf == 2:
-                                fracao_rf = 0.58
-                                posicoes_rf = [0.00, 0.42]
-                            else:
-                                fracao_rf = 0.44
-                                posicoes_rf = [0.00, 0.28, 0.56]
 
-                            for idx_rf, pos_rf in enumerate(posicoes_rf):
-                                y1_rf = int(altura_rf * pos_rf)
-                                y2_rf = min(altura_rf, int(altura_rf * (pos_rf + fracao_rf)))
-                                if y2_rf <= y1_rf:
-                                    continue
-                                recorte_rf = img_rf.crop((0, y1_rf, largura_rf, y2_rf))
-                                imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
-                                fontes_rf.append((len(fontes_rf) + 1, idx_rf + 1, faixas_rf))
+                            # CRONOGRAMA POR DIA: quando o print tem os dias lado a lado,
+                            # nunca devemos mandar uma faixa horizontal que contenha
+                            # domingo + segunda + terça para a mesma chamada.
+                            # Cada coluna é tratada como uma unidade independente.
+                            # Isso reduz drasticamente a troca de dias pela visão.
+                            if largura_rf >= altura_rf * 1.05:
+                                numero_colunas_rf = 7
+                                sobreposicao_rf = 0.035
+                                largura_col_rf = largura_rf / numero_colunas_rf
+                                for idx_col_rf in range(numero_colunas_rf):
+                                    centro_rf = (idx_col_rf + 0.5) * largura_col_rf
+                                    x1_rf = max(0, int(centro_rf - largura_col_rf * (0.5 + sobreposicao_rf)))
+                                    x2_rf = min(largura_rf, int(centro_rf + largura_col_rf * (0.5 + sobreposicao_rf)))
+                                    recorte_rf = img_rf.crop((x1_rf, 0, x2_rf, altura_rf))
+                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
+                                    fontes_rf.append((len(fontes_rf) + 1, idx_col_rf + 1, numero_colunas_rf))
+                            else:
+                                # Prints estreitos/mobile: mantém leitura vertical, mas
+                                # divide em blocos para não perder aulas no final.
+                                numero_blocos_rf = 3 if altura_rf >= 1200 else 2
+                                fracao_rf = 0.44 if numero_blocos_rf == 3 else 0.58
+                                posicoes_rf = [0.00, 0.28, 0.56] if numero_blocos_rf == 3 else [0.00, 0.42]
+                                for idx_bloco_rf, pos_rf in enumerate(posicoes_rf):
+                                    y1_rf = int(altura_rf * pos_rf)
+                                    y2_rf = min(altura_rf, int(altura_rf * (pos_rf + fracao_rf)))
+                                    if y2_rf <= y1_rf:
+                                        continue
+                                    recorte_rf = img_rf.crop((0, y1_rf, largura_rf, y2_rf))
+                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
+                                    fontes_rf.append((len(fontes_rf) + 1, idx_bloco_rf + 1, numero_blocos_rf))
                         except Exception as exc_img_rf:
                             st.warning(f"Não foi possível preparar um print para leitura: {exc_img_rf}")
 
@@ -3099,16 +3112,22 @@ else:
                     prog_rf = st.progress(0)
                     total_blocos_rf = max(1, len(imagens_rf))
                     prompt_rf = (
-                        "VOCÊ ESTÁ LENDO UM RECORTE DE UM PRINT DE CRONOGRAMA DE ESTUDOS. "
-                        "Sua prioridade absoluta é NÃO PERDER INFORMAÇÃO. Leia visualmente cada linha, cartão, aula, "
-                        "tema, subtítulo e tarefa que estiver legível. NÃO resuma, NÃO agrupe, NÃO pule itens e NÃO invente. "
-                        "Cada aula/tema visível deve virar uma linha independente. Preserve o texto do print o mais fielmente possível. "
-                        "Se uma matéria ou cabeçalho estiver visível, associe-o às linhas abaixo. Se uma informação não estiver visível, use \"\". "
+                        "VOCÊ ESTÁ LENDO UM RECORTE ISOLADO DE UM CRONOGRAMA DE ESTUDOS. "
+                        "REGRA CRÍTICA: NÃO MISTURE DIAS. O recorte pode representar UMA ÚNICA COLUNA/DIA. "
+                        "Associe uma aula somente ao dia cujo cabeçalho esteja VISIVELMENTE na mesma coluna. "
+                        "NUNCA use a posição do recorte para adivinhar o dia e NUNCA transfira uma aula para outro dia. "
+                        "Se o cabeçalho do dia não estiver visível, deixe o campo dia vazio. Não invente. "
+                        "Se houver mais de um cabeçalho de dia visível no recorte, mantenha cada item junto do cabeçalho correspondente; "
+                        "se isso não puder ser determinado com segurança, deixe dia vazio. "
+                        "Leia TODAS as linhas, cartões, aulas, temas, subtítulos e tarefas visíveis, de cima para baixo. "
+                        "NÃO resuma, NÃO agrupe, NÃO pule itens e NÃO invente. Cada aula/tema visível deve virar uma linha independente. "
+                        "Preserve o texto do print o mais fielmente possível. Se uma matéria ou cabeçalho estiver visível, associe-o apenas às linhas abaixo dele dentro da mesma coluna. "
+                        "Se uma informação não estiver visível, use \"\". "
                         "Retorne SOMENTE JSON válido, sem markdown, exatamente neste formato: "
                         "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
                         "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
                         "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
-                        "IMPORTANTE: não pare no meio da imagem; percorra de cima para baixo e inclua TUDO que conseguir ler."
+                        "IMPORTANTE: percorra todo o recorte até o último item legível."
                     )
                     for i, b64 in enumerate(imagens_rf):
                         try:
@@ -3143,7 +3162,7 @@ else:
                         novas_rf = []
                         for t in tarefas_rf:
                             tema = str(t.get("tema", "Sem tema")).strip() or "Sem tema"
-                            chave = (normalizar_area(t.get("materia"), mapa_aulas), tema.casefold(), str(t.get("data", "")).strip().casefold())
+                            chave = (normalizar_area(t.get("materia"), mapa_aulas), tema.casefold(), str(t.get("data", "")).strip().casefold(), str(t.get("dia", "")).strip().casefold())
                             if chave in vistos: continue
                             vistos.add(chave)
                             novas_rf.append(t)
