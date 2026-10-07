@@ -2998,16 +2998,35 @@ else:
                     for x in st.session_state.get("prints_revisao_final", []): imagens_rf.append(otimizar_imagem_para_api(x["img"], max_size=720))
                     tarefas_rf = []
                     prog_rf = st.progress(0)
+                    # Prompt deliberadamente compacto: o modelo de visão tem limite de
+                    # saída e prints de cronograma podem conter muitas linhas. Usamos
+                    # listas curtas em vez de objetos repetitivos para evitar truncamento.
                     prompt_rf = (
-                        "Analise o print do cronograma de estudos. Extraia TODAS as linhas/tarefas visíveis, sem resumir e sem inventar. "
-                        "Retorne somente JSON no formato {\"tarefas\":[{\"materia\":\"Clínica Médica\",\"tema\":\"...\",\"cor\":\"azul\",\"data\":\"...\",\"dia\":\"...\"}]}. "
-                        "Se data ou dia não estiver visível, use string vazia. Use apenas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
-                        "Preserve o texto do tema o mais fielmente possível."
+                        "LEIA O PRINT INTEIRO. Extraia TODAS as tarefas visíveis, uma por linha. "
+                        "NÃO resuma, NÃO invente e NÃO omita linhas. Retorne SOMENTE JSON válido, sem markdown, no formato "
+                        "{\"tarefas\":[[\"materia\",\"tema\",\"cor\",\"data\",\"dia\"]]}. "
+                        "Use matéria curta: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
+                        "cor = azul/verde/amarelo/vermelho/roxo. Se data/dia não aparecer, use \"\". Preserve o tema fielmente."
                     )
                     for i, b64 in enumerate(imagens_rf):
                         try:
-                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=[{"role":"user","content":[{"type":"text","text":prompt_rf},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}], temperature=.1, max_tokens=480)
-                            tarefas_rf.extend(extrair_json_seguro(r_rf.choices[0].message.content).get("tarefas", []))
+                            msg_rf = [{"role":"user","content":[{"type":"text","text":prompt_rf},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}]
+                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.1, max_tokens=480)
+                            bruto_rf = r_rf.choices[0].message.content or ""
+                            dados_rf = extrair_json_seguro(bruto_rf)
+                            linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                            # Aceita tanto o novo formato compacto quanto o formato antigo.
+                            for linha_rf in linhas_rf:
+                                if isinstance(linha_rf, dict):
+                                    tarefas_rf.append(linha_rf)
+                                elif isinstance(linha_rf, (list, tuple)) and len(linha_rf) >= 2:
+                                    tarefas_rf.append({
+                                        "materia": str(linha_rf[0] or "Geral").strip(),
+                                        "tema": str(linha_rf[1] or "Sem tema").strip(),
+                                        "cor": str(linha_rf[2] or "azul").strip(),
+                                        "data": str(linha_rf[3] or "").strip(),
+                                        "dia": str(linha_rf[4] or "").strip(),
+                                    })
                         except Exception as exc:
                             st.warning(f"Imagem {i+1}: {exc}")
                         prog_rf.progress((i + 1) / max(1, len(imagens_rf)))
@@ -3476,8 +3495,21 @@ else:
                         done=sum(bool(x.get("concluido")) for x in itens_sem)
                         pct=done/len(itens_sem)*100
                         with st.container(border=True):
-                            st.markdown(f"### 📚 {sem}")
-                            st.caption(f"{done} de {len(itens_sem)} metas concluídas · {pct:.0f}%")
+                            cab_sem_a, cab_sem_b = st.columns([5.5, 1.2])
+                            with cab_sem_a:
+                                st.markdown(f"### 📚 {sem}")
+                                st.caption(f"{done} de {len(itens_sem)} metas concluídas · {pct:.0f}%")
+                            with cab_sem_b:
+                                if st.button("🗑️ Excluir", key=f"crono29_del_sem_top_{sem}", help="Excluir todos os temas desta semana"):
+                                    batch_del = db.batch(); ids_del = []
+                                    for t_del in [x for x in meu_crono if str(x.get("semana") or "Sem semana") == sem]:
+                                        tid_del = str(t_del.get("id", ""))
+                                        if tid_del:
+                                            batch_del.delete(db.collection("cronogramas").document(tid_del)); ids_del.append(tid_del)
+                                    batch_del.commit()
+                                    st.session_state.dados["cronogramas"] = [x for x in st.session_state.dados["cronogramas"] if str(x.get("id")) not in ids_del]
+                                    st.toast(f"Semana '{sem}' excluída.", icon="🗑️")
+                                    st.rerun()
                             st.progress(pct/100)
                             # Dentro de cada dia, sempre ordenar pela prioridade visual:
                             # Azul -> Verde -> Amarelo -> Vermelho -> Roxo.
