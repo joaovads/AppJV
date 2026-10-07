@@ -2830,9 +2830,80 @@ else:
         k4.metric("Questões registradas", sum(safe_int(x.get("questoes")) for x in questoes_rf))
         st.progress(min(max(pct_rf / 100, 0), 1), text=f"Progresso da revisão final · {pct_rf:.0f}%")
 
-        aba_rf_plano, aba_rf_importar, aba_rf_questoes = st.tabs([
-            "📋 Meu cronograma final", "📸 Extrair dos prints", "🎯 Questões → Revisões"
+        aba_rf_dash, aba_rf_plano, aba_rf_importar, aba_rf_questoes, aba_rf_agenda = st.tabs([
+            "📊 Dashboard Final", "📋 Meu cronograma final", "📸 Extrair dos prints", "🎯 Questões → Revisões", "📅 Cronograma de Revisões"
         ])
+
+        with aba_rf_dash:
+            # =========================================================
+            # DASHBOARD EXCLUSIVO DA REVISÃO FINAL
+            # Usa SOMENTE os registros de questões desta coleção.
+            # =========================================================
+            st.markdown("### 📊 Dashboard da Revisão Final")
+            st.caption("Indicadores calculados exclusivamente a partir das questões registradas nesta Revisão Final.")
+
+            qf_dash = [x for x in questoes_rf if safe_int(x.get("questoes")) > 0]
+            total_questoes_dash = sum(safe_int(x.get("questoes")) for x in qf_dash)
+            total_acertos_dash = sum(safe_int(x.get("acertos")) for x in qf_dash)
+            total_erros_dash = sum(safe_int(x.get("erros")) for x in qf_dash)
+            aproveitamento_dash = (total_acertos_dash / (total_acertos_dash + total_erros_dash) * 100) if (total_acertos_dash + total_erros_dash) else 0
+
+            d1, d2, d3, d4 = st.columns(4)
+            d1.metric("Questões feitas", total_questoes_dash)
+            d2.metric("Acertos", total_acertos_dash)
+            d3.metric("Erros", total_erros_dash)
+            cor_dash = cor_percentual_acerto(aproveitamento_dash)
+            d4.markdown(f"<div style='padding-top:2px'><div style='color:var(--rp-muted);font-size:.78rem'>APROVEITAMENTO</div><div style='font-size:2rem;font-weight:850;color:{cor_dash}'>{aproveitamento_dash:.1f}%</div></div>", unsafe_allow_html=True)
+
+            st.progress(min(max(aproveitamento_dash / 100, 0), 1), text=f"Aproveitamento geral · {aproveitamento_dash:.1f}%")
+
+            if not qf_dash:
+                st.info("Ainda não há questões registradas na Revisão Final. Use **Questões → Revisões** para lançar seu desempenho.")
+            else:
+                # Desempenho consolidado por tema.
+                por_tema_dash = {}
+                for q in qf_dash:
+                    tema_dash = limpar_texto(q.get("tema", "Sem tema")) or "Sem tema"
+                    por_tema_dash.setdefault(tema_dash, {"questoes": 0, "acertos": 0, "erros": 0})
+                    por_tema_dash[tema_dash]["questoes"] += safe_int(q.get("questoes"))
+                    por_tema_dash[tema_dash]["acertos"] += safe_int(q.get("acertos"))
+                    por_tema_dash[tema_dash]["erros"] += safe_int(q.get("erros"))
+
+                ranking_dash = []
+                for tema_dash, vals_dash in por_tema_dash.items():
+                    tot_dash = vals_dash["acertos"] + vals_dash["erros"]
+                    pct_tema_dash = vals_dash["acertos"] / tot_dash * 100 if tot_dash else 0
+                    ranking_dash.append({"Tema": tema_dash, "Questões": vals_dash["questoes"], "Acertos": vals_dash["acertos"], "Erros": vals_dash["erros"], "%": pct_tema_dash})
+                ranking_dash.sort(key=lambda x: (x["%"], -x["Questões"]))
+
+                if ranking_dash:
+                    pior_dash = ranking_dash[0]
+                    melhor_dash = ranking_dash[-1]
+                    cda, cdb = st.columns(2)
+                    with cda:
+                        cor_pior = cor_percentual_acerto(pior_dash["%"])
+                        st.markdown(f"<div style='border-left:4px solid {cor_pior};padding:12px 14px;border-radius:8px;background:var(--rp-surface)'><div style='font-size:.72rem;color:var(--rp-muted);text-transform:uppercase'>Maior necessidade de revisão</div><strong>{html.escape(pior_dash['Tema'])}</strong><div style='font-size:1.35rem;font-weight:850;color:{cor_pior}'>{pior_dash['%']:.1f}%</div></div>", unsafe_allow_html=True)
+                    with cdb:
+                        cor_melhor = cor_percentual_acerto(melhor_dash["%"])
+                        st.markdown(f"<div style='border-left:4px solid {cor_melhor};padding:12px 14px;border-radius:8px;background:var(--rp-surface)'><div style='font-size:.72rem;color:var(--rp-muted);text-transform:uppercase'>Melhor desempenho</div><strong>{html.escape(melhor_dash['Tema'])}</strong><div style='font-size:1.35rem;font-weight:850;color:{cor_melhor}'>{melhor_dash['%']:.1f}%</div></div>", unsafe_allow_html=True)
+
+                    df_dash = pd.DataFrame(ranking_dash)
+                    df_dash["Aproveitamento"] = df_dash["%"].round(1).astype(str) + "%"
+                    st.markdown("### Desempenho por tema")
+                    st.dataframe(df_dash[["Tema", "Questões", "Acertos", "Erros", "Aproveitamento"]], use_container_width=True, hide_index=True)
+
+                    datas_dash = []
+                    for q in qf_dash:
+                        dt_dash = pd.to_datetime(q.get("data_realizacao"), errors="coerce")
+                        if not pd.isna(dt_dash):
+                            datas_dash.append({"Data": dt_dash, "Questões": safe_int(q.get("questoes")), "Acertos": safe_int(q.get("acertos")), "Erros": safe_int(q.get("erros"))})
+                    if datas_dash:
+                        df_evol_dash = pd.DataFrame(datas_dash).groupby("Data")[["Questões", "Acertos", "Erros"]].sum().reset_index().sort_values("Data")
+                        df_evol_dash["Data"] = df_evol_dash["Data"].dt.strftime("%d/%m")
+                        fig_dash = px.bar(df_evol_dash, x="Data", y=["Acertos", "Erros"], barmode="group")
+                        fig_dash.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(t=10,b=10,l=0,r=0), legend_title_text="")
+                        st.markdown("### Evolução das questões")
+                        st.plotly_chart(fig_dash, use_container_width=True, config={"displayModeBar": False, "displaylogo": False, "responsive": True}, theme=None)
 
         with aba_rf_plano:
             if not temas_rf:
@@ -2975,6 +3046,146 @@ else:
                         st.rerun()
                     else:
                         st.warning("Não foi possível encontrar temas nos prints.")
+
+        with aba_rf_agenda:
+            # =========================================================
+            # CRONOGRAMA EXCLUSIVO DE REVISÕES DA RETA FINAL
+            # As revisões são derivadas somente das questões da Revisão Final.
+            # =========================================================
+            st.markdown("### 📅 Cronograma de Revisões — Revisão Final")
+            st.caption("Aqui aparecem somente as revisões geradas pelos desempenhos registrados na Revisão Final.")
+
+            agenda_rf = []
+            for q in questoes_rf:
+                tema_ag = limpar_texto(q.get("tema", "Sem tema")) or "Sem tema"
+                pct_ag = float(q.get("percentual", 0) or 0)
+                datas_ag = q.get("revisoes", []) or []
+                status_ag = q.get("revisoes_status", {}) or {}
+                for data_ag in datas_ag:
+                    dt_ag = parse_data(data_ag)
+                    if dt_ag:
+                        chave_ag = dt_ag.strftime("%Y-%m-%d")
+                        agenda_rf.append({
+                            "id": str(q.get("id", "")),
+                            "tema": tema_ag,
+                            "percentual": pct_ag,
+                            "data": dt_ag,
+                            "status": str(status_ag.get(chave_ag, "pendente")).lower(),
+                            "nivel": str(q.get("nivel", "")),
+                            "questoes": safe_int(q.get("questoes")),
+                            "acertos": safe_int(q.get("acertos")),
+                            "erros": safe_int(q.get("erros")),
+                        })
+
+            hoje_rf = hoje
+            pend_ag = [r for r in agenda_rf if r["status"] not in ("concluida", "concluída", "concluido", "concluído")]
+            hoje_ag = [r for r in pend_ag if r["data"] == hoje_rf]
+            futuras_ag = sorted([r for r in pend_ag if r["data"] > hoje_rf], key=lambda x: x["data"])
+            atrasadas_ag = [r for r in pend_ag if r["data"] < hoje_rf]
+
+            a1, a2, a3, a4 = st.columns(4)
+            a1.metric("Para hoje", len(hoje_ag))
+            a2.metric("Atrasadas", len(atrasadas_ag))
+            a3.metric("Próximas", len(futuras_ag))
+            a4.metric("Total pendente", len(pend_ag))
+
+            # Mesmo conceito visual do calendário da Agenda de Revisões, porém
+            # alimentado exclusivamente pelas revisões da reta final.
+            calendario_rf = []
+            for r in agenda_rf:
+                calendario_rf.append({
+                    "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
+                    "tema": r["tema"],
+                    "area": "Geral",
+                    "ciclo": "Revisão Final",
+                    "data_agendada_obj": r["data"],
+                    "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
+                })
+            if "rf_cal_mes" not in st.session_state:
+                st.session_state.rf_cal_mes = hoje.month
+            if "rf_cal_ano" not in st.session_state:
+                st.session_state.rf_cal_ano = hoje.year
+            nav_rf1, nav_rf2, nav_rf3 = st.columns([1, 2, 1])
+            with nav_rf1:
+                if st.button("⬅️ Mês Anterior", key="rf_prev_mes"):
+                    if st.session_state.rf_cal_mes == 1:
+                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 12, st.session_state.rf_cal_ano - 1
+                    else:
+                        st.session_state.rf_cal_mes -= 1
+                    st.rerun()
+            with nav_rf2:
+                st.markdown(f"<h3 style='text-align:center;margin:0'>📅 {MESES_PT[st.session_state.rf_cal_mes]} {st.session_state.rf_cal_ano}</h3>", unsafe_allow_html=True)
+            with nav_rf3:
+                if st.button("Próximo Mês ➡️", key="rf_next_mes"):
+                    if st.session_state.rf_cal_mes == 12:
+                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 1, st.session_state.rf_cal_ano + 1
+                    else:
+                        st.session_state.rf_cal_mes += 1
+                    st.rerun()
+            if calendario_rf:
+                st.markdown(gerar_calendario_revisoes_html(calendario_rf, st.session_state.rf_cal_ano, st.session_state.rf_cal_mes), unsafe_allow_html=True)
+            st.divider()
+
+            tab_ag_p, tab_ag_h = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
+
+            with tab_ag_p:
+                f1_ag, f2_ag = st.columns(2)
+                vis_ag = f1_ag.radio("Filtro rápido", ["📆 Para Hoje", "⚠️ Atrasadas", "🗓️ Próximos 7 Dias", "♾️ Todas Futuras"], horizontal=True, key="rf_ag_vis")
+                ord_ag = f2_ag.radio("Ordem", ["🚨 Urgência", "🕰️ Mais Antigas", "🆕 Mais Recentes"], horizontal=True, key="rf_ag_ord")
+
+                if vis_ag == "📆 Para Hoje":
+                    lista_ag = list(hoje_ag)
+                elif vis_ag == "⚠️ Atrasadas":
+                    lista_ag = list(atrasadas_ag)
+                elif vis_ag == "🗓️ Próximos 7 Dias":
+                    limite_ag = hoje_rf + timedelta(days=7)
+                    lista_ag = [r for r in pend_ag if hoje_rf <= r["data"] <= limite_ag]
+                else:
+                    lista_ag = [r for r in pend_ag if r["data"] >= hoje_rf]
+
+                if "Mais Antigas" in ord_ag:
+                    lista_ag.sort(key=lambda x: x["data"])
+                elif "Mais Recentes" in ord_ag:
+                    lista_ag.sort(key=lambda x: x["data"], reverse=True)
+                else:
+                    lista_ag.sort(key=lambda x: (x["data"] < hoje_rf, x["data"]))
+
+                if not lista_ag:
+                    st.success("🎉 Nenhuma revisão pendente para este filtro.")
+                for rev_ag in lista_ag:
+                    cor_ag = cor_percentual_acerto(rev_ag["percentual"])
+                    if rev_ag["data"] < hoje_rf:
+                        situacao_ag = "⚠️ Atrasada"
+                    elif rev_ag["data"] == hoje_rf:
+                        situacao_ag = "📆 Hoje"
+                    else:
+                        situacao_ag = "🗓️ Futura"
+                    with st.container(border=True):
+                        c_ag1, c_ag2 = st.columns([0.76, 0.24])
+                        with c_ag1:
+                            st.markdown(f"<h5 style='margin-bottom:2px'><span style='color:{cor_ag}'>⬤</span> {html.escape(rev_ag['tema'])}</h5>", unsafe_allow_html=True)
+                            st.caption(f"{situacao_ag} · **{rev_ag['data'].strftime('%d/%m/%Y')}** · Desempenho original: **{rev_ag['percentual']:.1f}%** · {rev_ag['questoes']} questões ({rev_ag['acertos']} acertos / {rev_ag['erros']} erros)")
+                        with c_ag2:
+                            st.markdown(f"<div style='text-align:right;padding-top:6px'><span style='font-size:.72rem;color:var(--rp-muted)'>APROVEITAMENTO</span><br><strong style='font-size:1.25rem;color:{cor_ag}'>{rev_ag['percentual']:.1f}%</strong></div>", unsafe_allow_html=True)
+                        if st.button("✅ Concluir revisão", key=f"rf_ag_done_{rev_ag['id']}_{rev_ag['data'].strftime('%Y%m%d')}", use_container_width=True):
+                            atual = next((x for x in questoes_rf if str(x.get("id")) == rev_ag["id"]), None)
+                            if atual is not None:
+                                status_atual = dict(atual.get("revisoes_status", {}) or {})
+                                status_atual[rev_ag["data"].strftime("%Y-%m-%d")] = "concluida"
+                                db_update("revisoes_finais", "revisoes_finais", rev_ag["id"], {"revisoes_status": status_atual})
+                                atual["revisoes_status"] = status_atual
+                                st.toast("Revisão concluída!", icon="✅")
+                                st.rerun()
+
+            with tab_ag_h:
+                concl_ag = [r for r in agenda_rf if r["status"] in ("concluida", "concluída", "concluido", "concluído")]
+                if not concl_ag:
+                    st.info("Nenhuma revisão da Revisão Final foi concluída ainda.")
+                else:
+                    concl_ag.sort(key=lambda x: x["data"], reverse=True)
+                    for rev_ag in concl_ag:
+                        cor_ag = cor_percentual_acerto(rev_ag["percentual"])
+                        st.markdown(f"<div style='padding:10px 12px;border:1px solid var(--rp-border);border-left:4px solid {cor_ag};border-radius:7px;margin:6px 0'><strong>✅ {html.escape(rev_ag['tema'])}</strong> · <span style='color:{cor_ag};font-weight:800'>{rev_ag['percentual']:.1f}%</span><br><small>Revisão de {rev_ag['data'].strftime('%d/%m/%Y')} · {rev_ag['questoes']} questões · {rev_ag['acertos']} acertos · {rev_ag['erros']} erros</small></div>", unsafe_allow_html=True)
 
         with aba_rf_questoes:
             st.markdown("### 🎯 Desempenho → próximas revisões")
