@@ -3090,11 +3090,64 @@ else:
             a4.metric("Total pendente", len(pend_ag))
 
             # =========================================================
+            # CALENDÁRIO MENSAL — VISÃO AMPLA DA REVISÃO FINAL
+            # =========================================================
+            st.markdown("#### 🗓️ Calendário da Revisão Final")
+            st.caption("Visão mensal completa para você enxergar toda a reta final de uma só vez. Cada data mostra as revisões programadas e o desempenho dos temas.")
+
+            calendario_rf = []
+            for r in agenda_rf:
+                calendario_rf.append({
+                    "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
+                    "tema": r["tema"],
+                    "area": "Geral",
+                    "ciclo": "Revisão Final",
+                    "data_agendada_obj": r["data"],
+                    "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
+                    "percentual": r["percentual"],
+                })
+            if "rf_cal_mes" not in st.session_state:
+                st.session_state.rf_cal_mes = hoje.month
+            if "rf_cal_ano" not in st.session_state:
+                st.session_state.rf_cal_ano = hoje.year
+
+            nav_rf1, nav_rf2, nav_rf3 = st.columns([1, 2, 1])
+            with nav_rf1:
+                if st.button("⬅️ Mês anterior", key="rf_prev_mes_principal", use_container_width=True):
+                    if st.session_state.rf_cal_mes == 1:
+                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 12, st.session_state.rf_cal_ano - 1
+                    else:
+                        st.session_state.rf_cal_mes -= 1
+                    st.rerun()
+            with nav_rf2:
+                st.markdown(f"<h3 style='text-align:center;margin:0;padding-top:4px'>📅 {MESES_PT[st.session_state.rf_cal_mes]} {st.session_state.rf_cal_ano}</h3>", unsafe_allow_html=True)
+            with nav_rf3:
+                if st.button("Próximo mês ➡️", key="rf_next_mes_principal", use_container_width=True):
+                    if st.session_state.rf_cal_mes == 12:
+                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 1, st.session_state.rf_cal_ano + 1
+                    else:
+                        st.session_state.rf_cal_mes += 1
+                    st.rerun()
+
+            # Resumo visual do mês selecionado.
+            cal_mes_itens = [r for r in agenda_rf if r["data"].year == st.session_state.rf_cal_ano and r["data"].month == st.session_state.rf_cal_mes]
+            cal_mes_concl = [r for r in cal_mes_itens if r["status"] in ("concluida", "concluída", "concluido", "concluído")]
+            cal_m1, cal_m2, cal_m3, cal_m4 = st.columns(4)
+            cal_m1.metric("Revisões no mês", len(cal_mes_itens))
+            cal_m2.metric("Concluídas", len(cal_mes_concl))
+            cal_m3.metric("Pendentes", len(cal_mes_itens) - len(cal_mes_concl))
+            media_mes = sum(r["percentual"] for r in cal_mes_itens) / len(cal_mes_itens) if cal_mes_itens else 0
+            cal_m4.metric("Aproveitamento médio", f"{media_mes:.1f}%" if cal_mes_itens else "—")
+
+            st.markdown(gerar_calendario_revisoes_html(calendario_rf, st.session_state.rf_cal_ano, st.session_state.rf_cal_mes), unsafe_allow_html=True)
+            st.caption("🔴 <60% · 🟠 60–69% · 🟡 70–79% · 🟢 80–89% · 🔵 ≥90% · ✓ = revisão concluída")
+
+            # =========================================================
             # CRONOGRAMA DIÁRIO — REVISÃO FINAL
             # Mostra explicitamente DIA DA SEMANA + DATA, como o
             # Cronograma IA, mas usando somente as revisões da reta final.
             # =========================================================
-            st.markdown("#### 🗓️ Cronograma diário")
+            st.markdown("#### 🗓️ Detalhamento por dia")
             st.caption("Cada revisão aparece no dia exato em que deverá ser feita. A organização é independente do Cronograma IA.")
 
             if not agenda_rf:
@@ -3212,40 +3265,6 @@ else:
                         )
 
                 st.divider()
-                st.markdown("#### 📅 Visão mensal")
-                st.caption("O calendário abaixo é apenas uma visão complementar. O cronograma principal acima mostra explicitamente os dias e datas.")
-                calendario_rf = []
-                for r in agenda_rf:
-                    calendario_rf.append({
-                        "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
-                        "tema": r["tema"],
-                        "area": "Geral",
-                        "ciclo": "Revisão Final",
-                        "data_agendada_obj": r["data"],
-                        "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
-                    })
-                if "rf_cal_mes" not in st.session_state:
-                    st.session_state.rf_cal_mes = hoje.month
-                if "rf_cal_ano" not in st.session_state:
-                    st.session_state.rf_cal_ano = hoje.year
-                nav_rf1, nav_rf2, nav_rf3 = st.columns([1, 2, 1])
-                with nav_rf1:
-                    if st.button("⬅️ Mês Anterior", key="rf_prev_mes"):
-                        if st.session_state.rf_cal_mes == 1:
-                            st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 12, st.session_state.rf_cal_ano - 1
-                        else:
-                            st.session_state.rf_cal_mes -= 1
-                        st.rerun()
-                with nav_rf2:
-                    st.markdown(f"<h3 style='text-align:center;margin:0'>📅 {MESES_PT[st.session_state.rf_cal_mes]} {st.session_state.rf_cal_ano}</h3>", unsafe_allow_html=True)
-                with nav_rf3:
-                    if st.button("Próximo Mês ➡️", key="rf_next_mes"):
-                        if st.session_state.rf_cal_mes == 12:
-                            st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 1, st.session_state.rf_cal_ano + 1
-                        else:
-                            st.session_state.rf_cal_mes += 1
-                        st.rerun()
-                st.markdown(gerar_calendario_revisoes_html(calendario_rf, st.session_state.rf_cal_ano, st.session_state.rf_cal_mes), unsafe_allow_html=True)
 
             tab_ag_p, tab_ag_h = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
 
