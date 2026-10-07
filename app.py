@@ -3079,15 +3079,13 @@ else:
                 if not client_rf:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
-                    # Divide cada print em faixas com sobreposição. Isso é importante
-                    # porque uma única resposta de visão limitada a ~480 tokens pode
-                    # truncar cronogramas longos e deixar aulas/linhas do final de fora.
-                    # A imagem original não é alterada; apenas criamos recortes temporários
-                    # para a leitura. O resultado final é deduplicado abaixo.
+                    # LEITURA DO PRINT INTEIRO — UMA CHAMADA POR PRINT
+                    # Não cortar em faixas/colunas: os recortes anteriores faziam a IA
+                    # perder a relação espacial entre cabeçalho, dia, data e aula.
+                    # Cada print é enviado inteiro, preservando exatamente o layout visual.
                     imagens_rf = []
-                    fontes_rf = []
-
                     fontes_originais_rf = []
+
                     for im in (uploads_rf or []):
                         fontes_originais_rf.append(im)
                     for x in st.session_state.get("prints_revisao_final", []):
@@ -3109,76 +3107,32 @@ else:
                                 fundo_rf.paste(img_rf, mask=img_rf.getchannel("A"))
                                 img_rf = fundo_rf
 
-                            largura_rf, altura_rf = img_rf.size
-
-                            # LEITURA SEGMENTADA COM CABEÇALHO PRESERVADO
-                            # Não dividir por colunas: isso fazia a IA perder o contexto do
-                            # cabeçalho e misturar dias. Cada recorte mantém TODAS as colunas
-                            # e repete a faixa superior onde ficam os dias/semana.
-                            # Assim, domingo, segunda, terça etc. permanecem no mesmo contexto.
-                            if altura_rf >= 900:
-                                # Quanto maior o print, mais faixas. O cabeçalho é repetido
-                                # em todas elas para que cada chamada saiba exatamente onde
-                                # começa cada dia.
-                                numero_blocos_rf = 4 if altura_rf >= 1800 else 3
-                                header_h_rf = max(140, min(int(altura_rf * 0.22), 420))
-                                corpo_inicio_rf = max(0, header_h_rf - int(altura_rf * 0.035))
-                                corpo_h_rf = max(1, altura_rf - corpo_inicio_rf)
-                                passo_rf = corpo_h_rf / numero_blocos_rf
-                                sobre_rf = max(40, int(passo_rf * 0.12))
-
-                                for idx_bloco_rf in range(numero_blocos_rf):
-                                    y1_corpo_rf = int(corpo_inicio_rf + idx_bloco_rf * passo_rf - (sobre_rf if idx_bloco_rf > 0 else 0))
-                                    y2_corpo_rf = int(corpo_inicio_rf + (idx_bloco_rf + 1) * passo_rf + (sobre_rf if idx_bloco_rf < numero_blocos_rf - 1 else 0))
-                                    y1_corpo_rf = max(corpo_inicio_rf, y1_corpo_rf)
-                                    y2_corpo_rf = min(altura_rf, y2_corpo_rf)
-                                    if y2_corpo_rf <= y1_corpo_rf:
-                                        continue
-
-                                    # Cabeçalho completo + uma faixa do corpo.
-                                    recorte_rf = img_rf.crop((0, 0, largura_rf, y2_corpo_rf))
-                                    # Não recortar o início do documento; o modelo precisa
-                                    # enxergar os cabeçalhos das colunas em cada chamada.
-                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=1100))
-                                    fontes_rf.append((len(fontes_rf) + 1, idx_bloco_rf + 1, numero_blocos_rf))
-                            else:
-                                # Imagens mobile/verticais: manter a coluna inteira e dividir
-                                # somente na vertical, com sobreposição suficiente para não
-                                # cortar um cabeçalho de dia ou uma aula ao meio.
-                                numero_blocos_rf = 3 if altura_rf >= 1400 else 2
-                                sobre_rf = int(altura_rf * 0.10)
-                                corpo_rf = altura_rf / numero_blocos_rf
-                                for idx_bloco_rf in range(numero_blocos_rf):
-                                    y1_rf = max(0, int(idx_bloco_rf * corpo_rf - (sobre_rf if idx_bloco_rf else 0)))
-                                    y2_rf = min(altura_rf, int((idx_bloco_rf + 1) * corpo_rf + (sobre_rf if idx_bloco_rf < numero_blocos_rf - 1 else 0)))
-                                    if y2_rf <= y1_rf:
-                                        continue
-                                    recorte_rf = img_rf.crop((0, y1_rf, largura_rf, y2_rf))
-                                    imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=1100))
-                                    fontes_rf.append((len(fontes_rf) + 1, idx_bloco_rf + 1, numero_blocos_rf))
+                            # Mantém o print inteiro. O limite de dimensão é apenas para
+                            # transmissão à API; não há cortes por dia ou por altura.
+                            imagens_rf.append(otimizar_imagem_para_api(img_rf, max_size=1100))
                         except Exception as exc_img_rf:
                             st.warning(f"Não foi possível preparar um print para leitura: {exc_img_rf}")
 
                     tarefas_rf = []
                     prog_rf = st.progress(0)
-                    total_blocos_rf = max(1, len(imagens_rf))
+                    total_prints_rf = max(1, len(imagens_rf))
                     prompt_rf = (
-                        "LEIA ESTE RECORTE COMO PARTE DE UM CRONOGRAMA. "
-                        "A IMAGEM MANTÉM TODAS AS COLUNAS E O CABEÇALHO SUPERIOR. "
-                        "REGRA ABSOLUTA: NÃO MISTURE OS DIAS. Domingo, Segunda-feira, Terça-feira, Quarta-feira, Quinta-feira, Sexta-feira e Sábado são colunas independentes. "
-                        "Primeiro identifique visualmente os cabeçalhos dos dias. Depois leia cada coluna de cima para baixo e associe cada aula SOMENTE à coluna em que ela aparece. "
-                        "NÃO use a ordem das linhas para decidir o dia. NÃO deslocar itens de uma coluna para outra. "
-                        "Se uma aula estiver na coluna de Segunda-feira, o campo dia deve ser Segunda-feira; se estiver na coluna de Domingo, deve ser Domingo, e assim por diante. "
-                        "Se o cabeçalho de um dia não estiver legível, deixe dia vazio em vez de adivinhar. "
-                        "Leia TODAS as aulas, temas, subtítulos e tarefas visíveis, de cima até o último item do recorte. NÃO resuma, NÃO agrupe e NÃO pule linhas. "
-                        "Quando o mesmo item aparecer novamente por causa da sobreposição entre recortes, ele será deduplicado depois. "
-                        "Preserve o texto do cronograma o mais fielmente possível. "
-                        "Se matéria, cor ou data estiverem visíveis, associe apenas ao item correspondente. Se não estiverem visíveis, use string vazia. "
+                        "ANALISE O PRINT INTEIRO DO CRONOGRAMA. "
+                        "PRESERVE A ESTRUTURA VISUAL DA IMAGEM. NÃO CORTE, NÃO REORGANIZE E NÃO INVENTE INFORMAÇÕES. "
+                        "Primeiro identifique TODOS os cabeçalhos de dia/data visíveis. Depois percorra o cronograma na ordem visual, "
+                        "de cima para baixo e da esquerda para a direita, mantendo cada aula vinculada à célula/coluna exata em que aparece. "
+                        "É PROIBIDO deslocar uma aula de uma coluna para outra. Domingo, Segunda-feira, Terça-feira, Quarta-feira, Quinta-feira, Sexta-feira e Sábado são independentes. "
+                        "Se a data estiver visível no cabeçalho da coluna, repita essa data em cada item daquela coluna. "
+                        "Se o dia estiver visível, repita o nome exato do dia em cada item daquela coluna. "
+                        "NUNCA adivinhe dia ou data: se não estiver legível, deixe o campo vazio. "
+                        "Extraia TODAS as aulas/temas/tarefas visíveis, sem resumir, agrupar ou pular itens. "
+                        "Mantenha o texto do tema o mais fiel possível. "
+                        "Se matéria, cor, dia ou data estiverem visíveis, associe somente ao item correspondente. "
                         "Retorne SOMENTE JSON válido, sem markdown, exatamente neste formato: "
                         "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
                         "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
                         "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
-                        "IMPORTANTE: faça uma varredura visual completa de CADA coluna antes de responder."
+                        "IMPORTANTE: faça uma conferência final para garantir que NENHUMA aula visível foi omitida e que cada aula permaneceu na coluna/dia correto."
                     )
                     for i, b64 in enumerate(imagens_rf):
                         try:
@@ -3186,9 +3140,9 @@ else:
                                 {"type":"text","text":prompt_rf},
                                 {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
                             ]}]
-                            # Mantemos o limite baixo por chamada para evitar OTPM 429.
-                            # A cobertura é obtida pelos recortes, e não aumentando tokens.
-                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=480)
+                            # Um print inteiro por chamada. O limite maior evita truncamento
+                            # sem duplicar conteúdo por meio de recortes sobrepostos.
+                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=1400)
                             bruto_rf = r_rf.choices[0].message.content or ""
                             dados_rf = extrair_json_seguro(bruto_rf)
                             linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
@@ -3204,8 +3158,8 @@ else:
                                         "dia": str(linha_rf[4] or "").strip(),
                                     })
                         except Exception as exc:
-                            st.warning(f"Bloco {i+1}: {exc}")
-                        prog_rf.progress((i + 1) / total_blocos_rf)
+                            st.warning(f"Print {i+1}: {exc}")
+                        prog_rf.progress((i + 1) / total_prints_rf)
 
                     if tarefas_rf:
                         # Evita duplicatas dentro da mesma importação.
@@ -3219,51 +3173,11 @@ else:
                             vistos.add(chave)
                             novas_rf.append(t)
 
-                        # ORDEM CRONOLÓGICA DA IMPORTAÇÃO
-                        # A visão pode devolver os recortes fora da ordem visual.
-                        # Nunca usamos a ordem das respostas da IA como ordem do cronograma.
-                        # Primeiro: data real (quando disponível).
-                        # Segundo: dia da semana.
-                        # Terceiro: posição original apenas como desempate.
-                        ordem_dias_rf = {
-                            "segunda": 0, "segunda-feira": 0,
-                            "terça": 1, "terça-feira": 1,
-                            "terca": 1, "terca-feira": 1,
-                            "quarta": 2, "quarta-feira": 2,
-                            "quinta": 3, "quinta-feira": 3,
-                            "sexta": 4, "sexta-feira": 4,
-                            "sábado": 5, "sábado-feira": 5,
-                            "sabado": 5,
-                            "domingo": 6,
-                        }
-
-                        def _rf_data_sort(t):
-                            valor = str(t.get("data") or "").strip()
-                            if not valor:
-                                return None
-                            try:
-                                dt = pd.to_datetime(valor, dayfirst=True, errors="coerce")
-                                if pd.isna(dt):
-                                    return None
-                                return dt.to_pydatetime()
-                            except Exception:
-                                return None
-
-                        def _rf_dia_sort(t):
-                            dia = re.sub(r"\s+", " ", str(t.get("dia") or "").strip().casefold())
-                            return ordem_dias_rf.get(dia, 99)
-
-                        novas_rf = [
-                            item for _, item in sorted(
-                                enumerate(novas_rf),
-                                key=lambda par: (
-                                    0 if _rf_data_sort(par[1]) is not None else 1,
-                                    _rf_data_sort(par[1]) or datetime.max,
-                                    _rf_dia_sort(par[1]),
-                                    par[0],
-                                )
-                            )
-                        ]
+                        # Preserva a ordem visual retornada pela leitura do print.
+                        # A associação de dia/data é feita pela IA olhando o layout inteiro;
+                        # não tentamos "corrigir" isso depois com uma ordenação que poderia
+                        # esconder uma associação visual incorreta.
+                        novas_rf = novas_rf
 
                         batch_rf = db.batch()
                         for t in novas_rf:
