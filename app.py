@@ -3043,29 +3043,85 @@ else:
                 if not client_rf:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
                 else:
+                    # Divide cada print em faixas com sobreposição. Isso é importante
+                    # porque uma única resposta de visão limitada a ~480 tokens pode
+                    # truncar cronogramas longos e deixar aulas/linhas do final de fora.
+                    # A imagem original não é alterada; apenas criamos recortes temporários
+                    # para a leitura. O resultado final é deduplicado abaixo.
                     imagens_rf = []
-                    for im in (uploads_rf or []): imagens_rf.append(otimizar_imagem_para_api(im, max_size=720))
-                    for x in st.session_state.get("prints_revisao_final", []): imagens_rf.append(otimizar_imagem_para_api(x["img"], max_size=720))
+                    fontes_rf = []
+
+                    fontes_originais_rf = []
+                    for im in (uploads_rf or []):
+                        fontes_originais_rf.append(im)
+                    for x in st.session_state.get("prints_revisao_final", []):
+                        if isinstance(x, dict) and x.get("img") is not None:
+                            fontes_originais_rf.append(x["img"])
+
+                    for origem_rf in fontes_originais_rf:
+                        try:
+                            if hasattr(origem_rf, "seek"):
+                                origem_rf.seek(0)
+                            if isinstance(origem_rf, Image.Image):
+                                img_rf = origem_rf.copy()
+                            else:
+                                img_rf = Image.open(origem_rf).copy()
+                            if img_rf.mode not in ("RGB", "RGBA"):
+                                img_rf = img_rf.convert("RGB")
+                            elif img_rf.mode == "RGBA":
+                                fundo_rf = Image.new("RGB", img_rf.size, "white")
+                                fundo_rf.paste(img_rf, mask=img_rf.getchannel("A"))
+                                img_rf = fundo_rf
+
+                            largura_rf, altura_rf = img_rf.size
+                            # Três faixas horizontais com sobreposição. Em prints muito
+                            # compridos, isso aumenta muito a chance de capturar TODAS as aulas.
+                            faixas_rf = 3 if altura_rf >= 1200 else 2
+                            if faixas_rf == 2:
+                                fracao_rf = 0.58
+                                posicoes_rf = [0.00, 0.42]
+                            else:
+                                fracao_rf = 0.44
+                                posicoes_rf = [0.00, 0.28, 0.56]
+
+                            for idx_rf, pos_rf in enumerate(posicoes_rf):
+                                y1_rf = int(altura_rf * pos_rf)
+                                y2_rf = min(altura_rf, int(altura_rf * (pos_rf + fracao_rf)))
+                                if y2_rf <= y1_rf:
+                                    continue
+                                recorte_rf = img_rf.crop((0, y1_rf, largura_rf, y2_rf))
+                                imagens_rf.append(otimizar_imagem_para_api(recorte_rf, max_size=720))
+                                fontes_rf.append((len(fontes_rf) + 1, idx_rf + 1, faixas_rf))
+                        except Exception as exc_img_rf:
+                            st.warning(f"Não foi possível preparar um print para leitura: {exc_img_rf}")
+
                     tarefas_rf = []
                     prog_rf = st.progress(0)
-                    # Prompt deliberadamente compacto: o modelo de visão tem limite de
-                    # saída e prints de cronograma podem conter muitas linhas. Usamos
-                    # listas curtas em vez de objetos repetitivos para evitar truncamento.
+                    total_blocos_rf = max(1, len(imagens_rf))
                     prompt_rf = (
-                        "LEIA O PRINT INTEIRO. Extraia TODAS as tarefas visíveis, uma por linha. "
-                        "NÃO resuma, NÃO invente e NÃO omita linhas. Retorne SOMENTE JSON válido, sem markdown, no formato "
-                        "{\"tarefas\":[[\"materia\",\"tema\",\"cor\",\"data\",\"dia\"]]}. "
-                        "Use matéria curta: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
-                        "cor = azul/verde/amarelo/vermelho/roxo. Se data/dia não aparecer, use \"\". Preserve o tema fielmente."
+                        "VOCÊ ESTÁ LENDO UM RECORTE DE UM PRINT DE CRONOGRAMA DE ESTUDOS. "
+                        "Sua prioridade absoluta é NÃO PERDER INFORMAÇÃO. Leia visualmente cada linha, cartão, aula, "
+                        "tema, subtítulo e tarefa que estiver legível. NÃO resuma, NÃO agrupe, NÃO pule itens e NÃO invente. "
+                        "Cada aula/tema visível deve virar uma linha independente. Preserve o texto do print o mais fielmente possível. "
+                        "Se uma matéria ou cabeçalho estiver visível, associe-o às linhas abaixo. Se uma informação não estiver visível, use \"\". "
+                        "Retorne SOMENTE JSON válido, sem markdown, exatamente neste formato: "
+                        "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                        "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
+                        "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
+                        "IMPORTANTE: não pare no meio da imagem; percorra de cima para baixo e inclua TUDO que conseguir ler."
                     )
                     for i, b64 in enumerate(imagens_rf):
                         try:
-                            msg_rf = [{"role":"user","content":[{"type":"text","text":prompt_rf},{"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}]}]
-                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.1, max_tokens=480)
+                            msg_rf = [{"role":"user","content":[
+                                {"type":"text","text":prompt_rf},
+                                {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
+                            ]}]
+                            # Mantemos o limite baixo por chamada para evitar OTPM 429.
+                            # A cobertura é obtida pelos recortes, e não aumentando tokens.
+                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=480)
                             bruto_rf = r_rf.choices[0].message.content or ""
                             dados_rf = extrair_json_seguro(bruto_rf)
                             linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
-                            # Aceita tanto o novo formato compacto quanto o formato antigo.
                             for linha_rf in linhas_rf:
                                 if isinstance(linha_rf, dict):
                                     tarefas_rf.append(linha_rf)
@@ -3078,8 +3134,9 @@ else:
                                         "dia": str(linha_rf[4] or "").strip(),
                                     })
                         except Exception as exc:
-                            st.warning(f"Imagem {i+1}: {exc}")
-                        prog_rf.progress((i + 1) / max(1, len(imagens_rf)))
+                            st.warning(f"Bloco {i+1}: {exc}")
+                        prog_rf.progress((i + 1) / total_blocos_rf)
+
                     if tarefas_rf:
                         # Evita duplicatas dentro da mesma importação.
                         vistos = set()
