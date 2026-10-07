@@ -3089,42 +3089,163 @@ else:
             a3.metric("Próximas", len(futuras_ag))
             a4.metric("Total pendente", len(pend_ag))
 
-            # Mesmo conceito visual do calendário da Agenda de Revisões, porém
-            # alimentado exclusivamente pelas revisões da reta final.
-            calendario_rf = []
-            for r in agenda_rf:
-                calendario_rf.append({
-                    "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
-                    "tema": r["tema"],
-                    "area": "Geral",
-                    "ciclo": "Revisão Final",
-                    "data_agendada_obj": r["data"],
-                    "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
-                })
-            if "rf_cal_mes" not in st.session_state:
-                st.session_state.rf_cal_mes = hoje.month
-            if "rf_cal_ano" not in st.session_state:
-                st.session_state.rf_cal_ano = hoje.year
-            nav_rf1, nav_rf2, nav_rf3 = st.columns([1, 2, 1])
-            with nav_rf1:
-                if st.button("⬅️ Mês Anterior", key="rf_prev_mes"):
-                    if st.session_state.rf_cal_mes == 1:
-                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 12, st.session_state.rf_cal_ano - 1
+            # =========================================================
+            # CRONOGRAMA DIÁRIO — REVISÃO FINAL
+            # Mostra explicitamente DIA DA SEMANA + DATA, como o
+            # Cronograma IA, mas usando somente as revisões da reta final.
+            # =========================================================
+            st.markdown("#### 🗓️ Cronograma diário")
+            st.caption("Cada revisão aparece no dia exato em que deverá ser feita. A organização é independente do Cronograma IA.")
+
+            if not agenda_rf:
+                st.info("Ainda não existem revisões programadas. Registre seu desempenho em **🎯 Questões → Revisões**.")
+            else:
+                # Semana selecionada: começa sempre na segunda-feira.
+                datas_agenda = [r["data"] for r in agenda_rf]
+                primeira_data = min(datas_agenda)
+                ultima_data = max(datas_agenda)
+
+                if "rf_semana_inicio" not in st.session_state:
+                    base_sem = hoje_rf - timedelta(days=hoje_rf.weekday())
+                    # Se houver revisões futuras antes/depois, começamos pela semana atual.
+                    st.session_state.rf_semana_inicio = base_sem
+
+                inicio_sem = st.session_state.rf_semana_inicio
+                fim_sem = inicio_sem + timedelta(days=6)
+
+                nav_s1, nav_s2, nav_s3 = st.columns([1, 2, 1])
+                with nav_s1:
+                    if st.button("⬅️ Semana anterior", key="rf_sem_prev", use_container_width=True):
+                        st.session_state.rf_semana_inicio = inicio_sem - timedelta(days=7)
+                        st.rerun()
+                with nav_s2:
+                    st.markdown(
+                        f"<div style='text-align:center;padding:7px 0'><strong>📅 {inicio_sem.strftime('%d/%m/%Y')} — {fim_sem.strftime('%d/%m/%Y')}</strong><br><small style='color:var(--rp-muted)'>Semana de revisões da Revisão Final</small></div>",
+                        unsafe_allow_html=True
+                    )
+                with nav_s3:
+                    if st.button("Próxima semana ➡️", key="rf_sem_next", use_container_width=True):
+                        st.session_state.rf_semana_inicio = inicio_sem + timedelta(days=7)
+                        st.rerun()
+
+                # Atalho para a semana atual e para a primeira semana com conteúdo.
+                at1, at2 = st.columns(2)
+                with at1:
+                    if st.button("📍 Ir para semana atual", key="rf_sem_hoje", use_container_width=True):
+                        st.session_state.rf_semana_inicio = hoje_rf - timedelta(days=hoje_rf.weekday())
+                        st.rerun()
+                with at2:
+                    primeira_semana = primeira_data - timedelta(days=primeira_data.weekday())
+                    if st.button("🎯 Ir para primeira revisão", key="rf_sem_primeira", use_container_width=True):
+                        st.session_state.rf_semana_inicio = primeira_semana
+                        st.rerun()
+
+                nomes_dias_rf = [
+                    "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira",
+                    "Sexta-feira", "Sábado", "Domingo"
+                ]
+                agenda_semana = [r for r in agenda_rf if inicio_sem <= r["data"] <= fim_sem]
+                concl_semana = [r for r in agenda_semana if r["status"] in ("concluida", "concluída", "concluido", "concluído")]
+                pct_semana = (len(concl_semana) / len(agenda_semana) * 100) if agenda_semana else 0
+
+                sm1, sm2, sm3 = st.columns(3)
+                sm1.metric("Revisões na semana", len(agenda_semana))
+                sm2.metric("Concluídas", len(concl_semana))
+                sm3.metric("Progresso", f"{pct_semana:.0f}%")
+                st.progress(min(max(pct_semana / 100, 0), 1), text=f"Progresso da semana · {pct_semana:.0f}%")
+
+                ordem_prioridade_rf = {"🔴": 0, "🟠": 1, "🟡": 2, "🟢": 3, "🔵": 4}
+                for indice_dia in range(7):
+                    data_dia = inicio_sem + timedelta(days=indice_dia)
+                    nome_dia = nomes_dias_rf[indice_dia]
+                    itens_dia = [r for r in agenda_semana if r["data"] == data_dia]
+                    itens_dia.sort(key=lambda x: (x["status"] in ("concluida", "concluída", "concluido", "concluído"), x["tema"].casefold()))
+
+                    eh_hoje = data_dia == hoje_rf
+                    marcador = " · HOJE" if eh_hoje else ""
+                    if itens_dia:
+                        st.markdown(
+                            f"<div style='margin-top:14px;padding:10px 14px;border-left:4px solid var(--rp-accent);background:var(--rp-surface);border-radius:8px 8px 0 0'>"
+                            f"<strong style='font-size:1.02rem'>{nome_dia.upper()}</strong> · <strong>{data_dia.strftime('%d/%m/%Y')}</strong>"
+                            f"<span style='color:var(--rp-accent);font-weight:800'>{html.escape(marcador)}</span>"
+                            f"<br><small style='color:var(--rp-muted)'>{len(itens_dia)} revisão(ões) programada(s)</small></div>",
+                            unsafe_allow_html=True
+                        )
+                        for rev_dia in itens_dia:
+                            concluida_dia = rev_dia["status"] in ("concluida", "concluída", "concluido", "concluído")
+                            cor_dia = cor_percentual_acerto(rev_dia["percentual"])
+                            situacao_dia = "✅ Concluída" if concluida_dia else ("📆 Hoje" if eh_hoje else ("⚠️ Atrasada" if data_dia < hoje_rf else "🗓️ Programada"))
+                            with st.container(border=True):
+                                d1, d2, d3 = st.columns([0.08, 3.5, 0.9])
+                                with d1:
+                                    if not concluida_dia:
+                                        if st.button("✓", key=f"rf_day_done_{rev_dia['id']}_{data_dia.strftime('%Y%m%d')}", help="Concluir esta revisão"):
+                                            atual = next((x for x in questoes_rf if str(x.get("id")) == rev_dia["id"]), None)
+                                            if atual is not None:
+                                                status_atual = dict(atual.get("revisoes_status", {}) or {})
+                                                status_atual[data_dia.strftime("%Y-%m-%d")] = "concluida"
+                                                db_update("revisoes_finais", "revisoes_finais", rev_dia["id"], {"revisoes_status": status_atual})
+                                                atual["revisoes_status"] = status_atual
+                                                st.toast("Revisão concluída!", icon="✅")
+                                                st.rerun()
+                                    else:
+                                        st.markdown("<div style='padding-top:5px'>✅</div>", unsafe_allow_html=True)
+                                with d2:
+                                    tema_dia = html.escape(rev_dia["tema"])
+                                    texto_extra = f"{situacao_dia} · {rev_dia['questoes']} questões · {rev_dia['acertos']} acertos · {rev_dia['erros']} erros"
+                                    st.markdown(
+                                        f"<div style='padding:3px 0'><span style='color:{cor_dia};font-weight:900'>●</span> "
+                                        f"<strong>{tema_dia}</strong><br><small style='color:var(--rp-muted)'>{texto_extra}</small></div>",
+                                        unsafe_allow_html=True
+                                    )
+                                with d3:
+                                    st.markdown(
+                                        f"<div style='text-align:right;padding-top:4px'><small style='color:var(--rp-muted)'>ACERTO</small><br><strong style='font-size:1.12rem;color:{cor_dia}'>{rev_dia['percentual']:.1f}%</strong></div>",
+                                        unsafe_allow_html=True
+                                    )
                     else:
-                        st.session_state.rf_cal_mes -= 1
-                    st.rerun()
-            with nav_rf2:
-                st.markdown(f"<h3 style='text-align:center;margin:0'>📅 {MESES_PT[st.session_state.rf_cal_mes]} {st.session_state.rf_cal_ano}</h3>", unsafe_allow_html=True)
-            with nav_rf3:
-                if st.button("Próximo Mês ➡️", key="rf_next_mes"):
-                    if st.session_state.rf_cal_mes == 12:
-                        st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 1, st.session_state.rf_cal_ano + 1
-                    else:
-                        st.session_state.rf_cal_mes += 1
-                    st.rerun()
-            if calendario_rf:
+                        # Mantém os 7 dias visíveis, mesmo quando não há revisão.
+                        st.markdown(
+                            f"<div style='margin-top:8px;padding:9px 14px;border-left:3px solid var(--rp-border);color:var(--rp-muted)'>"
+                            f"<strong>{nome_dia}</strong> · {data_dia.strftime('%d/%m/%Y')} · <span>Sem revisões programadas</span></div>",
+                            unsafe_allow_html=True
+                        )
+
+                st.divider()
+                st.markdown("#### 📅 Visão mensal")
+                st.caption("O calendário abaixo é apenas uma visão complementar. O cronograma principal acima mostra explicitamente os dias e datas.")
+                calendario_rf = []
+                for r in agenda_rf:
+                    calendario_rf.append({
+                        "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
+                        "tema": r["tema"],
+                        "area": "Geral",
+                        "ciclo": "Revisão Final",
+                        "data_agendada_obj": r["data"],
+                        "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
+                    })
+                if "rf_cal_mes" not in st.session_state:
+                    st.session_state.rf_cal_mes = hoje.month
+                if "rf_cal_ano" not in st.session_state:
+                    st.session_state.rf_cal_ano = hoje.year
+                nav_rf1, nav_rf2, nav_rf3 = st.columns([1, 2, 1])
+                with nav_rf1:
+                    if st.button("⬅️ Mês Anterior", key="rf_prev_mes"):
+                        if st.session_state.rf_cal_mes == 1:
+                            st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 12, st.session_state.rf_cal_ano - 1
+                        else:
+                            st.session_state.rf_cal_mes -= 1
+                        st.rerun()
+                with nav_rf2:
+                    st.markdown(f"<h3 style='text-align:center;margin:0'>📅 {MESES_PT[st.session_state.rf_cal_mes]} {st.session_state.rf_cal_ano}</h3>", unsafe_allow_html=True)
+                with nav_rf3:
+                    if st.button("Próximo Mês ➡️", key="rf_next_mes"):
+                        if st.session_state.rf_cal_mes == 12:
+                            st.session_state.rf_cal_mes, st.session_state.rf_cal_ano = 1, st.session_state.rf_cal_ano + 1
+                        else:
+                            st.session_state.rf_cal_mes += 1
+                        st.rerun()
                 st.markdown(gerar_calendario_revisoes_html(calendario_rf, st.session_state.rf_cal_ano, st.session_state.rf_cal_mes), unsafe_allow_html=True)
-            st.divider()
 
             tab_ag_p, tab_ag_h = st.tabs(["📝 Revisões Pendentes", "✅ Histórico"])
 
