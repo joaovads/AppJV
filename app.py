@@ -1761,70 +1761,70 @@ def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema
 
 
 def extrair_json_seguro(texto):
-    if not texto: return {}
+    """Extrai JSON completo ou registros completos de uma resposta truncada."""
+    if not texto:
+        return {}
     t = str(texto)
-    # Limpeza nuclear de pensamento da IA
     t = re.sub(r'<think>.*?</think>', '', t, flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
-    
-    # Remoção de crases de markdown
     crases = chr(96) * 3
     t = t.replace(crases + "json", "").replace(crases, "").strip()
-    
-    # Isolar escopo JSON e ignorar textos inúteis que a IA fala antes ou depois
-    start_obj = t.find('{')
-    start_arr = t.find('[')
-    
-    if start_obj == -1 and start_arr == -1:
-        return {}
-        
-    is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
-    t = t[start_obj:] if is_obj else t[start_arr:]
-    
-    try:
-        parsed = json.loads(t)
-        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
-        return parsed
-    except: pass
-    
-    # Isolar do lado direito se houver lixo
-    end_idx = t.rfind('}') if is_obj else t.rfind(']')
-    if end_idx != -1:
+
+    # Primeiro tenta JSON completo ou JSON seguido de texto.
+    for inicio in (t.find('{'), t.find('[')):
+        if inicio < 0:
+            continue
+        trecho = t[inicio:]
         try:
-            parsed = json.loads(t[:end_idx+1])
-            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
-            return parsed
-        except: pass
-        
-    # Auto-Reparo: Fechar chaves pendentes caso a Groq API decepe a string por tokens
-    fix = t
-    if fix.count('"') % 2 != 0: fix += '"'
-    fix = fix.strip()
-    if fix.endswith(','): fix = fix[:-1]
-    
-    faltando_chaves = fix.count('{') - fix.count('}')
-    faltando_colchetes = fix.count('[') - fix.count(']')
-    
-    if faltando_colchetes > 0: fix += ']' * faltando_colchetes
-    if faltando_chaves > 0: fix += '}' * faltando_chaves
-    
-    try:
-        parsed = json.loads(fix)
-        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
-        return parsed
-    except:
-        fix_alt = t
-        if fix_alt.count('"') % 2 != 0: fix_alt += '"'
-        fix_alt = fix_alt.strip()
-        if fix_alt.endswith(','): fix_alt = fix_alt[:-1]
-        if faltando_chaves > 0: fix_alt += '}' * faltando_chaves
-        if faltando_colchetes > 0: fix_alt += ']' * faltando_colchetes
-        try:
-            parsed = json.loads(fix_alt)
-            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
-            return parsed
+            parsed = json.loads(trecho)
+            return {"tarefas": parsed} if isinstance(parsed, list) else parsed
         except Exception:
-            return {}
+            pass
+        try:
+            parsed, _ = json.JSONDecoder().raw_decode(trecho)
+            return {"tarefas": parsed} if isinstance(parsed, list) else parsed
+        except Exception:
+            pass
+
+    # Se a saída foi cortada no último item, recupera todos os itens completos
+    # que chegaram antes do corte, sem perder a página inteira.
+    tarefas = []
+    m = re.search(r'"tarefas"\s*:\s*\[', t, flags=re.IGNORECASE)
+    if m:
+        pos = m.end()
+        dec = json.JSONDecoder()
+        while pos < len(t):
+            while pos < len(t) and t[pos] in ' \n\r\t,':
+                pos += 1
+            if pos >= len(t) or t[pos] == ']':
+                break
+            try:
+                item, fim = dec.raw_decode(t[pos:])
+                if isinstance(item, (list, tuple, dict)):
+                    tarefas.append(item)
+                pos += fim
+            except Exception:
+                break
+    if tarefas:
+        return {"tarefas": tarefas}
+
+    # Também aceita lista direta de registros.
+    m = re.search(r'\[\s*\[', t)
+    if m:
+        pos = m.start()
+        dec = json.JSONDecoder()
+        while pos < len(t):
+            if t[pos] != '[':
+                pos += 1
+                continue
+            try:
+                item, fim = dec.raw_decode(t[pos:])
+                if isinstance(item, list) and len(item) >= 2:
+                    tarefas.append(item)
+                pos += fim
+            except Exception:
+                pos += 1
+    return {"tarefas": tarefas} if tarefas else {}
 
 # ==========================================
 # CONSTANTES E CORES
@@ -3199,6 +3199,19 @@ else:
                             bruto_rf = r_rf.choices[0].message.content or ""
                             dados_rf = extrair_json_seguro(bruto_rf)
                             linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                            if not linhas_rf and bruto_rf.strip():
+                                # Segunda tentativa com instrução ultracompacta.
+                                prompt_retry_rf = prompt_rf + "\nREFAÇA. RETORNE APENAS JSON. SEM EXPLICAÇÕES. Cada tarefa é uma lista de exatamente 5 strings."
+                                msg_retry_rf = [{"role":"user","content":[
+                                    {"type":"text","text":prompt_retry_rf},
+                                    {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
+                                ]}]
+                                r_retry_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_retry_rf, temperature=0, max_tokens=900)
+                                bruto_retry_rf = r_retry_rf.choices[0].message.content or ""
+                                dados_rf = extrair_json_seguro(bruto_retry_rf)
+                                linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                                if not linhas_rf:
+                                    st.warning(f"{origem_desc_rf}: a IA respondeu, mas o retorno não pôde ser convertido em tarefas. Resposta: {bruto_retry_rf[:700]}")
                             for linha_rf in linhas_rf:
                                 if isinstance(linha_rf, dict):
                                     tarefas_rf.append(linha_rf)
