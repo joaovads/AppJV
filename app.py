@@ -3260,6 +3260,10 @@ else:
                     # ÁREA COMPLEMENTAR e GIRO NOTURNO. Ler o PDF diretamente é
                     # muito mais preciso do que transformar cada página em imagem
                     # e pedir à visão para reconstruir a tabela.
+                    # Acumuladores da importação inteira.
+                    # Precisam existir antes do processamento dos PDFs porque tanto
+                    # a leitura textual quanto o fallback por visão alimentam a mesma lista.
+                    tarefas_rf = []
                     pdf_textuais_rf = []
                     pdf_visao_rf = []
                     if pdf_rf:
