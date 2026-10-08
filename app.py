@@ -1761,70 +1761,70 @@ def chamar_ia_json_estrito(client, *, modelo, messages, schema_name=None, schema
 
 
 def extrair_json_seguro(texto):
-    """Extrai JSON completo ou registros completos de uma resposta truncada."""
-    if not texto:
-        return {}
+    if not texto: return {}
     t = str(texto)
+    # Limpeza nuclear de pensamento da IA
     t = re.sub(r'<think>.*?</think>', '', t, flags=re.DOTALL)
     t = re.sub(r'<think>.*', '', t, flags=re.DOTALL)
+    
+    # Remoção de crases de markdown
     crases = chr(96) * 3
     t = t.replace(crases + "json", "").replace(crases, "").strip()
-
-    # Primeiro tenta JSON completo ou JSON seguido de texto.
-    for inicio in (t.find('{'), t.find('[')):
-        if inicio < 0:
-            continue
-        trecho = t[inicio:]
+    
+    # Isolar escopo JSON e ignorar textos inúteis que a IA fala antes ou depois
+    start_obj = t.find('{')
+    start_arr = t.find('[')
+    
+    if start_obj == -1 and start_arr == -1:
+        return {}
+        
+    is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
+    t = t[start_obj:] if is_obj else t[start_arr:]
+    
+    try:
+        parsed = json.loads(t)
+        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+        return parsed
+    except: pass
+    
+    # Isolar do lado direito se houver lixo
+    end_idx = t.rfind('}') if is_obj else t.rfind(']')
+    if end_idx != -1:
         try:
-            parsed = json.loads(trecho)
-            return {"tarefas": parsed} if isinstance(parsed, list) else parsed
-        except Exception:
-            pass
+            parsed = json.loads(t[:end_idx+1])
+            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+            return parsed
+        except: pass
+        
+    # Auto-Reparo: Fechar chaves pendentes caso a Groq API decepe a string por tokens
+    fix = t
+    if fix.count('"') % 2 != 0: fix += '"'
+    fix = fix.strip()
+    if fix.endswith(','): fix = fix[:-1]
+    
+    faltando_chaves = fix.count('{') - fix.count('}')
+    faltando_colchetes = fix.count('[') - fix.count(']')
+    
+    if faltando_colchetes > 0: fix += ']' * faltando_colchetes
+    if faltando_chaves > 0: fix += '}' * faltando_chaves
+    
+    try:
+        parsed = json.loads(fix)
+        if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+        return parsed
+    except:
+        fix_alt = t
+        if fix_alt.count('"') % 2 != 0: fix_alt += '"'
+        fix_alt = fix_alt.strip()
+        if fix_alt.endswith(','): fix_alt = fix_alt[:-1]
+        if faltando_chaves > 0: fix_alt += '}' * faltando_chaves
+        if faltando_colchetes > 0: fix_alt += ']' * faltando_colchetes
         try:
-            parsed, _ = json.JSONDecoder().raw_decode(trecho)
-            return {"tarefas": parsed} if isinstance(parsed, list) else parsed
+            parsed = json.loads(fix_alt)
+            if isinstance(parsed, list): return {"tarefas": parsed, "questoes": parsed}
+            return parsed
         except Exception:
-            pass
-
-    # Se a saída foi cortada no último item, recupera todos os itens completos
-    # que chegaram antes do corte, sem perder a página inteira.
-    tarefas = []
-    m = re.search(r'"tarefas"\s*:\s*\[', t, flags=re.IGNORECASE)
-    if m:
-        pos = m.end()
-        dec = json.JSONDecoder()
-        while pos < len(t):
-            while pos < len(t) and t[pos] in ' \n\r\t,':
-                pos += 1
-            if pos >= len(t) or t[pos] == ']':
-                break
-            try:
-                item, fim = dec.raw_decode(t[pos:])
-                if isinstance(item, (list, tuple, dict)):
-                    tarefas.append(item)
-                pos += fim
-            except Exception:
-                break
-    if tarefas:
-        return {"tarefas": tarefas}
-
-    # Também aceita lista direta de registros.
-    m = re.search(r'\[\s*\[', t)
-    if m:
-        pos = m.start()
-        dec = json.JSONDecoder()
-        while pos < len(t):
-            if t[pos] != '[':
-                pos += 1
-                continue
-            try:
-                item, fim = dec.raw_decode(t[pos:])
-                if isinstance(item, list) and len(item) >= 2:
-                    tarefas.append(item)
-                pos += fim
-            except Exception:
-                pos += 1
-    return {"tarefas": tarefas} if tarefas else {}
+            return {}
 
 # ==========================================
 # CONSTANTES E CORES
@@ -2051,6 +2051,127 @@ def carregar_dados_usuario_em_paralelo(user_id):
             except Exception:
                 resultado[chave] = []
     return resultado
+
+
+def extrair_cronograma_pdf_textual_rf(pdf_bytes):
+    """Extrai diretamente um cronograma PDF que possui texto nativo.
+
+    A estrutura usada pelo cronograma final é: data/dia -> TEMA PRINCIPAL ->
+    ÁREA COMPLEMENTAR -> GIRO NOTURNO. Quando essa estrutura existe no texto
+    do PDF, não usamos visão da IA: isso preserva 100% da ordem e evita que a
+    IA misture colunas/dias ou corte a resposta por limite de tokens.
+    Retorna (tarefas, encontrou_estrutura).
+    """
+    if fitz is None:
+        return [], False
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception:
+        return [], False
+
+    try:
+        texto = "\n".join((pg.get_text("text") or "") for pg in doc)
+    finally:
+        doc.close()
+
+    texto = texto.replace("\x00", " ")
+    texto = re.sub(r"\bPágina\s+\d+\b", " ", texto, flags=re.I)
+    texto = re.sub(r"[ \t]+", " ", texto)
+
+    dias = r"(?:Segunda-feira|Terça-feira|Quarta-feira|Quinta-feira|Sexta-feira|Sábado|Domingo)"
+    padrao_data = re.compile(
+        r"(?m)^\s*(" + dias + r")\s+[—-]\s+(\d{2}/\d{2}/\d{4})(?:[^\n]*)\n"
+    )
+    marcadores = list(padrao_data.finditer(texto))
+    if not marcadores:
+        return [], False
+
+    aliases_area = {
+        "g.o": "Ginecologia e Obstetrícia",
+        "go": "Ginecologia e Obstetrícia",
+        "gineco": "Ginecologia e Obstetrícia",
+        "ginecologia e obstetrícia": "Ginecologia e Obstetrícia",
+        "clínica": "Clínica Médica",
+        "clinica": "Clínica Médica",
+        "clínica médica": "Clínica Médica",
+        "clinica medica": "Clínica Médica",
+        "cirurgia": "Cirurgia Geral",
+        "cirurgia geral": "Cirurgia Geral",
+        "pediatria": "Pediatria",
+        "preventiva": "Medicina Preventiva",
+        "medicina preventiva": "Medicina Preventiva",
+    }
+
+    def limpar_bloco(valor):
+        valor = re.sub(r"\s+", " ", valor or "").strip()
+        valor = re.sub(r"^[-–—:]+\s*", "", valor)
+        return valor.strip()
+
+    def extrair_secao(bloco, inicio, proximo):
+        pad = re.compile(
+            r"\b" + inicio + r"\s*:\s*(.*?)(?=\n\s*" + proximo + r"\s*:|\Z)",
+            flags=re.I | re.S,
+        )
+        m = pad.search(bloco)
+        if not m:
+            return ""
+        valor = limpar_bloco(m.group(1))
+        valor = re.split(r"\s*└\s*O que estudar\s*:", valor, maxsplit=1, flags=re.I)[0]
+        return limpar_bloco(valor)
+
+    def extrair_giro(bloco):
+        m = re.search(
+            r"\bGIRO\s+NOTURNO(?:\s*\([^)]*\))?\s*:\s*(.*?)(?=\n\s*" + dias + r"\s+[—-]|\Z)",
+            bloco,
+            flags=re.I | re.S,
+        )
+        return limpar_bloco(m.group(1)) if m else ""
+
+    tarefas = []
+    for idx, cab in enumerate(marcadores):
+        fim = marcadores[idx + 1].start() if idx + 1 < len(marcadores) else len(texto)
+        bloco = texto[cab.end():fim]
+        dia = cab.group(1).strip()
+        data = cab.group(2).strip()
+
+        secoes = [
+            ("principal", "TEMA PRINCIPAL", "ÁREA COMPLEMENTAR", "vermelho"),
+            ("complementar", "ÁREA COMPLEMENTAR", "GIRO NOTURNO", "laranja"),
+        ]
+        for tipo, inicio, proximo, cor in secoes:
+            valor = extrair_secao(bloco, inicio, proximo)
+            if not valor:
+                continue
+            area = "Geral"
+            m_area = re.search(r"\(([^()]*)\)\s*$", valor)
+            if m_area:
+                area_raw = limpar_bloco(m_area.group(1)).casefold()
+                area = aliases_area.get(area_raw, "Geral")
+                valor = limpar_bloco(re.sub(r"\s*\([^()]*\)\s*$", "", valor))
+            tarefas.append({
+                "materia": area,
+                "tema": valor,
+                "cor": cor,
+                "data": data,
+                "dia": dia,
+                "tipo_cronograma": tipo,
+            })
+
+        giro = extrair_giro(bloco)
+        if giro:
+            tarefas.append({
+                "materia": "Geral",
+                "tema": giro.rstrip(". "),
+                "cor": "verde",
+                "data": data,
+                "dia": dia,
+                "tipo_cronograma": "giro",
+            })
+
+    # Só considera o parser confiável quando encontrou a estrutura diária esperada.
+    esperado_minimo = max(1, len(marcadores) * 2)
+    return tarefas, len(marcadores) >= 2 and len(tarefas) >= esperado_minimo
+
 
 MENU_COLECOES = {
     "🏠 Dashboard": ["aulas", "revisoes", "questoes", "questoes_hiit", "revisoes_hiit", "flashcards", "simulados", "focus"],
@@ -3092,9 +3213,10 @@ else:
                     st.rerun()
 
             if (uploads_rf or pdf_rf or st.session_state.get("prints_revisao_final")) and st.button("🪄 Extrair cronograma final", use_container_width=True, type="primary", key="rf_extract"):
-                client_rf = get_ia_client()
-                if not client_rf:
-                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
+                tem_imagem_rf = bool(uploads_rf or st.session_state.get("prints_revisao_final"))
+                client_rf = get_ia_client() if tem_imagem_rf else None
+                if tem_imagem_rf and not client_rf:
+                    st.error("IA não conectada. Configure a GROQ_KEY nos Secrets para extrair imagens. PDFs com texto nativo não precisam de IA.")
                 else:
                     # LEITURA DO PRINT INTEIRO — UMA CHAMADA POR PRINT
                     # Não cortar em faixas/colunas: os recortes anteriores faziam a IA
@@ -3130,18 +3252,31 @@ else:
                         except Exception as exc_img_rf:
                             st.warning(f"Não foi possível preparar uma imagem para leitura: {exc_img_rf}")
 
-                    # PDFs: renderiza cada página como imagem para preservar colunas, dias, cores
-                    # e a posição espacial do cronograma. Isso é muito mais confiável do que
-                    # mandar apenas o texto extraído do PDF, que perde o vínculo entre células.
+                    # =========================================================
+                    # PDF TEXTUAL — EXTRAÇÃO DETERMINÍSTICA, SEM IA
+                    # =========================================================
+                    # O cronograma PDF usado na Revisão Final possui texto nativo
+                    # e uma estrutura explícita de 67 dias, com TEMA PRINCIPAL,
+                    # ÁREA COMPLEMENTAR e GIRO NOTURNO. Ler o PDF diretamente é
+                    # muito mais preciso do que transformar cada página em imagem
+                    # e pedir à visão para reconstruir a tabela.
+                    pdf_textuais_rf = []
+                    pdf_visao_rf = []
                     if pdf_rf:
-                        if fitz is None and PyPDF2 is None:
-                            st.error("Esta instalação não possui um leitor de PDF compatível (PyMuPDF/PyPDF2).")
-                        else:
-                            for pdf_idx, pdf_file_rf in enumerate(pdf_rf, start=1):
-                                try:
-                                    pdf_file_rf.seek(0)
-                                    pdf_bytes_rf = pdf_file_rf.read()
-                                    if fitz is not None:
+                        for pdf_idx, pdf_file_rf in enumerate(pdf_rf, start=1):
+                            try:
+                                pdf_file_rf.seek(0)
+                                pdf_bytes_rf = pdf_file_rf.read()
+                                tarefas_pdf_rf, estrutura_pdf_rf = extrair_cronograma_pdf_textual_rf(pdf_bytes_rf)
+                                if estrutura_pdf_rf:
+                                    for tarefa_pdf_rf in tarefas_pdf_rf:
+                                        tarefa_pdf_rf["origem"] = f"PDF {pdf_idx}"
+                                        tarefas_rf.append(tarefa_pdf_rf)
+                                    pdf_textuais_rf.append((pdf_idx, len(tarefas_pdf_rf)))
+                                else:
+                                    # PDF escaneado ou com texto insuficiente: cai para
+                                    # a visão apenas nesse arquivo.
+                                    if fitz is not None and Image is not None:
                                         doc_rf = fitz.open(stream=pdf_bytes_rf, filetype="pdf")
                                         total_paginas_pdf_rf += len(doc_rf)
                                         for page_num_rf in range(len(doc_rf)):
@@ -3149,172 +3284,81 @@ else:
                                             pix_rf = page_rf.get_pixmap(matrix=fitz.Matrix(1.8, 1.8), alpha=False)
                                             img_bytes_rf = pix_rf.tobytes("jpeg")
                                             img_rf = Image.open(io.BytesIO(img_bytes_rf)).convert("RGB")
-                                            b64_rf = otimizar_imagem_para_api(img_rf, max_size=1400)
-                                            imagens_rf.append((f"PDF {pdf_idx} · página {page_num_rf + 1}", b64_rf))
+                                            imagens_rf.append((f"PDF {pdf_idx} · página {page_num_rf + 1}", otimizar_imagem_para_api(img_rf, max_size=1400)))
                                         doc_rf.close()
-                                    else:
+                                    elif PyPDF2 is not None:
                                         leitor_pdf_rf = PyPDF2.PdfReader(io.BytesIO(pdf_bytes_rf))
-                                        total_paginas_pdf_rf += len(leitor_pdf_rf.pages)
                                         for page_num_rf, page_rf in enumerate(leitor_pdf_rf.pages, start=1):
                                             txt_rf = page_rf.extract_text() or ""
                                             if txt_rf.strip():
                                                 textos_pdf_rf.append((f"PDF {pdf_idx} · página {page_num_rf}", txt_rf))
-                                except Exception as exc_pdf_rf:
-                                    st.warning(f"Não foi possível ler o PDF {pdf_idx}: {exc_pdf_rf}")
+                            except Exception as exc_pdf_rf:
+                                st.warning(f"Não foi possível ler o PDF {pdf_idx}: {exc_pdf_rf}")
 
-                    if not imagens_rf and not textos_pdf_rf:
-                        st.error("Nenhum print ou página de PDF pôde ser preparado para a extração.")
-                        st.stop()
+                    if pdf_textuais_rf:
+                        total_extraido_pdf_rf = sum(qtd for _, qtd in pdf_textuais_rf)
+                        st.success(f"📄 PDF lido diretamente: {total_extraido_pdf_rf} tarefas estruturadas encontradas, sem depender da IA.")
 
-                    tarefas_rf = []
-                    prog_rf = st.progress(0)
-                    total_prints_rf = max(1, len(imagens_rf))
-                    prompt_rf = (
-                        "ANALISE O PRINT INTEIRO DO CRONOGRAMA. "
-                        "PRESERVE A ESTRUTURA VISUAL DA IMAGEM. NÃO CORTE, NÃO REORGANIZE E NÃO INVENTE INFORMAÇÕES. "
-                        "Primeiro identifique TODOS os cabeçalhos de dia/data visíveis. Depois percorra o cronograma na ordem visual, "
-                        "de cima para baixo e da esquerda para a direita, mantendo cada aula vinculada à célula/coluna exata em que aparece. "
-                        "É PROIBIDO deslocar uma aula de uma coluna para outra. Domingo, Segunda-feira, Terça-feira, Quarta-feira, Quinta-feira, Sexta-feira e Sábado são independentes. "
-                        "Se a data estiver visível no cabeçalho da coluna, repita essa data em cada item daquela coluna. "
-                        "Se o dia estiver visível, repita o nome exato do dia em cada item daquela coluna. "
-                        "NUNCA adivinhe dia ou data: se não estiver legível, deixe o campo vazio. "
-                        "Extraia TODAS as aulas/temas/tarefas visíveis, sem resumir, agrupar ou pular itens. "
-                        "Mantenha o texto do tema o mais fiel possível. "
-                        "Se matéria, cor, dia ou data estiverem visíveis, associe somente ao item correspondente. "
-                        "NÃO RETORNE JSON. Para evitar qualquer erro de JSON, retorne UMA TAREFA POR LINHA, usando exatamente 5 campos separados por TAB: "
-                        "MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. Não use TAB dentro do tema. "
-                        "Depois de cada linha não escreva explicações, títulos ou listas numeradas. "
-                        "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
-                        "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
-                        "IMPORTANTE: faça uma conferência final para garantir que NENHUMA aula visível foi omitida e que cada aula permaneceu na coluna/dia correto."
-                    )
-                    for i, (origem_desc_rf, b64) in enumerate(imagens_rf):
-                        try:
-                            msg_rf = [{"role":"user","content":[
-                                {"type":"text","text":prompt_rf},
-                                {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
-                            ]}]
-                            # Um print inteiro por chamada. O limite maior evita truncamento
-                            # sem duplicar conteúdo por meio de recortes sobrepostos.
-                            r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=1400)
-                            bruto_rf = r_rf.choices[0].message.content or ""
+                    # =========================================================
+                    # IMAGENS / PDFs ESCANEADOS — VISÃO COMO FALLBACK
+                    # =========================================================
+                    if imagens_rf:
+                        if client_rf is None:
+                            st.error("Há imagens para extrair, mas a IA não está conectada. O PDF textual já foi processado diretamente.")
+                        else:
+                            prog_rf = st.progress(0)
+                            total_prints_rf = max(1, len(imagens_rf))
+                            prompt_rf = (
+                                "ANALISE O PRINT INTEIRO DO CRONOGRAMA. "
+                                "PRESERVE A ESTRUTURA VISUAL DA IMAGEM. NÃO CORTE, NÃO REORGANIZE E NÃO INVENTE INFORMAÇÕES. "
+                                "Identifique todos os cabeçalhos de dia/data e percorra visualmente cada coluna/célula sem mover itens entre dias. "
+                                "Extraia TODAS as aulas/temas/tarefas visíveis. "
+                                "Retorne SOMENTE JSON válido no formato {\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                                "materia: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
+                                "cor: azul, verde, amarelo, vermelho ou roxo. Não adivinhe dia/data."
+                            )
+                            for i, (origem_desc_rf, b64) in enumerate(imagens_rf):
+                                try:
+                                    msg_rf = [{"role":"user","content":[
+                                        {"type":"text","text":prompt_rf},
+                                        {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
+                                    ]}]
+                                    r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=1400)
+                                    bruto_rf = r_rf.choices[0].message.content or ""
+                                    dados_rf = extrair_json_seguro(bruto_rf)
+                                    linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                                    for linha_rf in linhas_rf:
+                                        if isinstance(linha_rf, dict):
+                                            tarefas_rf.append(linha_rf)
+                                        elif isinstance(linha_rf, (list, tuple)) and len(linha_rf) >= 2:
+                                            tarefas_rf.append({
+                                                "materia": str(linha_rf[0] or "Geral").strip(),
+                                                "tema": str(linha_rf[1] or "Sem tema").strip(),
+                                                "cor": str(linha_rf[2] or "azul").strip(),
+                                                "data": str(linha_rf[3] or "").strip(),
+                                                "dia": str(linha_rf[4] or "").strip(),
+                                            })
+                                except Exception as exc:
+                                    st.warning(f"{origem_desc_rf}: erro na extração — {exc}")
+                                prog_rf.progress((i + 1) / total_prints_rf)
 
-                            # A extração principal NÃO depende de JSON. Isso elimina o ponto de falha
-                            # que vinha gerando "não retornou tarefas em JSON válido".
-                            linhas_rf = []
-                            for linha_txt_rf in bruto_rf.splitlines():
-                                linha_txt_rf = linha_txt_rf.strip().strip("`")
-                                if not linha_txt_rf or linha_txt_rf.startswith("```"):
-                                    continue
-                                partes_rf = linha_txt_rf.split("\t")
-                                if len(partes_rf) >= 5:
-                                    linhas_rf.append({
-                                        "materia": partes_rf[0].strip(),
-                                        "tema": " ".join(partes_rf[1:-3]).strip() or "Sem tema",
-                                        "cor": partes_rf[-3].strip(),
-                                        "data": partes_rf[-2].strip(),
-                                        "dia": partes_rf[-1].strip(),
-                                    })
-
-                            # Compatibilidade: se a IA ignorar a instrução TAB e devolver JSON,
-                            # ainda aceitamos o JSON como fallback.
-                            if not linhas_rf and bruto_rf.strip():
-                                dados_rf = extrair_json_seguro(bruto_rf)
-                                linhas_json_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
-                                for item_json_rf in linhas_json_rf:
-                                    if isinstance(item_json_rf, dict):
-                                        linhas_rf.append(item_json_rf)
-                                    elif isinstance(item_json_rf, (list, tuple)) and len(item_json_rf) >= 2:
-                                        linhas_rf.append({
-                                            "materia": str(item_json_rf[0] or "Geral").strip(),
-                                            "tema": str(item_json_rf[1] or "Sem tema").strip(),
-                                            "cor": str(item_json_rf[2] or "azul").strip() if len(item_json_rf) > 2 else "azul",
-                                            "data": str(item_json_rf[3] or "").strip() if len(item_json_rf) > 3 else "",
-                                            "dia": str(item_json_rf[4] or "").strip() if len(item_json_rf) > 4 else "",
-                                        })
-
-                            if not linhas_rf and bruto_rf.strip():
-                                prompt_retry_rf = (
-                                    "LEIA A IMAGEM DO CRONOGRAMA. RETORNE SOMENTE UMA LINHA POR TAREFA, SEM JSON. "
-                                    "Use 5 campos separados por TAB: MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. "
-                                    "Não escreva nenhuma explicação. Não invente datas ou dias. Extraia todas as tarefas visíveis."
-                                )
-                                msg_retry_rf = [{"role":"user","content":[
-                                    {"type":"text","text":prompt_retry_rf},
-                                    {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
-                                ]}]
-                                r_retry_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_retry_rf, temperature=0, max_tokens=900)
-                                bruto_retry_rf = r_retry_rf.choices[0].message.content or ""
-                                for linha_txt_rf in bruto_retry_rf.splitlines():
-                                    partes_rf = linha_txt_rf.strip().split("\t")
-                                    if len(partes_rf) >= 5:
-                                        linhas_rf.append({
-                                            "materia": partes_rf[0].strip(),
-                                            "tema": " ".join(partes_rf[1:-3]).strip() or "Sem tema",
-                                            "cor": partes_rf[-3].strip(),
-                                            "data": partes_rf[-2].strip(),
-                                            "dia": partes_rf[-1].strip(),
-                                        })
-                                if not linhas_rf:
-                                    st.warning(f"{origem_desc_rf}: a IA respondeu, mas não foi possível identificar tarefas. Resposta recebida: {bruto_retry_rf[:700]}")
-                            for linha_rf in linhas_rf:
-                                if isinstance(linha_rf, dict):
-                                    tarefas_rf.append(linha_rf)
-                                elif isinstance(linha_rf, (list, tuple)) and len(linha_rf) >= 2:
-                                    tarefas_rf.append({
-                                        "materia": str(linha_rf[0] or "Geral").strip(),
-                                        "tema": str(linha_rf[1] or "Sem tema").strip(),
-                                        "cor": str(linha_rf[2] or "azul").strip(),
-                                        "data": str(linha_rf[3] or "").strip(),
-                                        "dia": str(linha_rf[4] or "").strip(),
-                                    })
-                        except Exception as exc:
-                            st.warning(f"{origem_desc_rf}: erro na extração — {exc}")
-                        prog_rf.progress((i + 1) / total_prints_rf)
-
-                    # Fallback para PDF sem PyMuPDF: usa o texto nativo de cada página.
-                    # É menos rico visualmente, mas mantém o conteúdo acessível em instalações
-                    # que não possuem a biblioteca de renderização.
-                    if textos_pdf_rf:
-                        client_text_rf = client_rf
+                    # Fallback textual antigo para instalações sem PyMuPDF.
+                    if textos_pdf_rf and client_rf is not None:
                         prompt_text_pdf_rf = (
-                            "Você está lendo o texto extraído de uma página de um cronograma de estudos. "
-                            "Extraia TODAS as aulas/temas/tarefas presentes, preservando a ordem e os nomes. "
-                            "Associe dia/data somente quando estiver explicitamente indicado no texto; não invente. "
-                            "NÃO RETORNE JSON. Retorne uma tarefa por linha com 5 campos separados por TAB: MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. "
-                            "materia deve ser Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
-                            "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
+                            "Extraia TODAS as aulas/temas/tarefas do texto de cronograma abaixo. "
+                            "Preserve a ordem. Retorne SOMENTE JSON válido no formato "
+                            "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                            "Não invente datas."
                         )
                         for origem_desc_text_rf, texto_pag_rf in textos_pdf_rf:
                             try:
-                                msg_text_pdf_rf = [{"role":"user","content": prompt_text_pdf_rf + "\n\nTEXTO DA PÁGINA:\n" + texto_pag_rf}]
-                                r_text_pdf_rf = chamar_ia(client_text_rf, modelo=MODELO_TEXTO, messages=msg_text_pdf_rf, temperature=.05, max_tokens=900)
-                                bruto_text_pdf_rf = r_text_pdf_rf.choices[0].message.content or ""
-                                linhas_text_pdf_rf = []
-                                for linha_txt_pdf_rf in bruto_text_pdf_rf.splitlines():
-                                    partes_pdf_rf = linha_txt_pdf_rf.strip().split("\t")
-                                    if len(partes_pdf_rf) >= 5:
-                                        linhas_text_pdf_rf.append({
-                                            "materia": partes_pdf_rf[0].strip(),
-                                            "tema": " ".join(partes_pdf_rf[1:-3]).strip() or "Sem tema",
-                                            "cor": partes_pdf_rf[-3].strip(),
-                                            "data": partes_pdf_rf[-2].strip(),
-                                            "dia": partes_pdf_rf[-1].strip(),
-                                        })
-                                if not linhas_text_pdf_rf:
-                                    dados_text_pdf_rf = extrair_json_seguro(bruto_text_pdf_rf)
-                                    linhas_text_pdf_rf = dados_text_pdf_rf.get("tarefas", []) if isinstance(dados_text_pdf_rf, dict) else []
-                                for linha_rf in linhas_text_pdf_rf:
+                                r_text_pdf_rf = chamar_ia(client_rf, modelo=MODELO_TEXTO, messages=[{"role":"user","content":prompt_text_pdf_rf + "\n\n" + texto_pag_rf}], temperature=.05, max_tokens=900)
+                                dados_text_pdf_rf = extrair_json_seguro(r_text_pdf_rf.choices[0].message.content or "")
+                                for linha_rf in (dados_text_pdf_rf.get("tarefas", []) if isinstance(dados_text_pdf_rf, dict) else []):
                                     if isinstance(linha_rf, dict):
                                         tarefas_rf.append(linha_rf)
                                     elif isinstance(linha_rf, (list, tuple)) and len(linha_rf) >= 2:
-                                        tarefas_rf.append({
-                                            "materia": str(linha_rf[0] or "Geral").strip(),
-                                            "tema": str(linha_rf[1] or "Sem tema").strip(),
-                                            "cor": str(linha_rf[2] or "azul").strip(),
-                                            "data": str(linha_rf[3] or "").strip(),
-                                            "dia": str(linha_rf[4] or "").strip(),
-                                        })
+                                        tarefas_rf.append({"materia":str(linha_rf[0] or "Geral"),"tema":str(linha_rf[1] or "Sem tema"),"cor":str(linha_rf[2] or "azul"),"data":str(linha_rf[3] or ""),"dia":str(linha_rf[4] or "")})
                             except Exception as exc_text_pdf_rf:
                                 st.warning(f"{origem_desc_text_rf}: erro na extração textual — {exc_text_pdf_rf}")
 
@@ -3360,7 +3404,7 @@ else:
                         st.toast(f"{len(novas_rf)} temas extraídos para a reta final!", icon="🎯")
                         st.rerun()
                     else:
-                        st.warning("A IA recebeu as fontes, mas não retornou tarefas em JSON válido. Verifique se o cronograma está legível e tente novamente. Se o problema persistir, o erro detalhado acima indica qual fonte falhou.")
+                        st.warning("Nenhuma tarefa foi identificada. PDFs textuais são lidos diretamente; se você enviou uma imagem ou PDF escaneado, verifique a legibilidade e a conexão da IA.")
 
         with aba_rf_agenda:
             # =========================================================
