@@ -3181,8 +3181,9 @@ else:
                         "Extraia TODAS as aulas/temas/tarefas visíveis, sem resumir, agrupar ou pular itens. "
                         "Mantenha o texto do tema o mais fiel possível. "
                         "Se matéria, cor, dia ou data estiverem visíveis, associe somente ao item correspondente. "
-                        "Retorne SOMENTE JSON válido, sem markdown, exatamente neste formato: "
-                        "{\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                        "NÃO RETORNE JSON. Para evitar qualquer erro de JSON, retorne UMA TAREFA POR LINHA, usando exatamente 5 campos separados por TAB: "
+                        "MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. Não use TAB dentro do tema. "
+                        "Depois de cada linha não escreva explicações, títulos ou listas numeradas. "
                         "materia deve ser uma destas: Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva, Geral. "
                         "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
                         "IMPORTANTE: faça uma conferência final para garantir que NENHUMA aula visível foi omitida e que cada aula permaneceu na coluna/dia correto."
@@ -3197,21 +3198,65 @@ else:
                             # sem duplicar conteúdo por meio de recortes sobrepostos.
                             r_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_rf, temperature=.05, max_tokens=1400)
                             bruto_rf = r_rf.choices[0].message.content or ""
-                            dados_rf = extrair_json_seguro(bruto_rf)
-                            linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+
+                            # A extração principal NÃO depende de JSON. Isso elimina o ponto de falha
+                            # que vinha gerando "não retornou tarefas em JSON válido".
+                            linhas_rf = []
+                            for linha_txt_rf in bruto_rf.splitlines():
+                                linha_txt_rf = linha_txt_rf.strip().strip("`")
+                                if not linha_txt_rf or linha_txt_rf.startswith("```"):
+                                    continue
+                                partes_rf = linha_txt_rf.split("\t")
+                                if len(partes_rf) >= 5:
+                                    linhas_rf.append({
+                                        "materia": partes_rf[0].strip(),
+                                        "tema": " ".join(partes_rf[1:-3]).strip() or "Sem tema",
+                                        "cor": partes_rf[-3].strip(),
+                                        "data": partes_rf[-2].strip(),
+                                        "dia": partes_rf[-1].strip(),
+                                    })
+
+                            # Compatibilidade: se a IA ignorar a instrução TAB e devolver JSON,
+                            # ainda aceitamos o JSON como fallback.
                             if not linhas_rf and bruto_rf.strip():
-                                # Segunda tentativa com instrução ultracompacta.
-                                prompt_retry_rf = prompt_rf + "\nREFAÇA. RETORNE APENAS JSON. SEM EXPLICAÇÕES. Cada tarefa é uma lista de exatamente 5 strings."
+                                dados_rf = extrair_json_seguro(bruto_rf)
+                                linhas_json_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                                for item_json_rf in linhas_json_rf:
+                                    if isinstance(item_json_rf, dict):
+                                        linhas_rf.append(item_json_rf)
+                                    elif isinstance(item_json_rf, (list, tuple)) and len(item_json_rf) >= 2:
+                                        linhas_rf.append({
+                                            "materia": str(item_json_rf[0] or "Geral").strip(),
+                                            "tema": str(item_json_rf[1] or "Sem tema").strip(),
+                                            "cor": str(item_json_rf[2] or "azul").strip() if len(item_json_rf) > 2 else "azul",
+                                            "data": str(item_json_rf[3] or "").strip() if len(item_json_rf) > 3 else "",
+                                            "dia": str(item_json_rf[4] or "").strip() if len(item_json_rf) > 4 else "",
+                                        })
+
+                            if not linhas_rf and bruto_rf.strip():
+                                prompt_retry_rf = (
+                                    "LEIA A IMAGEM DO CRONOGRAMA. RETORNE SOMENTE UMA LINHA POR TAREFA, SEM JSON. "
+                                    "Use 5 campos separados por TAB: MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. "
+                                    "Não escreva nenhuma explicação. Não invente datas ou dias. Extraia todas as tarefas visíveis."
+                                )
                                 msg_retry_rf = [{"role":"user","content":[
                                     {"type":"text","text":prompt_retry_rf},
                                     {"type":"image_url","image_url":{"url":f"data:image/jpeg;base64,{b64}"}}
                                 ]}]
                                 r_retry_rf = chamar_ia(client_rf, modelo=MODELO_VISAO, messages=msg_retry_rf, temperature=0, max_tokens=900)
                                 bruto_retry_rf = r_retry_rf.choices[0].message.content or ""
-                                dados_rf = extrair_json_seguro(bruto_retry_rf)
-                                linhas_rf = dados_rf.get("tarefas", []) if isinstance(dados_rf, dict) else []
+                                for linha_txt_rf in bruto_retry_rf.splitlines():
+                                    partes_rf = linha_txt_rf.strip().split("\t")
+                                    if len(partes_rf) >= 5:
+                                        linhas_rf.append({
+                                            "materia": partes_rf[0].strip(),
+                                            "tema": " ".join(partes_rf[1:-3]).strip() or "Sem tema",
+                                            "cor": partes_rf[-3].strip(),
+                                            "data": partes_rf[-2].strip(),
+                                            "dia": partes_rf[-1].strip(),
+                                        })
                                 if not linhas_rf:
-                                    st.warning(f"{origem_desc_rf}: a IA respondeu, mas o retorno não pôde ser convertido em tarefas. Resposta: {bruto_retry_rf[:700]}")
+                                    st.warning(f"{origem_desc_rf}: a IA respondeu, mas não foi possível identificar tarefas. Resposta recebida: {bruto_retry_rf[:700]}")
                             for linha_rf in linhas_rf:
                                 if isinstance(linha_rf, dict):
                                     tarefas_rf.append(linha_rf)
@@ -3236,7 +3281,7 @@ else:
                             "Você está lendo o texto extraído de uma página de um cronograma de estudos. "
                             "Extraia TODAS as aulas/temas/tarefas presentes, preservando a ordem e os nomes. "
                             "Associe dia/data somente quando estiver explicitamente indicado no texto; não invente. "
-                            "Retorne SOMENTE JSON válido no formato {\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                            "NÃO RETORNE JSON. Retorne uma tarefa por linha com 5 campos separados por TAB: MATERIA<TAB>TEMA<TAB>COR<TAB>DATA<TAB>DIA. "
                             "materia deve ser Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
                             "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
                         )
@@ -3244,8 +3289,21 @@ else:
                             try:
                                 msg_text_pdf_rf = [{"role":"user","content": prompt_text_pdf_rf + "\n\nTEXTO DA PÁGINA:\n" + texto_pag_rf}]
                                 r_text_pdf_rf = chamar_ia(client_text_rf, modelo=MODELO_TEXTO, messages=msg_text_pdf_rf, temperature=.05, max_tokens=900)
-                                dados_text_pdf_rf = extrair_json_seguro(r_text_pdf_rf.choices[0].message.content or "")
-                                linhas_text_pdf_rf = dados_text_pdf_rf.get("tarefas", []) if isinstance(dados_text_pdf_rf, dict) else []
+                                bruto_text_pdf_rf = r_text_pdf_rf.choices[0].message.content or ""
+                                linhas_text_pdf_rf = []
+                                for linha_txt_pdf_rf in bruto_text_pdf_rf.splitlines():
+                                    partes_pdf_rf = linha_txt_pdf_rf.strip().split("\t")
+                                    if len(partes_pdf_rf) >= 5:
+                                        linhas_text_pdf_rf.append({
+                                            "materia": partes_pdf_rf[0].strip(),
+                                            "tema": " ".join(partes_pdf_rf[1:-3]).strip() or "Sem tema",
+                                            "cor": partes_pdf_rf[-3].strip(),
+                                            "data": partes_pdf_rf[-2].strip(),
+                                            "dia": partes_pdf_rf[-1].strip(),
+                                        })
+                                if not linhas_text_pdf_rf:
+                                    dados_text_pdf_rf = extrair_json_seguro(bruto_text_pdf_rf)
+                                    linhas_text_pdf_rf = dados_text_pdf_rf.get("tarefas", []) if isinstance(dados_text_pdf_rf, dict) else []
                                 for linha_rf in linhas_text_pdf_rf:
                                     if isinstance(linha_rf, dict):
                                         tarefas_rf.append(linha_rf)
