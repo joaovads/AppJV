@@ -39,6 +39,11 @@ except ImportError:
     Image = None
 
 try:
+    import fitz  # PyMuPDF — usado apenas para renderizar páginas PDF na extração visual
+except ImportError:
+    fitz = None
+
+try:
     import PyPDF2
     from groq import Groq
 except ImportError:
@@ -1712,7 +1717,7 @@ def chamar_ia(client, *, modelo, **kwargs):
                 requested = int(requested) if requested is not None else 800
             except Exception:
                 requested = 800
-            cap = 480 if modelo_tentativa == "qwen/qwen3.8-27b" and any(
+            cap = 900 if modelo_tentativa == "qwen/qwen3.8-27b" and any(
                 isinstance(m, dict) and isinstance(m.get("content"), list)
                 and any(isinstance(part, dict) and part.get("type") == "image_url" for part in m.get("content", []))
                 for m in call_kwargs.get("messages", [])
@@ -3031,7 +3036,7 @@ else:
                                     mat = normalizar_area(item.get("materia"), mapa_aulas)
                                     cor = cor_area(mat)
                                     tema = html.escape(limpar_texto(item.get("tema", "Sem tema")))
-                                    col_a, col_b, col_c = st.columns([0.7, 3.5, 1.0])
+                                    col_a, col_b, col_c, col_d = st.columns([0.65, 3.0, 1.45, 0.95])
                                     with col_a:
                                         if bool(item.get("concluido")):
                                             st.markdown("### ✅")
@@ -3044,10 +3049,19 @@ else:
                                             st.rerun()
                                     with col_b:
                                         estilo = "text-decoration:line-through;opacity:.65" if bool(item.get("concluido")) else ""
-                                        st.markdown(f"<div style='padding:5px 0;{estilo}'><span style='color:{cor};font-weight:900'>●</span> <strong>{tema}</strong><br><small style='color:var(--rp-muted)'>{html.escape(mat)}</small></div>", unsafe_allow_html=True)
+                                        st.markdown(f"<div style='padding:5px 0;{estilo}'><span style='color:{cor};font-weight:900'>●</span> <strong>{tema}</strong></div>", unsafe_allow_html=True)
                                     with col_c:
+                                        area_atual_rf = normalizar_area(item.get("materia"), mapa_aulas)
+                                        idx_area_rf = AREAS_MED.index(area_atual_rf) if area_atual_rf in AREAS_MED else AREAS_MED.index("Geral")
+                                        area_edit_rf = st.selectbox("Área", AREAS_MED, index=idx_area_rf, key=f"rf_area_edit_{rid}", label_visibility="collapsed")
+                                        if area_edit_rf != area_atual_rf:
+                                            db_update("revisoes_finais", "revisoes_finais", rid, {"materia": area_edit_rf})
+                                            item["materia"] = area_edit_rf
+                                            mat = area_edit_rf
+                                    with col_d:
                                         p = safe_int(item.get("prioridade", 3))
                                         st.markdown(f"<div style='text-align:right;padding-top:8px;font-weight:700;color:{cor}'>{PRIORIDADES.get(p, 'Revisão')}</div>", unsafe_allow_html=True)
+                                    st.caption(f"{mat}")
         with aba_rf_importar:
             st.markdown("### 📸 Extrair seu cronograma final")
             st.caption("Cole um ou vários prints exatamente como você faz no Cronograma IA. A IA extrai matéria, tema, cor e, quando estiver visível, data/dia.")
@@ -3068,13 +3082,16 @@ else:
                     st.success(f"{len(st.session_state['prints_revisao_final'])} print(s) na fila")
             with cb:
                 uploads_rf = st.file_uploader("Enviar imagens", type=["png", "jpg", "jpeg"], accept_multiple_files=True, key="rf_upload")
+                pdf_rf = st.file_uploader("Ou enviar PDF do cronograma", type=["pdf"], accept_multiple_files=True, key="rf_pdf_upload")
+                if pdf_rf:
+                    st.caption(f"{len(pdf_rf)} PDF(s) selecionado(s). Todas as páginas serão analisadas visualmente.")
 
             if st.session_state.get("prints_revisao_final"):
                 if st.button("🗑️ Limpar fila", key="rf_clear_queue"):
                     st.session_state["prints_revisao_final"] = []
                     st.rerun()
 
-            if (uploads_rf or st.session_state.get("prints_revisao_final")) and st.button("🪄 Extrair cronograma final", use_container_width=True, type="primary", key="rf_extract"):
+            if (uploads_rf or pdf_rf or st.session_state.get("prints_revisao_final")) and st.button("🪄 Extrair cronograma final", use_container_width=True, type="primary", key="rf_extract"):
                 client_rf = get_ia_client()
                 if not client_rf:
                     st.error("IA não conectada. Configure a GROQ_KEY nos Secrets.")
@@ -3085,14 +3102,17 @@ else:
                     # Cada print é enviado inteiro, preservando exatamente o layout visual.
                     imagens_rf = []
                     fontes_originais_rf = []
+                    total_paginas_pdf_rf = 0
+                    textos_pdf_rf = []
 
+                    # Imagens coladas/enviadas.
                     for im in (uploads_rf or []):
-                        fontes_originais_rf.append(im)
+                        fontes_originais_rf.append(("imagem", im))
                     for x in st.session_state.get("prints_revisao_final", []):
                         if isinstance(x, dict) and x.get("img") is not None:
-                            fontes_originais_rf.append(x["img"])
+                            fontes_originais_rf.append(("imagem", x["img"]))
 
-                    for origem_rf in fontes_originais_rf:
+                    for tipo_fonte_rf, origem_rf in fontes_originais_rf:
                         try:
                             if hasattr(origem_rf, "seek"):
                                 origem_rf.seek(0)
@@ -3106,12 +3126,45 @@ else:
                                 fundo_rf = Image.new("RGB", img_rf.size, "white")
                                 fundo_rf.paste(img_rf, mask=img_rf.getchannel("A"))
                                 img_rf = fundo_rf
-
-                            # Mantém o print inteiro. O limite de dimensão é apenas para
-                            # transmissão à API; não há cortes por dia ou por altura.
-                            imagens_rf.append(otimizar_imagem_para_api(img_rf, max_size=1100))
+                            imagens_rf.append((f"imagem", otimizar_imagem_para_api(img_rf, max_size=1100)))
                         except Exception as exc_img_rf:
-                            st.warning(f"Não foi possível preparar um print para leitura: {exc_img_rf}")
+                            st.warning(f"Não foi possível preparar uma imagem para leitura: {exc_img_rf}")
+
+                    # PDFs: renderiza cada página como imagem para preservar colunas, dias, cores
+                    # e a posição espacial do cronograma. Isso é muito mais confiável do que
+                    # mandar apenas o texto extraído do PDF, que perde o vínculo entre células.
+                    if pdf_rf:
+                        if fitz is None and PyPDF2 is None:
+                            st.error("Esta instalação não possui um leitor de PDF compatível (PyMuPDF/PyPDF2).")
+                        else:
+                            for pdf_idx, pdf_file_rf in enumerate(pdf_rf, start=1):
+                                try:
+                                    pdf_file_rf.seek(0)
+                                    pdf_bytes_rf = pdf_file_rf.read()
+                                    if fitz is not None:
+                                        doc_rf = fitz.open(stream=pdf_bytes_rf, filetype="pdf")
+                                        total_paginas_pdf_rf += len(doc_rf)
+                                        for page_num_rf in range(len(doc_rf)):
+                                            page_rf = doc_rf.load_page(page_num_rf)
+                                            pix_rf = page_rf.get_pixmap(matrix=fitz.Matrix(1.8, 1.8), alpha=False)
+                                            img_bytes_rf = pix_rf.tobytes("jpeg")
+                                            img_rf = Image.open(io.BytesIO(img_bytes_rf)).convert("RGB")
+                                            b64_rf = otimizar_imagem_para_api(img_rf, max_size=1400)
+                                            imagens_rf.append((f"PDF {pdf_idx} · página {page_num_rf + 1}", b64_rf))
+                                        doc_rf.close()
+                                    else:
+                                        leitor_pdf_rf = PyPDF2.PdfReader(io.BytesIO(pdf_bytes_rf))
+                                        total_paginas_pdf_rf += len(leitor_pdf_rf.pages)
+                                        for page_num_rf, page_rf in enumerate(leitor_pdf_rf.pages, start=1):
+                                            txt_rf = page_rf.extract_text() or ""
+                                            if txt_rf.strip():
+                                                textos_pdf_rf.append((f"PDF {pdf_idx} · página {page_num_rf}", txt_rf))
+                                except Exception as exc_pdf_rf:
+                                    st.warning(f"Não foi possível ler o PDF {pdf_idx}: {exc_pdf_rf}")
+
+                    if not imagens_rf and not textos_pdf_rf:
+                        st.error("Nenhum print ou página de PDF pôde ser preparado para a extração.")
+                        st.stop()
 
                     tarefas_rf = []
                     prog_rf = st.progress(0)
@@ -3134,7 +3187,7 @@ else:
                         "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
                         "IMPORTANTE: faça uma conferência final para garantir que NENHUMA aula visível foi omitida e que cada aula permaneceu na coluna/dia correto."
                     )
-                    for i, b64 in enumerate(imagens_rf):
+                    for i, (origem_desc_rf, b64) in enumerate(imagens_rf):
                         try:
                             msg_rf = [{"role":"user","content":[
                                 {"type":"text","text":prompt_rf},
@@ -3158,8 +3211,41 @@ else:
                                         "dia": str(linha_rf[4] or "").strip(),
                                     })
                         except Exception as exc:
-                            st.warning(f"Print {i+1}: {exc}")
+                            st.warning(f"{origem_desc_rf}: erro na extração — {exc}")
                         prog_rf.progress((i + 1) / total_prints_rf)
+
+                    # Fallback para PDF sem PyMuPDF: usa o texto nativo de cada página.
+                    # É menos rico visualmente, mas mantém o conteúdo acessível em instalações
+                    # que não possuem a biblioteca de renderização.
+                    if textos_pdf_rf:
+                        client_text_rf = client_rf
+                        prompt_text_pdf_rf = (
+                            "Você está lendo o texto extraído de uma página de um cronograma de estudos. "
+                            "Extraia TODAS as aulas/temas/tarefas presentes, preservando a ordem e os nomes. "
+                            "Associe dia/data somente quando estiver explicitamente indicado no texto; não invente. "
+                            "Retorne SOMENTE JSON válido no formato {\"tarefas\":[[\"materia\",\"tema_ou_aula\",\"cor\",\"data\",\"dia\"]]}. "
+                            "materia deve ser Clínica Médica, Cirurgia Geral, Pediatria, Ginecologia e Obstetrícia, Medicina Preventiva ou Geral. "
+                            "cor deve ser azul, verde, amarelo, vermelho ou roxo. "
+                        )
+                        for origem_desc_text_rf, texto_pag_rf in textos_pdf_rf:
+                            try:
+                                msg_text_pdf_rf = [{"role":"user","content": prompt_text_pdf_rf + "\n\nTEXTO DA PÁGINA:\n" + texto_pag_rf}]
+                                r_text_pdf_rf = chamar_ia(client_text_rf, modelo=MODELO_TEXTO, messages=msg_text_pdf_rf, temperature=.05, max_tokens=900)
+                                dados_text_pdf_rf = extrair_json_seguro(r_text_pdf_rf.choices[0].message.content or "")
+                                linhas_text_pdf_rf = dados_text_pdf_rf.get("tarefas", []) if isinstance(dados_text_pdf_rf, dict) else []
+                                for linha_rf in linhas_text_pdf_rf:
+                                    if isinstance(linha_rf, dict):
+                                        tarefas_rf.append(linha_rf)
+                                    elif isinstance(linha_rf, (list, tuple)) and len(linha_rf) >= 2:
+                                        tarefas_rf.append({
+                                            "materia": str(linha_rf[0] or "Geral").strip(),
+                                            "tema": str(linha_rf[1] or "Sem tema").strip(),
+                                            "cor": str(linha_rf[2] or "azul").strip(),
+                                            "data": str(linha_rf[3] or "").strip(),
+                                            "dia": str(linha_rf[4] or "").strip(),
+                                        })
+                            except Exception as exc_text_pdf_rf:
+                                st.warning(f"{origem_desc_text_rf}: erro na extração textual — {exc_text_pdf_rf}")
 
                     if tarefas_rf:
                         # Evita duplicatas dentro da mesma importação.
@@ -3203,7 +3289,7 @@ else:
                         st.toast(f"{len(novas_rf)} temas extraídos para a reta final!", icon="🎯")
                         st.rerun()
                     else:
-                        st.warning("Não foi possível encontrar temas nos prints.")
+                        st.warning("A IA recebeu as fontes, mas não retornou tarefas em JSON válido. Verifique se o cronograma está legível e tente novamente. Se o problema persistir, o erro detalhado acima indica qual fonte falhou.")
 
         with aba_rf_agenda:
             # =========================================================
@@ -3490,6 +3576,12 @@ else:
             st.caption("Informe questões, acertos e erros. A porcentagem é calculada automaticamente e o sistema define o intervalo de revisão.")
             cq1, cq2 = st.columns(2)
             with cq1:
+                area_qf = st.selectbox("Área / matéria", AREAS_MED, key="rf_q_area")
+                sub_qf = ""
+                if area_qf == "Clínica Médica":
+                    sub_qf = st.selectbox("Subespecialidade", SUB_CM, key="rf_q_sub_cm")
+                elif area_qf == "Cirurgia Geral":
+                    sub_qf = st.selectbox("Subespecialidade", SUB_CG, key="rf_q_sub_cg")
                 tema_qf = st.text_input("Tema / bloco", placeholder="Ex.: Sepse", key="rf_q_tema")
                 total_qf = st.number_input("Questões feitas", min_value=0, step=1, value=0, key="rf_q_total")
                 acertos_qf = st.number_input("Acertos", min_value=0, step=1, value=0, key="rf_q_acertos")
@@ -3527,6 +3619,7 @@ else:
                         ref_qf = db.collection("revisoes_finais").document()
                         item_qf = {
                             "usuario_id": u_id, "tipo": "questoes", "tema": tema_qf.strip(),
+                            "area": area_qf, "subespecialidade": sub_qf,
                             "questoes": int(total_qf), "acertos": int(acertos_qf), "erros": int(erros_qf),
                             "percentual": round(pct_qf, 1), "nivel": nivel,
                             "data_realizacao": str(data_base_qf),
@@ -3551,7 +3644,7 @@ else:
                     st.markdown(
                         f"<div style='padding:10px 12px;border:1px solid var(--rp-border);border-left:4px solid {cor_hist};border-radius:7px;margin:6px 0'>"
                         f"<strong>{html.escape(str(qf.get('tema','Tema')))}</strong> · <span style='color:{cor_hist};font-weight:800'>{pct_hist:.1f}%</span><br>"
-                        f"<small>{safe_int(qf.get('questoes'))} questões · {safe_int(qf.get('acertos'))} acertos · {safe_int(qf.get('erros'))} erros · Revisões: {', '.join(revs_hist)}</small></div>",
+                        f"<small>{html.escape(str(qf.get('area','Geral')))}" + (f" · {html.escape(str(qf.get('subespecialidade')))}" if qf.get('subespecialidade') else "") + f" · {safe_int(qf.get('questoes'))} questões · {safe_int(qf.get('acertos'))} acertos · {safe_int(qf.get('erros'))} erros · Revisões: {', '.join(revs_hist)}</small></div>",
                         unsafe_allow_html=True
                     )
 
