@@ -2283,7 +2283,31 @@ def gerar_calendario_revisoes_html(revisoes_lista, ano, mes):
                 html_code += f"<td style='border:1px solid {bd_cl}; padding:10px; background-color:{bg_em} !important; border-radius:4px;'></td>"
             else:
                 if day in revs_dict:
-                    temas = "".join([f"<div style='background-color:{CORES_AREAS.get(normalizar_area(r.get('area'), mapa_aulas), '#64748b')}; color:white !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' title='{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})'>{html.escape(limpar_texto(r.get('tema', '')))} ({r.get('ciclo')})</div>" for r in revs_dict[day]])
+                    temas_lista = []
+                    for r in revs_dict[day]:
+                        tema_exibicao = limpar_texto(r.get('tema', ''))
+                        cor_evento = r.get('cor_percentual') or CORES_AREAS.get(normalizar_area(r.get('area'), mapa_aulas), '#64748b')
+                        ciclo_evento = str(r.get('ciclo', ''))
+                        # A Revisão Final sempre calcula a cor e o nome pela % de acertos,
+                        # mesmo que o registro antigo não tenha esses campos salvos.
+                        if ciclo_evento == 'Revisão Final' and r.get('percentual') is not None:
+                            try:
+                                pct_evento = float(str(r.get('percentual')).replace('%', '').replace(',', '.'))
+                            except (TypeError, ValueError):
+                                pct_evento = 0.0
+                            if pct_evento > 80:
+                                cor_evento, faixa_evento = '#22c55e', '🟢 Domínio'
+                            elif pct_evento >= 70:
+                                cor_evento, faixa_evento = '#eab308', '🟡 Consolidação'
+                            elif pct_evento >= 60:
+                                cor_evento, faixa_evento = '#3b82f6', '🔵 Atenção'
+                            else:
+                                cor_evento, faixa_evento = '#ef4444', '🔴 Recuperação'
+                            tema_exibicao = f"{faixa_evento}: {tema_exibicao} · {pct_evento:.1f}%"
+                        tema_html = html.escape(tema_exibicao)
+                        titulo_html = html.escape(f"{tema_exibicao} ({ciclo_evento})")
+                        temas_lista.append(f"<div style='background-color:{cor_evento} !important; color:#ffffff !important; padding:4px 6px; border-radius:6px; font-size:11px; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-shadow:0 2px 4px rgba(0,0,0,0.1);' title='{titulo_html}'>{tema_html}</div>")
+                    temas = ''.join(temas_lista)
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px; transition:none;'><strong style='color:{tc_st} !important; font-size:14px;'>{day}</strong><div style='margin-top:8px;'>{temas}</div></td>"
                 else: 
                     html_code += f"<td style='border:1px solid {bd_cl}; padding:8px; background-color:{bg_cl} !important; vertical-align:top; height:90px; border-radius:6px;'><strong style='color:{tc_em} !important; font-size:14px;'>{day}</strong></td>"
@@ -3416,18 +3440,17 @@ else:
             # As revisões são derivadas somente das questões da Revisão Final.
             # =========================================================
             st.markdown("### 📅 Cronograma de Revisões — Revisão Final")
-            st.caption("Cada desempenho gera revisões em 1, 7, 14, 30, 45 e 60 dias. A cor de cada revisão acompanha seu percentual de acertos: vermelho <60%, azul 60–69,9%, amarelo 70–80% e verde >80%.")
+            st.caption("Intervalos por aproveitamento: vermelho <60% começa em 1 dia; azul 60–69,9% em 2 dias; amarelo 70–80% em 3 dias; verde >80% em 7 dias. O nome e a cor no calendário identificam a faixa de aproveitamento.")
 
             # Migração opcional dos desempenhos já salvos para o novo espaçamento.
             # Não altera os temas importados do cronograma final; atualiza apenas
             # registros do tipo 'questoes' e preserva, por ordem, revisões concluídas.
             if questoes_rf:
-                st.info(f"Há {len(questoes_rf)} registro(s) de desempenho. Use o botão abaixo para atualizar também os registros antigos para os intervalos de 1, 7, 14, 30, 45 e 60 dias.")
+                st.info(f"Há {len(questoes_rf)} registro(s) de desempenho. Use o botão abaixo para atualizar os registros antigos conforme a faixa de aproveitamento: vermelho (1, 7, 14, 30, 45, 60 dias), azul (2, 7, 14, 30, 45, 60), amarelo (3, 14, 30, 45, 60) e verde (7, 30, 45, 60).")
                 if st.button("🔄 Atualizar revisões já cadastradas", key="rf_migrar_revisoes_existentes", use_container_width=True):
                     batch_migracao_rf = db.batch()
                     atualizados_rf = []
                     erros_migracao_rf = []
-                    intervalos_migracao_rf = [1, 7, 14, 30, 45, 60]
                     for registro_rf in questoes_rf:
                         try:
                             registro_id_rf = str(registro_rf.get("id", ""))
@@ -3436,12 +3459,16 @@ else:
                             pct_migracao_rf = float(registro_rf.get("percentual", 0) or 0)
                             if pct_migracao_rf > 80:
                                 nivel_migracao_rf = "🟢 Domínio — desempenho excelente"
+                                intervalos_migracao_rf = [7, 30, 45, 60]
                             elif pct_migracao_rf >= 70:
                                 nivel_migracao_rf = "🟡 Bom desempenho — consolidar"
+                                intervalos_migracao_rf = [3, 14, 30, 45, 60]
                             elif pct_migracao_rf >= 60:
                                 nivel_migracao_rf = "🔵 Atenção — reforçar pontos fracos"
+                                intervalos_migracao_rf = [2, 7, 14, 30, 45, 60]
                             else:
                                 nivel_migracao_rf = "🔴 Baixo desempenho — prioridade alta"
+                                intervalos_migracao_rf = [1, 7, 14, 30, 45, 60]
 
                             data_base_salva_rf = registro_rf.get("data_realizacao")
                             if data_base_salva_rf:
@@ -3489,7 +3516,7 @@ else:
                                 if str(item_rf.get("id", "")) in ids_atualizados_rf else item_rf
                                 for item_rf in st.session_state.dados.get("revisoes_finais", [])
                             ]
-                            st.toast(f"{len(atualizados_rf)} registro(s) atualizado(s) para 1, 7, 14, 30, 45 e 60 dias.", icon="✅")
+                            st.toast(f"{len(atualizados_rf)} registro(s) atualizado(s) conforme a faixa de aproveitamento.", icon="✅")
                             if erros_migracao_rf:
                                 st.warning("Alguns registros não foram preparados: " + "; ".join(erros_migracao_rf[:3]))
                             st.rerun()
@@ -3540,14 +3567,24 @@ else:
 
             calendario_rf = []
             for r in agenda_rf:
+                pct_cal_rf = float(r["percentual"] or 0)
+                if pct_cal_rf > 80:
+                    faixa_cal_rf = "🟢 Domínio"
+                elif pct_cal_rf >= 70:
+                    faixa_cal_rf = "🟡 Consolidação"
+                elif pct_cal_rf >= 60:
+                    faixa_cal_rf = "🔵 Atenção"
+                else:
+                    faixa_cal_rf = "🔴 Recuperação"
                 calendario_rf.append({
                     "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
-                    "tema": r["tema"],
+                    "tema": f"{faixa_cal_rf}: {r['tema']} · {pct_cal_rf:.1f}%",
                     "area": "Geral",
+                    "cor_percentual": cor_percentual_acerto(pct_cal_rf),
                     "ciclo": "Revisão Final",
                     "data_agendada_obj": r["data"],
                     "status": "Concluída" if r["status"] in ("concluida", "concluída", "concluido", "concluído") else "Pendente",
-                    "percentual": r["percentual"],
+                    "percentual": pct_cal_rf,
                 })
             if "rf_cal_mes" not in st.session_state:
                 st.session_state.rf_cal_mes = hoje.month
@@ -3794,17 +3831,19 @@ else:
                         st.warning(f"Acertos + erros = {calculo_qf}, mas você informou {total_qf} questões.")
                     cor_qf = cor_percentual_acerto(pct_qf)
                     st.markdown(f"<div style='border:1px solid {cor_qf};border-left:4px solid {cor_qf};padding:14px;border-radius:8px;margin-top:8px'><div style='color:var(--rp-muted);font-size:.72rem;text-transform:uppercase'>Aproveitamento</div><div style='font-size:2rem;font-weight:800;color:{cor_qf}'>{pct_qf:.1f}%</div></div>", unsafe_allow_html=True)
-                    # Espaçamento fixo solicitado: todas as faixas recebem revisões
-                    # em 1, 7, 14, 30, 45 e 60 dias. A cor/nível reflete o percentual.
-                    intervalo = [1, 7, 14, 30, 45, 60]
+                    # O primeiro intervalo depende da faixa de aproveitamento.
                     if pct_qf > 80:
                         nivel = "🟢 Domínio — desempenho excelente"
+                        intervalo = [7, 30, 45, 60]
                     elif pct_qf >= 70:
                         nivel = "🟡 Bom desempenho — consolidar"
+                        intervalo = [3, 14, 30, 45, 60]
                     elif pct_qf >= 60:
                         nivel = "🔵 Atenção — reforçar pontos fracos"
+                        intervalo = [2, 7, 14, 30, 45, 60]
                     else:
                         nivel = "🔴 Baixo desempenho — prioridade alta"
+                        intervalo = [1, 7, 14, 30, 45, 60]
                     st.markdown(f"**{nivel}**")
                     st.markdown("**Próximas revisões**")
                     for dias_rev in intervalo:
@@ -3824,7 +3863,7 @@ else:
                         ref_qf.set(item_qf)
                         item_qf["id"] = ref_qf.id
                         st.session_state.dados.setdefault("revisoes_finais", []).append(item_qf)
-                        st.toast("Desempenho salvo! Revisões programadas para 1, 7, 14, 30, 45 e 60 dias.", icon="📅")
+                        st.toast("Desempenho salvo! Revisões programadas conforme sua faixa de aproveitamento.", icon="📅")
                         st.rerun()
                 else:
                     st.info("Informe acertos e erros para calcular seu aproveitamento.")
