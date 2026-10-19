@@ -3416,7 +3416,87 @@ else:
             # As revisões são derivadas somente das questões da Revisão Final.
             # =========================================================
             st.markdown("### 📅 Cronograma de Revisões — Revisão Final")
-            st.caption("Aqui aparecem somente as revisões geradas pelos desempenhos registrados na Revisão Final.")
+            st.caption("Cada desempenho gera revisões em 1, 7, 14, 30, 45 e 60 dias. A cor de cada revisão acompanha seu percentual de acertos: vermelho <60%, azul 60–69,9%, amarelo 70–80% e verde >80%.")
+
+            # Migração opcional dos desempenhos já salvos para o novo espaçamento.
+            # Não altera os temas importados do cronograma final; atualiza apenas
+            # registros do tipo 'questoes' e preserva, por ordem, revisões concluídas.
+            if questoes_rf:
+                st.info(f"Há {len(questoes_rf)} registro(s) de desempenho. Use o botão abaixo para atualizar também os registros antigos para os intervalos de 1, 7, 14, 30, 45 e 60 dias.")
+                if st.button("🔄 Atualizar revisões já cadastradas", key="rf_migrar_revisoes_existentes", use_container_width=True):
+                    batch_migracao_rf = db.batch()
+                    atualizados_rf = []
+                    erros_migracao_rf = []
+                    intervalos_migracao_rf = [1, 7, 14, 30, 45, 60]
+                    for registro_rf in questoes_rf:
+                        try:
+                            registro_id_rf = str(registro_rf.get("id", ""))
+                            if not registro_id_rf:
+                                continue
+                            pct_migracao_rf = float(registro_rf.get("percentual", 0) or 0)
+                            if pct_migracao_rf > 80:
+                                nivel_migracao_rf = "🟢 Domínio — desempenho excelente"
+                            elif pct_migracao_rf >= 70:
+                                nivel_migracao_rf = "🟡 Bom desempenho — consolidar"
+                            elif pct_migracao_rf >= 60:
+                                nivel_migracao_rf = "🔵 Atenção — reforçar pontos fracos"
+                            else:
+                                nivel_migracao_rf = "🔴 Baixo desempenho — prioridade alta"
+
+                            data_base_salva_rf = registro_rf.get("data_realizacao")
+                            if data_base_salva_rf:
+                                base_migracao_rf = parse_data(data_base_salva_rf)
+                            else:
+                                datas_antigas_rf = sorted([parse_data(x) for x in (registro_rf.get("revisoes", []) or []) if x])
+                                if datas_antigas_rf:
+                                    base_migracao_rf = datas_antigas_rf[0] - timedelta(days=1)
+                                else:
+                                    base_migracao_rf = hoje
+                            if hasattr(base_migracao_rf, "date"):
+                                base_migracao_rf = base_migracao_rf.date()
+
+                            revisoes_novas_rf = [str(base_migracao_rf + timedelta(days=d)) for d in intervalos_migracao_rf]
+                            status_antigo_rf = registro_rf.get("revisoes_status", {}) or {}
+                            datas_antigas_ordenadas_rf = sorted([parse_data(x) for x in (registro_rf.get("revisoes", []) or []) if parse_data(x)])
+                            status_novo_rf = {}
+                            for indice_rf, data_nova_rf in enumerate(revisoes_novas_rf):
+                                if indice_rf < len(datas_antigas_ordenadas_rf):
+                                    data_antiga_rf = datas_antigas_ordenadas_rf[indice_rf]
+                                    if hasattr(data_antiga_rf, "date"):
+                                        data_antiga_rf = data_antiga_rf.date()
+                                    chave_antiga_rf = data_antiga_rf.strftime("%Y-%m-%d")
+                                    status_valor_rf = status_antigo_rf.get(chave_antiga_rf)
+                                    if status_valor_rf:
+                                        status_novo_rf[data_nova_rf] = status_valor_rf
+
+                            atualizacao_rf = {
+                                "revisoes": revisoes_novas_rf,
+                                "nivel": nivel_migracao_rf,
+                                "revisoes_status": status_novo_rf,
+                            }
+                            batch_migracao_rf.update(db.collection("revisoes_finais").document(registro_id_rf), atualizacao_rf)
+                            copia_rf = dict(registro_rf)
+                            copia_rf.update(atualizacao_rf)
+                            atualizados_rf.append(copia_rf)
+                        except Exception as erro_rf:
+                            erros_migracao_rf.append(f"{registro_rf.get('tema', 'Registro')}: {erro_rf}")
+                    if atualizados_rf:
+                        try:
+                            batch_migracao_rf.commit()
+                            ids_atualizados_rf = {str(x.get("id", "")) for x in atualizados_rf}
+                            st.session_state.dados["revisoes_finais"] = [
+                                next((novo_rf for novo_rf in atualizados_rf if str(novo_rf.get("id", "")) == str(item_rf.get("id", ""))), item_rf)
+                                if str(item_rf.get("id", "")) in ids_atualizados_rf else item_rf
+                                for item_rf in st.session_state.dados.get("revisoes_finais", [])
+                            ]
+                            st.toast(f"{len(atualizados_rf)} registro(s) atualizado(s) para 1, 7, 14, 30, 45 e 60 dias.", icon="✅")
+                            if erros_migracao_rf:
+                                st.warning("Alguns registros não foram preparados: " + "; ".join(erros_migracao_rf[:3]))
+                            st.rerun()
+                        except Exception as erro_commit_rf:
+                            st.error(f"Não foi possível salvar a atualização no banco de dados: {erro_commit_rf}")
+                    else:
+                        st.warning("Nenhum registro antigo pôde ser atualizado.")
 
             agenda_rf = []
             for q in questoes_rf:
@@ -3714,21 +3794,17 @@ else:
                         st.warning(f"Acertos + erros = {calculo_qf}, mas você informou {total_qf} questões.")
                     cor_qf = cor_percentual_acerto(pct_qf)
                     st.markdown(f"<div style='border:1px solid {cor_qf};border-left:4px solid {cor_qf};padding:14px;border-radius:8px;margin-top:8px'><div style='color:var(--rp-muted);font-size:.72rem;text-transform:uppercase'>Aproveitamento</div><div style='font-size:2rem;font-weight:800;color:{cor_qf}'>{pct_qf:.1f}%</div></div>", unsafe_allow_html=True)
-                    if pct_qf < 60:
-                        intervalo = [1, 3, 7]
-                        nivel = "🔴 Recuperação intensiva"
-                    elif pct_qf < 70:
-                        intervalo = [3, 7, 14]
-                        nivel = "🟠 Reforço prioritário"
-                    elif pct_qf < 80:
-                        intervalo = [7, 14]
-                        nivel = "🟡 Consolidação"
-                    elif pct_qf < 90:
-                        intervalo = [14]
-                        nivel = "🟢 Manutenção"
+                    # Espaçamento fixo solicitado: todas as faixas recebem revisões
+                    # em 1, 7, 14, 30, 45 e 60 dias. A cor/nível reflete o percentual.
+                    intervalo = [1, 7, 14, 30, 45, 60]
+                    if pct_qf > 80:
+                        nivel = "🟢 Domínio — desempenho excelente"
+                    elif pct_qf >= 70:
+                        nivel = "🟡 Bom desempenho — consolidar"
+                    elif pct_qf >= 60:
+                        nivel = "🔵 Atenção — reforçar pontos fracos"
                     else:
-                        intervalo = [21]
-                        nivel = "🔵 Domínio"
+                        nivel = "🔴 Baixo desempenho — prioridade alta"
                     st.markdown(f"**{nivel}**")
                     st.markdown("**Próximas revisões**")
                     for dias_rev in intervalo:
@@ -3748,7 +3824,7 @@ else:
                         ref_qf.set(item_qf)
                         item_qf["id"] = ref_qf.id
                         st.session_state.dados.setdefault("revisoes_finais", []).append(item_qf)
-                        st.toast("Desempenho salvo e revisões programadas.", icon="📅")
+                        st.toast("Desempenho salvo! Revisões programadas para 1, 7, 14, 30, 45 e 60 dias.", icon="📅")
                         st.rerun()
                 else:
                     st.info("Informe acertos e erros para calcular seu aproveitamento.")
