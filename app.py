@@ -3528,16 +3528,23 @@ else:
             agenda_rf = []
             for q in questoes_rf:
                 tema_ag = limpar_texto(q.get("tema", "Sem tema")) or "Sem tema"
+                # Remove classificações antigas já gravadas no início do tema para evitar duplicidade.
+                tema_ag = re.sub(r"^(?:(?:🔴|🔵|🟡|🟢)\s*)?(?:Recuperação|Atenção|Consolidação|Domínio)\s*:\s*(?:(?:🔴|🔵|🟡|🟢)\s*)?", "", tema_ag, flags=re.IGNORECASE).strip()
+                tema_ag = re.sub(r"^(?:(?:🔴|🔵|🟡|🟢)\s*)?(?:Recuperação|Atenção|Consolidação|Domínio)\s*[-—:]\s*", "", tema_ag, flags=re.IGNORECASE).strip()
                 pct_ag = float(q.get("percentual", 0) or 0)
+                data_base_ag = parse_data(q.get("data_realizacao")) if q.get("data_realizacao") else None
                 datas_ag = q.get("revisoes", []) or []
                 status_ag = q.get("revisoes_status", {}) or {}
                 for data_ag in datas_ag:
                     dt_ag = parse_data(data_ag)
                     if dt_ag:
                         chave_ag = dt_ag.strftime("%Y-%m-%d")
+                        dias_revisao_ag = (dt_ag - data_base_ag).days if data_base_ag else 0
+                        rotulo_revisao_ag = f"R{dias_revisao_ag}" if dias_revisao_ag > 0 else "Revisão"
                         agenda_rf.append({
                             "id": str(q.get("id", "")),
                             "tema": tema_ag,
+                            "rotulo_revisao": rotulo_revisao_ag,
                             "percentual": pct_ag,
                             "data": dt_ag,
                             "status": str(status_ag.get(chave_ag, "pendente")).lower(),
@@ -3578,7 +3585,7 @@ else:
                     faixa_cal_rf = "🔴 Recuperação"
                 calendario_rf.append({
                     "id": r["id"] + "_" + r["data"].strftime("%Y%m%d"),
-                    "tema": f"{faixa_cal_rf}: {r['tema']} · {pct_cal_rf:.1f}%",
+                    "tema": f"{r.get('rotulo_revisao', 'Revisão')} · {faixa_cal_rf}: {r['tema']} · {pct_cal_rf:.1f}%",
                     "area": "Geral",
                     "cor_percentual": cor_percentual_acerto(pct_cal_rf),
                     "ciclo": "Revisão Final",
@@ -3724,7 +3731,7 @@ else:
                                     else:
                                         st.markdown("<div style='padding-top:5px'>✅</div>", unsafe_allow_html=True)
                                 with d2:
-                                    tema_dia = html.escape(rev_dia["tema"])
+                                    tema_dia = html.escape(f"{rev_dia.get('rotulo_revisao', 'Revisão')} · {rev_dia['tema']}")
                                     texto_extra = f"{situacao_dia} · {rev_dia['questoes']} questões · {rev_dia['acertos']} acertos · {rev_dia['erros']} erros"
                                     st.markdown(
                                         f"<div style='padding:3px 0'><span style='color:{cor_dia};font-weight:900'>●</span> "
@@ -3783,7 +3790,7 @@ else:
                     with st.container(border=True):
                         c_ag1, c_ag2 = st.columns([0.76, 0.24])
                         with c_ag1:
-                            st.markdown(f"<h5 style='margin-bottom:2px'><span style='color:{cor_ag}'>⬤</span> {html.escape(rev_ag['tema'])}</h5>", unsafe_allow_html=True)
+                            st.markdown(f"<h5 style='margin-bottom:2px'><span style='color:{cor_ag}'>⬤</span> {html.escape(f"{rev_ag.get('rotulo_revisao', 'Revisão')} · {rev_ag['tema']}")}</h5>", unsafe_allow_html=True)
                             st.caption(f"{situacao_ag} · **{rev_ag['data'].strftime('%d/%m/%Y')}** · Desempenho original: **{rev_ag['percentual']:.1f}%** · {rev_ag['questoes']} questões ({rev_ag['acertos']} acertos / {rev_ag['erros']} erros)")
                         with c_ag2:
                             st.markdown(f"<div style='text-align:right;padding-top:6px'><span style='font-size:.72rem;color:var(--rp-muted)'>APROVEITAMENTO</span><br><strong style='font-size:1.25rem;color:{cor_ag}'>{rev_ag['percentual']:.1f}%</strong></div>", unsafe_allow_html=True)
@@ -3805,7 +3812,7 @@ else:
                     concl_ag.sort(key=lambda x: x["data"], reverse=True)
                     for rev_ag in concl_ag:
                         cor_ag = cor_percentual_acerto(rev_ag["percentual"])
-                        st.markdown(f"<div style='padding:10px 12px;border:1px solid var(--rp-border);border-left:4px solid {cor_ag};border-radius:7px;margin:6px 0'><strong>✅ {html.escape(rev_ag['tema'])}</strong> · <span style='color:{cor_ag};font-weight:800'>{rev_ag['percentual']:.1f}%</span><br><small>Revisão de {rev_ag['data'].strftime('%d/%m/%Y')} · {rev_ag['questoes']} questões · {rev_ag['acertos']} acertos · {rev_ag['erros']} erros</small></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='padding:10px 12px;border:1px solid var(--rp-border);border-left:4px solid {cor_ag};border-radius:7px;margin:6px 0'><strong>✅ {html.escape(f"{rev_ag.get('rotulo_revisao', 'Revisão')} · {rev_ag['tema']}")}</strong> · <span style='color:{cor_ag};font-weight:800'>{rev_ag['percentual']:.1f}%</span><br><small>Revisão de {rev_ag['data'].strftime('%d/%m/%Y')} · {rev_ag['questoes']} questões · {rev_ag['acertos']} acertos · {rev_ag['erros']} erros</small></div>", unsafe_allow_html=True)
 
         with aba_rf_questoes:
             st.markdown("### 🎯 Desempenho → próximas revisões")
