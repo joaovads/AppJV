@@ -2687,6 +2687,9 @@ else:
         st.markdown(f'<div style="text-align:center;font-weight:850;font-size:.95rem;color:var(--rp-text);margin-bottom:8px">{st.session_state.user_nome}</div>', unsafe_allow_html=True)
         total_atividade = sum(len(_dados_cache.get(k, [])) for k in ["aulas","revisoes","questoes","flashcards","simulados","focus","materiais","cronogramas","anotacoes"])
         st.markdown(f'<div style="text-align:center;margin-bottom:12px"><span class="rp-chip">● {total_atividade} registros</span></div>', unsafe_allow_html=True)
+        if st.button("🔄 Sincronizar dados", key="sync_dados_nuvem", use_container_width=True, help="Recarrega seus dados do Firestore (inclui revisões concluídas pelo Telegram)."):
+            invalidar_cache()
+            st.rerun()
         if st.button("🚪 Sair da Conta", use_container_width=True):
             db.collection("usuarios").document(u_id).update({"token_sessao": None})
             if cookie_controller: cookie_controller.remove('mr_token')
@@ -6082,6 +6085,53 @@ else:
             st.session_state.user_settings["foto_perfil_b64"] = b64_img
             st.rerun()
 
+        st.divider()
+        st.subheader("📲 Integração gratuita com Telegram")
+        st.caption("Vincule sua conta para consultar revisões pelo Telegram. O bot não precisa da sua senha do Residência PRO.")
+        chat_telegram_atual = user_settings.get("telegram_chat_id")
+        if chat_telegram_atual:
+            st.success("Telegram vinculado a esta conta.")
+            if st.button("🔌 Desvincular Telegram", key="telegram_desvincular", use_container_width=True):
+                # Remove também os registros de unicidade usados pelo Worker multiusuário.
+                try:
+                    db.collection("telegram_links").document(str(chat_telegram_atual)).delete()
+                    db.collection("telegram_user_links").document(str(u_id)).delete()
+                except Exception as erro_desvincular_telegram:
+                    st.error(f"Não foi possível liberar o vínculo do Telegram: {erro_desvincular_telegram}")
+                    st.stop()
+                db.collection("usuarios").document(u_id).update({
+                    "telegram_chat_id": firestore.DELETE_FIELD,
+                    "telegram_link_code": firestore.DELETE_FIELD,
+                    "telegram_link_expira_em": firestore.DELETE_FIELD,
+                })
+                st.session_state.user_settings.pop("telegram_chat_id", None)
+                st.session_state.user_settings.pop("telegram_link_code", None)
+                st.session_state.user_settings.pop("telegram_link_expira_em", None)
+                st.success("Telegram desvinculado.")
+                st.rerun()
+        else:
+            codigo_existente = str(user_settings.get("telegram_link_code", "") or "")
+            expira_existente = str(user_settings.get("telegram_link_expira_em", "") or "")
+            codigo_valido = False
+            if codigo_existente and expira_existente:
+                try:
+                    codigo_valido = datetime.fromisoformat(expira_existente) > datetime.now(timezone.utc)
+                except Exception:
+                    codigo_valido = False
+            if codigo_valido:
+                st.info(f"Seu código de vinculação: **{codigo_existente}**\n\nNo Telegram, abra seu bot e envie: `/link {codigo_existente}`. O código expira em 15 minutos.")
+            if st.button("🔑 Gerar código de vinculação" if not codigo_valido else "♻️ Gerar novo código", key="telegram_gerar_codigo", use_container_width=True):
+                codigo_telegram_novo = uuid.uuid4().hex[:8].upper()
+                expira_telegram = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+                db.collection("usuarios").document(u_id).update({
+                    "telegram_link_code": codigo_telegram_novo,
+                    "telegram_link_expira_em": expira_telegram,
+                })
+                st.session_state.user_settings["telegram_link_code"] = codigo_telegram_novo
+                st.session_state.user_settings["telegram_link_expira_em"] = expira_telegram
+                st.rerun()
+        st.caption("Comandos do bot: /hoje, /amanha, /semana (ou /proximas), /atrasadas e /desvincular. Revisões concluídas pelo Telegram aparecem aqui após tocar em “🔄 Sincronizar dados” na barra lateral.")
+
         with st.form("tema_form"):
             mo = st.radio("Cores do Sistema", ["Escuro", "Claro"], index=0 if user_settings.get("tema_modo") == "Escuro" else 1)
             if st.form_submit_button("Aplicar Estilo Global", use_container_width=True):
@@ -6113,6 +6163,13 @@ else:
                     if uid != u_id:
                         for col in ["aulas", "revisoes", "flashcards", "questoes_sessoes", "simulados", "focus_sessoes", "materiais", "cronogramas", "anotacoes", "questoes_hiit", "revisoes_hiit", "anotacoes_hiit", "flashcards_hiit"]:
                             for doc in db.collection(col).where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection(col).document(doc.id).delete()
+                        for doc in db.collection("revisoes_finais").where(filter=FieldFilter("usuario_id", "==", uid)).get(): db.collection("revisoes_finais").document(doc.id).delete()
+                        try:
+                            _doc_banido = db.collection("usuarios").document(uid).get().to_dict() or {}
+                            if _doc_banido.get("telegram_chat_id"): db.collection("telegram_links").document(str(_doc_banido["telegram_chat_id"])).delete()
+                            db.collection("telegram_user_links").document(uid).delete()
+                        except Exception:
+                            pass
                         db.collection("usuarios").document(uid).delete(); invalidar_cache(); st.rerun()
                     else: st.warning("Você não pode banir a si mesmo.")
             
