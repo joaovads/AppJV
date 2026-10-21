@@ -2015,17 +2015,27 @@ def remover_aula_do_cronograma(area_aula, tema_aula):
 
 @st.cache_data(ttl=30, max_entries=300, show_spinner=False)
 def get_user_docs(collection_name, user_id):
-    """Busca somente os documentos do usuário. Cache curto reduz round-trips em reruns/relogin."""
-    try:
-        docs = db.collection(collection_name).where(filter=FieldFilter("usuario_id", "==", str(user_id))).get()
-        return [{"id": d.id, **(d.to_dict() or {})} for d in docs]
-    except Exception:
-        return []
+    """Busca os documentos do usuário. Falhas de leitura nunca são convertidas em lista vazia."""
+    ultimo_erro = None
+    for tentativa in range(2):
+        try:
+            docs = db.collection(collection_name).where(
+                filter=FieldFilter("usuario_id", "==", str(user_id))
+            ).get()
+            return [{"id": d.id, **(d.to_dict() or {})} for d in docs]
+        except Exception as erro:
+            ultimo_erro = erro
+            if tentativa == 0:
+                time.sleep(0.4)
+    # Importante: lançar o erro evita que uma falha temporária pareça significar
+    # que o usuário não tem registros. Exceções não são armazenadas como resultado
+    # válido do cache do Streamlit.
+    raise RuntimeError(
+        f"Não foi possível carregar a coleção '{collection_name}' do Firestore."
+    ) from ultimo_erro
 
 def carregar_dados_usuario_em_paralelo(user_id):
-    """Carrega as coleções independentes em paralelo para reduzir o tempo de abertura.
-    A lógica de dados continua a mesma; apenas eliminamos 12 round-trips sequenciais.
-    """
+    """Carrega as coleções em paralelo. Se alguma leitura falhar, não retorna dados parciais como se fossem completos."""
     mapa = {
         "aulas": "aulas",
         "revisoes": "revisoes",
@@ -2040,16 +2050,25 @@ def carregar_dados_usuario_em_paralelo(user_id):
         "revisoes_hiit": "revisoes_hiit",
         "anotacoes_hiit": "anotacoes_hiit",
         "flashcards_hiit": "flashcards_hiit",
+        "revisoes_finais": "revisoes_finais",
     }
-    resultado = {k: [] for k in mapa}
+    resultado = {}
+    falhas = []
     with ThreadPoolExecutor(max_workers=min(8, len(mapa))) as executor:
-        futuros = {executor.submit(get_user_docs, colecao, user_id): chave for chave, colecao in mapa.items()}
+        futuros = {
+            executor.submit(get_user_docs, colecao, user_id): (chave, colecao)
+            for chave, colecao in mapa.items()
+        }
         for futuro in as_completed(futuros):
-            chave = futuros[futuro]
+            chave, colecao = futuros[futuro]
             try:
                 resultado[chave] = futuro.result()
-            except Exception:
-                resultado[chave] = []
+            except Exception as erro:
+                falhas.append(f"{colecao}: {erro}")
+    if falhas:
+        # Não devolver coleções vazias para consultas que falharam: isso poderia
+        # sobrescrever o estado válido da sessão e fazer os dados parecerem perdidos.
+        raise RuntimeError("Falha ao carregar dados do Firestore — " + " | ".join(falhas))
     return resultado
 
 
@@ -2607,10 +2626,11 @@ else:
     
     if 'dados' not in st.session_state:
         st.session_state.dados = {
-            "aulas": [], "revisoes": [], "flashcards": [], 
-            "questoes": [], "simulados": [], "focus": [], 
+            "aulas": [], "revisoes": [], "flashcards": [],
+            "questoes": [], "simulados": [], "focus": [],
             "materiais": [], "cronogramas": [], "anotacoes": [],
-            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": [], "flashcards_hiit": []
+            "questoes_hiit": [], "revisoes_hiit": [], "anotacoes_hiit": [],
+            "flashcards_hiit": [], "revisoes_finais": []
         }
 
     if st.session_state.get('user_data_loaded') is not True:
@@ -2633,7 +2653,15 @@ else:
                     st.session_state.model_ia = get_ia_client()
                 st.session_state.user_data_loaded = True
             except Exception as e:
-                st.error(f"🚨 Falha de conexão: {str(e)}")
+                # Não marcar o carregamento como concluído e não substituir os dados
+                # existentes por listas vazias quando o Firestore falhar.
+                st.session_state.user_data_loaded = False
+                st.error(
+                    "🚨 Não foi possível carregar todos os seus dados do Firestore. "
+                    "Nenhum registro foi apagado por esta tentativa. Verifique a conexão "
+                    "e clique em ‘Sincronizar dados’ para tentar novamente. "
+                    f"Detalhes: {str(e)}"
+                )
                 st.stop()
 
     user_settings = st.session_state.user_settings
